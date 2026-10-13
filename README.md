@@ -1,5 +1,7 @@
 # DreamLayer for UnoPIM
 
+> **Release status:** This extension requires a DreamLayer API release that is not yet live. Image edits will **not work against `dreamlayer.io`** until that release is deployed. For now, testing requires a compatible development or review API.
+
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
 This is the review package, version **0.2.13**. Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
