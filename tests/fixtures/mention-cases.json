@@ -1,0 +1,163 @@
+[
+  {
+    "name": "start",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "@Serum @Other",
+    "indices": [
+      0,
+      1
+    ]
+  },
+  {
+    "name": "embedded-ascii",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "x@Serum @Other",
+    "indices": [
+      1
+    ]
+  },
+  {
+    "name": "embedded-unicode",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "é@Serum 茶@Serum 𝟙@Serum @Other",
+    "indices": [
+      1
+    ]
+  },
+  {
+    "name": "underscore",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "_@Serum @Other",
+    "indices": [
+      1
+    ]
+  },
+  {
+    "name": "punctuation",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "(@Serum), @Other",
+    "indices": [
+      0,
+      1
+    ]
+  },
+  {
+    "name": "suffix-boundary",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "@SerumX @Serum_ @Serum-2 @Serumé @Serum𝟙 @Other",
+    "indices": [
+      1
+    ]
+  },
+  {
+    "name": "emoji-boundary",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "😀@Serum😀 @Other",
+    "indices": [
+      0,
+      1
+    ]
+  },
+  {
+    "name": "duplicates-longest",
+    "labels": [
+      "Sérum [Blue] + Care",
+      "Sérum [Blue] + Care (2)"
+    ],
+    "message": "@Sérum [Blue] + Care (2)",
+    "indices": [
+      1
+    ]
+  },
+  {
+    "name": "escaped-regex",
+    "labels": [
+      "a.*[x] (blue)",
+      "Other"
+    ],
+    "message": "@a.*[x] (blue), @Other",
+    "indices": [
+      0,
+      1
+    ]
+  },
+  {
+    "name": "unicode-label",
+    "labels": [
+      "茶 😀",
+      "Other"
+    ],
+    "message": "@茶 😀 @Other",
+    "indices": [
+      0,
+      1
+    ]
+  },
+  {
+    "name": "emoji-limit",
+    "labels": [
+      "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "Other"
+    ],
+    "message": "@😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀 @Other",
+    "indices": [
+      0,
+      1
+    ]
+  },
+  {
+    "name": "legacy-unicode-prefix",
+    "labels": [
+      "Asset-1",
+      "Asset-2"
+    ],
+    "message": "é@Asset-1 @Asset-2",
+    "indices": [
+      1
+    ]
+  },
+  {
+    "name": "legacy-unicode-suffix",
+    "labels": [
+      "Asset-1",
+      "Asset-2"
+    ],
+    "message": "@Asset-1茶 @Asset-2",
+    "indices": [
+      1
+    ]
+  },
+  {
+    "name": "hyphen-prefix",
+    "labels": [
+      "Serum",
+      "Other"
+    ],
+    "message": "-@Serum @Other",
+    "indices": [
+      0,
+      1
+    ]
+  }
+]

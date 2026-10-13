@@ -1,0 +1,127 @@
+<?php
+
+namespace DreamLayer\UnoPIM\Http\Controllers;
+
+use DreamLayer\UnoPIM\Models\Batch;
+use DreamLayer\UnoPIM\Models\Workflow;
+use DreamLayer\UnoPIM\Services\ImageStore;
+use DreamLayer\UnoPIM\Services\ProductImages;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Webkul\Product\Models\Product;
+
+class WorkflowController extends Controller
+{
+    private function owned(string $id): Workflow
+    {
+        abort_unless(bouncer()->hasPermission('catalog.products.edit'), 403);
+
+        return Workflow::whereKey($id)->where('user_id', auth()->guard('admin')->id())->firstOrFail();
+    }
+
+    public function index(Request $request)
+    {
+        abort_unless(bouncer()->hasPermission('catalog.products.edit'), 403);
+        $request->validate(['conversation_id' => ['nullable', 'string', 'max:64'], 'request_id' => ['nullable', 'uuid'], 'q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', 'in:processing,ready,applied,failed,partial']]);
+        $query = Workflow::where('user_id', auth()->guard('admin')->id());
+        foreach (['conversation_id', 'request_id'] as $field) {
+            if ($request->filled($field)) {
+                $query->where($field, $request->input($field));
+            }
+        }
+        if ($request->filled('q')) {
+            $search = '%'.addcslashes($request->input('q'), '%_\\').'%';
+            $ids = Product::where('sku', 'like', $search)->orWhere('values->common->name', 'like', $search)
+                ->orWhere('values->locale_specific->'.core()->getRequestedLocaleCode().'->name', 'like', $search)
+                ->orWhere('values->channel_locale_specific->'.core()->getRequestedChannelCode().'->'.core()->getRequestedLocaleCode().'->name', 'like', $search)->selectRaw('CAST(id AS '.(DB::connection()->getDriverName() === 'pgsql' ? 'TEXT' : 'CHAR').')');
+            $query->where(fn ($q) => $q->where('target->sku', 'like', $search)->orWhereIn('target->product_id', $ids));
+        }
+        match ($request->input('status')) {
+            'processing' => $query->whereIn('status', ['queued', 'running']),
+            'ready'      => $query->where('status', 'completed')->whereNull('applied_at'),
+            'applied'    => $query->whereNotNull('applied_at'),
+            'failed'     => $query->where('status', 'failed'),
+            'partial'    => $query->where('status', 'failed')->whereJsonContains('progress', [['status' => 'completed']]),
+            default      => null,
+        };
+        $workflows = $query->latest('created_at')->paginate(20)->withQueryString();
+        if ($request->expectsJson()) {
+            $batchQuery = Batch::where('user_id', auth()->guard('admin')->id());
+            foreach (['conversation_id', 'request_id'] as $field) {
+                if ($request->filled($field)) {
+                    $batchQuery->where($field, $request->input($field));
+                }
+            }
+            $items = $workflows->map(fn ($w) => ['id' => $w->id, 'conversation_id' => $w->conversation_id, 'request_id' => $w->request_id, 'status' => $w->status, 'presentation' => ['type' => 'dreamlayer.workflow', 'id' => $w->id]])->values();
+            foreach ($batchQuery->latest('created_at')->limit(20)->get() as $b) {
+                $items->push(['id' => $b->id, 'conversation_id' => $b->conversation_id, 'request_id' => $b->request_id, 'status' => $b->status, 'presentation' => ['type' => 'dreamlayer.batch', 'id' => $b->id]]);
+            }
+
+            return response()->json(['workflows' => $items, 'next_page_url' => $workflows->nextPageUrl()])->header('Cache-Control', 'private, no-store');
+        }
+
+        return response()->view('dreamlayer::results', compact('workflows'))->header('Cache-Control', 'private, no-store');
+    }
+
+    public function batch(string $id)
+    {
+        abort_unless(bouncer()->hasPermission('catalog.products.edit'), 403);
+        $batch = Batch::whereKey($id)->where('user_id', auth()->guard('admin')->id())->firstOrFail();
+
+        return response()->json(['id' => $batch->id, 'count' => count($batch->children), 'status' => $batch->status, 'error' => $batch->error,
+            'children'                => array_map(fn ($id) => ['id' => $id], $batch->children)])->header('Cache-Control', 'private, no-store');
+    }
+
+    public function show(string $id)
+    {
+        $w = $this->owned($id);
+
+        $images = app(ImageStore::class);
+        $damaged = $images->damaged($w);
+
+        return response()->json(['id' => $w->id, 'status' => $w->status,
+            'error_code'              => $w->error_code,
+            'billing_url'             => $w->status === 'failed' && $w->error_code === 402 ? config('dreamlayer.billing_url') : null,
+            // A successful status GET is not evidence that a worker is processing it.
+            'delayed'                 => $w->delayed(),
+            'detailed_progress'       => $w->execution_path === 'workflow_v1',
+            'steps'                   => array_map(fn ($s, $index) => ['label' => $s['description'], 'status' => $s['status'], 'image_url' => $images->valid($s['result_path'] ?? null) ? route('dreamlayer.image', ['id' => $w->id, 'step' => $index]) : null], $w->progress ?? [], array_keys($w->progress ?? [])),
+            'partial_success'         => $w->status === 'failed' && count(array_filter($w->progress ?? [], fn ($s) => $images->valid($s['result_path'] ?? null))) > 0,
+            'billing_notice'          => $w->status === 'failed' && count(array_filter($w->progress ?? [], fn ($s) => $s['status'] === 'completed')) > 0 ? 'Successful steps are billed individually under your API plan (test mode uses no credits). Failed and unstarted steps are not charged. This failure does not rerun or refund completed steps.' : null,
+            'kind'                    => $w->steps[0]['operation'] === 'text_to_image' ? 'generate' : 'edit',
+            'target'                  => $w->target ? array_diff_key($w->target, array_flip(['version', 'attribute_id'])) : null,
+            'delivery_unavailable'    => $damaged,
+            'error'                   => $damaged ? 'Saved image delivery is unavailable. Ask an administrator to recover image deliveries.' : $w->error, 'applied' => (bool) $w->applied_at,
+            'image_url'               => $w->status === 'completed' && $images->valid($w->result_path) ? route('dreamlayer.image', $w->id) : null,
+        ])->header('Cache-Control', 'private, no-store');
+    }
+
+    public function image(Request $request, string $id)
+    {
+        $w = $this->owned($id);
+        $result = $w->status === 'completed' ? $w->result_path : null;
+        if ($request->has('step')) {
+            $request->validate(['step' => ['required', 'integer', 'min:0', 'max:1']]);
+            $step = ($w->progress ?? [])[(int) $request->input('step')] ?? [];
+            $result = ($step['status'] ?? '') === 'completed' ? ($step['result_path'] ?? null) : null;
+        }
+        abort_unless($result, 404);
+        try {
+            $bytes = app(ImageStore::class)->read($result);
+        } catch (\RuntimeException $e) {
+            abort(503, 'Image delivery is unavailable.');
+        }
+
+        return response($bytes, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options'                 => 'nosniff', 'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline').'; filename="dreamlayer-'.$w->id.'.png"']);
+    }
+
+    public function apply(string $id, ProductImages $images)
+    {
+        $this->owned($id);
+        $images->apply($id, auth()->guard('admin')->id());
+
+        return $this->show($id);
+    }
+}

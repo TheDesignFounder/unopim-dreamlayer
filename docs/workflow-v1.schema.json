@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:dreamlayer:image-workflow:v1",
+  "title": "DreamLayer image workflow v1 request or response",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/WorkflowRequest"
+    },
+    {
+      "$ref": "#/$defs/WorkflowStatus"
+    }
+  ],
+  "$defs": {
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "text_to_image",
+            "image_to_image",
+            "background_remove"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "instruction": {
+          "default": "",
+          "maxLength": 4000,
+          "title": "Instruction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "WorkflowRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "input_asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Asset Id"
+        },
+        "aspect_ratio": {
+          "default": "1:1",
+          "enum": [
+            "1:1",
+            "3:4",
+            "4:3"
+          ],
+          "title": "Aspect Ratio",
+          "type": "string"
+        }
+      },
+      "required": [
+        "steps"
+      ],
+      "title": "WorkflowRequest",
+      "type": "object"
+    },
+    "FinishedAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "download_url": {
+          "title": "Download Url",
+          "type": "string"
+        },
+        "content_type": {
+          "const": "image/png",
+          "default": "image/png",
+          "title": "Content Type",
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "maximum": 4096,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "maximum": 4096,
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "asset_id",
+        "download_url",
+        "width",
+        "height"
+      ],
+      "title": "FinishedAsset",
+      "type": "object"
+    },
+    "WorkflowStepStatus": {
+      "properties": {
+        "position": {
+          "title": "Position",
+          "type": "integer"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "running",
+            "completed",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinishedAsset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "position",
+        "description",
+        "status"
+      ],
+      "title": "WorkflowStepStatus",
+      "type": "object"
+    },
+    "WorkflowStatus": {
+      "properties": {
+        "contract_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Contract Version",
+          "type": "integer"
+        },
+        "workflow_id": {
+          "format": "uuid",
+          "title": "Workflow Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/WorkflowStepStatus"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinishedAsset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "workflow_id",
+        "status",
+        "steps"
+      ],
+      "title": "WorkflowStatus",
+      "type": "object"
+    }
+  }
+}

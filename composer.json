@@ -1,0 +1,45 @@
+{
+  "name": "dreamlayer/unopim-dreamlayer",
+  "description": "DreamLayer preview and apply image workflows for UnoPIM 3.x",
+  "type": "library",
+  "license": "MIT",
+  "version": "0.2.13",
+  "require": {
+    "php": "^8.4.1",
+    "illuminate/support": "^13.0",
+    "illuminate/database": "^13.0",
+    "illuminate/queue": "^13.0",
+    "illuminate/http": "^13.0",
+    "laravel/ai": "^1.1",
+    "ext-gd": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "DreamLayer\\UnoPIM\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "DreamLayer\\UnoPIM\\Providers\\DreamLayerServiceProvider"
+      ]
+    }
+  },
+  "archive": {
+    "exclude": [
+      "/tests",
+      "/tools",
+      "/dist",
+      "/.git*",
+      "/docs/*.png",
+      "/docs/*.log",
+      "/docs/IMPLEMENTATION_PLAN.md",
+      "/docs/VERIFICATION.md"
+    ]
+  },
+  "homepage": "https://github.com/TheDesignFounder/unopim-dreamlayer",
+  "support": {
+    "source": "https://github.com/TheDesignFounder/unopim-dreamlayer",
+    "issues": "https://github.com/TheDesignFounder/unopim-dreamlayer/issues"
+  }
+}

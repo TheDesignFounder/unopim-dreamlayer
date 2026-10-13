@@ -1,0 +1,26 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '@playwright/test');
+const fs=require('fs');
+(async()=>{
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH,headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage();
+page.on('pageerror',e=>console.log('PAGEERROR',e.message));
+await page.goto('http://localhost:8099/__fixture/login',{timeout:60000});
+await page.getByRole('button',{name:'Chat',exact:true}).click();
+await page.locator('textarea').fill('Generate a blue vase for EXTENSION-FIXTURE');await page.locator('textarea').press('Enter');
+await page.getByAltText('DreamLayer image preview').last().waitFor({timeout:90000});
+console.log('PREVIEW',await page.getByAltText('DreamLayer image preview').last().getAttribute('src'));
+await page.getByRole('button',{name:'Apply to product',exact:true}).last().waitFor();
+await page.getByRole('button',{name:'Apply to product',exact:true}).last().click();
+await page.getByRole('button',{name:'Applied to product',exact:true}).last().waitFor();console.log('APPLY succeeded');
+await page.screenshot({path:'docs/browser-preview-light.png'});
+await page.reload();await page.getByAltText('DreamLayer image preview').last().waitFor({timeout:60000});console.log('RELOAD preview restored');
+await page.locator('textarea').fill('Remove background from this image');await page.locator('textarea').press('Enter');
+await page.waitForFunction(()=>document.querySelectorAll('img[alt="DreamLayer image preview"]').length>=2,null,{timeout:90000});
+console.log('FOLLOWUP',await page.getByAltText('DreamLayer image preview').count());
+await context.addCookies([{name:'dark_mode',value:'dark',url:'http://localhost:8099'}]);await page.reload();await page.getByAltText('DreamLayer image preview').last().waitFor({timeout:60000});
+await page.screenshot({path:'docs/browser-preview-dark.png'});
+await page.setViewportSize({width:768,height:1024});await page.screenshot({path:'docs/browser-preview-narrow.png'});
+console.log((await page.locator('body').innerText()).slice(-3000));
+await context.storageState({path:'/tmp/dreamlayer-browser-state.json'});
+await browser.close();
+})().catch(e=>{console.error(e);process.exit(1);});

@@ -1,0 +1,4 @@
+<phpunit bootstrap="bootstrap.php" colors="true">
+ <testsuites><testsuite name="DreamLayer"><directory suffix="Test.php">.</directory></testsuite></testsuites>
+ <php><env name="DB_CONNECTION" value="pgsql" force="false"/><env name="DB_HOST" value="dreamlayer-extension-pg" force="false"/><env name="DB_PORT" value="5432" force="false"/><env name="DB_DATABASE" value="unopim_extension_test" force="false"/><env name="DB_USERNAME" value="extension" force="false"/><env name="DB_PASSWORD" value="extension-local-test" force="false"/></php>
+</phpunit>

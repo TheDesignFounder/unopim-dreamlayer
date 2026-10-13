@@ -1,0 +1,36 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '@playwright/test');
+const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({executablePath:process.env.CHROME_PATH,headless:true});
+ const context=await browser.newContext({storageState:'/tmp/dreamlayer-browser-state.json',viewport:{width:1440,height:1000}});
+ const page=await context.newPage();const errors=[];page.on('pageerror',e=>{errors.push(e.message); console.log('PAGEERROR', e.message)});page.on('response',async r=>{if(r.url().includes('/chat/stream')) console.log('CHAT',r.status(),await r.text().catch(()=>''));});
+ await page.goto('http://localhost:8099/__fixture/login');
+ await page.getByRole('button',{name:'Chat',exact:true}).click();
+ await page.locator('textarea').fill('Generate initial image');await page.locator('textarea').press('Enter');await page.getByAltText('DreamLayer image preview').last().waitFor({timeout:60000});
+ await page.locator('textarea').fill('Edit partial result fixture');await page.locator('textarea').press('Enter');
+ await page.getByText('Partially completed — completed images are available',{exact:true}).waitFor({timeout:60000});
+ const download=page.getByRole('link',{name:'Download completed step',exact:true}).last();
+ const downloaded=await context.request.get(await download.getAttribute('href'));assert.equal(downloaded.status(),200);assert.equal(downloaded.headers()['content-type'],'image/png');
+ assert.match(await page.locator('body').innerText(),/Failed and unstarted steps are not charged/);
+ await page.screenshot({path:'partial-success-light.png'});
+ await context.addCookies([{name:'dark_mode',value:'dark',url:'http://localhost:8099'}]);await page.reload();
+ await page.getByText('Partially completed — completed images are available',{exact:true}).waitFor();await page.screenshot({path:'partial-success-dark.png'});
+ console.log('PASS partial completed output preview/download, billing notice, light/dark');
+ // Receive admission at the server, then deliberately drop the response before the widget sees it.
+ let dropped=false;
+ await page.route(/\/ai-agent\/chat(?:\/stream)?$/,async route=>{if(route.request().method()==='POST'&&!dropped){dropped=true;await route.fetch();await route.abort('failed');}else await route.continue();});
+ const before=(await (await context.request.get('http://localhost:8099/admin/dreamlayer/workflows',{headers:{Accept:'application/json'}})).json()).workflows.map(w=>w.id);
+ await page.locator('textarea').fill('Generate lost response fixture');await page.locator('textarea').press('Enter');
+ await page.waitForTimeout(2500);
+ assert.equal(dropped,true);
+ const after=(await (await context.request.get('http://localhost:8099/admin/dreamlayer/workflows',{headers:{Accept:'application/json'}})).json()).workflows;
+ const recovered=after.filter(w=>!before.includes(w.id));assert.equal(recovered.length,1);
+ await page.goto('http://localhost:8099/admin/dreamlayer/workflows');
+ const image=page.locator('img[src*="'+recovered[0].id+'"]').first();await image.waitFor({timeout:60000});
+ assert.equal((await context.request.get(await image.getAttribute('src'))).status(),200);
+ await page.screenshot({path:'lost-chat-recovered.png'});
+ console.log('PASS dropped chat response recovered through owned saved-results page',recovered[0].id);
+ const csrf=await context.request.post('http://localhost:8099/admin/dreamlayer/workflows/'+recovered[0].id+'/apply',{headers:{'Sec-Fetch-Site':'cross-site','Origin':'https://untrusted.invalid'}});
+ assert.equal(csrf.status(),419);console.log('PASS HTTP cross-site Apply rejected without CSRF token');
+ assert.deepEqual(errors,[]);await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});

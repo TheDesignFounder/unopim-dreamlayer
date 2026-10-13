@@ -1,0 +1,1603 @@
+diff --git a/packages/Webkul/AiAgent/CHAT_EXTENSIONS.md b/packages/Webkul/AiAgent/CHAT_EXTENSIONS.md
+new file mode 100644
+index 00000000..e13b5711
+--- /dev/null
++++ b/packages/Webkul/AiAgent/CHAT_EXTENSIONS.md
+@@ -0,0 +1,157 @@
++# Reviewing the chat extension hooks
++
++The chat widget needs to support installed extensions that provide a chat provider,
++attach structured selections to a prompt, or return a preview that continues after
++the chat response. The same conversation must also remain usable after a reload
++or a delayed save. These hooks keep that integration in installed packages while
++preserving the native agent, provider choices and catalog permission checks.
++
++All paths below are relative to this directory. No extension account system,
++credential store, API endpoint or product-specific renderer is part of this change.
++
++## Read the change in this order
++
++| Question | Start here | Decision to check |
++| --- | --- | --- |
++| What can an installed package register? | [ExtensionRegistry](src/Chat/ExtensionRegistry.php), [ResultRendererRegistry](src/Chat/ResultRendererRegistry.php) | Registration comes from trusted server code, never a client-supplied view/component name. |
++| What crosses the HTTP boundary? | [ChatRequest](src/Http/Requests/ChatRequest.php), [ChatContext](src/Chat/ChatContext.php), [ChatController](src/Http/Controllers/ChatController.php) | Identities and selections are validated; selections still need extension-specific authorization. |
++| How does a tool produce a card? | [ToolRegistry](src/Chat/ToolRegistry.php), [AgentRunner](src/Chat/AgentRunner.php) | Decorators follow authorization. A bounded descriptor selects a registered renderer. Preview-only results can report `mutated: false`. |
++| How do picker, keyboard and model controls interact? | [chat-widget.blade.php](Resources/views/components/chat-widget.blade.php) | The native textarea keeps editing and IME. A picker may consume a key before Enter sends. Hiding one model does not remove its submitted value. |
++| Why do old saves not erase new messages? | [ConversationController](src/Http/Controllers/ConversationController.php), [MessageDisplay](src/Chat/MessageDisplay.php) | Saves merge by identity under a conversation lock. Missing messages do not mean deletion. |
++| How is existing data upgraded? | [Migrations](Database/Migration) | Four additive migrations use nullable fields for old records; no provider enum or credential schema change. |
++
++## Follow one request
++
++```mermaid
++sequenceDiagram
++    participant Widget as Chat widget
++    participant HTTP as ChatController / ChatContext
++    participant Agent as AgentRunner / ToolRegistry
++    participant Package as Installed extension
++    participant History as ConversationController
++    Widget->>HTTP: Text, provider/model, conversation_id, request_id, extensions
++    HTTP->>Agent: Validated request context
++    Agent->>Package: Authorized tool, optionally decorated
++    Package-->>Agent: Reply data and optional {type, id} descriptor
++    Agent-->>Widget: JSON or SSE completion
++    Widget->>Package: Registered card fetches its authorized resource
++    Widget->>History: Save messages and inert presentation data
++    History-->>Widget: Stable conversation row ID
++```
++
++The extension owns asynchronous work and its status endpoints. Mounting or
++reopening a card does not itself authorize or execute an operation.
++
++### Three identities with different jobs
++
++| Field | Lifetime and use |
++| --- | --- |
++| `conversation_id` | Browser identity shared by sends and history saves. Stored as `client_id`, unique per admin. It is distinct from the database conversation row ID used by history routes. |
++| `request_id` | UUID for one logical send. The widget retains it across SSE-to-JSON fallback and an explicit retry. An extension can use it to recover the same operation. |
++| `message_id` | Identity of one transcript entry. Repeated saves do not duplicate that entry. A retry can create a new displayed entry while retaining the original request identity. |
++
++Providing a request ID does **not** make arbitrary native tools execute exactly
++once. An extension performing retriable effects must enforce its own durable
++idempotency/receipt contract and handle uncertain outcomes. The decorator hook
++allows that without rewriting the underlying tool. Tools still need their normal
++authorization and confirmation checks.
++
++### Provider and composer contracts
++
++- A virtual provider uses a negative ID so it cannot collide with a persisted
++  MagicAI platform. Its resolver supplies a request-time platform; the registry
++  does not store credentials in the native provider table.
++- `hide_single_model: true` hides the model selector only when exactly one model
++  is available. That model remains selected and submitted. Native providers and
++  providers with multiple models retain their controls.
++- An installed composer receives `draft`, `cursor`, conversation, selection and
++  disabled state. It emits `change` for structured context and `replace-draft`
++  with `{start, end, text}` for bounded text replacement. Cursor offsets use the
++  browser's UTF-16 indexing. Replacement restores focus/caret after Vue updates.
++- `handleKey(event)` returns true when the composer consumes a key. IME input
++  is left alone. Otherwise plain Enter sends and Shift+Enter keeps a newline.
++- `references` contains display labels, rendered as escaped text. Longest-first
++  matching and Unicode boundaries prevent overlapping/embedded names from
++  becoming partial references. Labels are not resource IDs or access tokens.
++- `extensions` is bounded inert request data. Each package resolves its own
++  selections and checks the current user's access. `hasNewImages` distinguishes
++  a new upload from paths retained from an earlier turn.
++- A renderer's optional `consumesContext` names the selection to clear when that
++  result type arrives. Clarification replies preserve it. A send snapshots the
++  context so later draft changes cannot alter an in-flight request.
++
++`COMPOSER_REFERENCES = 2` advertises full-label highlighting support. It is a hook
++capability marker, not the package version or a negotiated API version.
++
++### Result rendering and history are inert
++
++A presentation descriptor has exactly two bounded strings: `type` and `id`.
++Installed code maps the type to a Vue component and Blade view. Unknown types
++remain in history and use the generic fallback; they cannot select arbitrary
++templates. A renderer must authorize every resource read/write itself.
++
++Native display fields (`result`, `product_url`, `download_url`, `_confirmed`,
++`action`) are normalized separately. Result JSON is limited to 64 KiB, depth 8,
++2,048 values and 16 KiB per string. Prototype-related keys and unsafe links are
++rejected. Product links stay on the application origin; downloads can use local
++paths or HTTP(S), without URL credentials or protocol-relative targets. Saved
++data is for display, never a trusted tool instruction. Signed URLs are preserved,
++not renewed; old fields absent from both browser and database cannot be recovered.
++
++### Persistence and backward compatibility
++
++An upsert finds or creates the current admin's conversation by client ID, then
++locks it before merging messages. Existing message content, original timestamps,
++native tool calls and token usage remain unchanged. Matching legacy records can
++gain missing display fields. Confirmation only advances to true. Metadata adds
++missing keys without replacing saved values. Removing an entire conversation is
++still an explicit owner-scoped operation.
++
++Legacy clients may omit the new fields. For those messages, position/role/content
++produce a deterministic snapshot identity; it is not a general-purpose edit or
++reordering protocol. Modern clients should supply stable message IDs and use a new
++ID for changed content.
++
++The browser caches only 50 messages per session and 20 sessions, but sends the
++full transcript in batches of at most 100 messages. Browser saves are serialized;
++server merging also handles delayed saves from other tabs. Reopening merges
++server history with unsaved local entries. A session-selection counter prevents
++a slow response from replacing the conversation selected more recently.
++
++Run the four `2026_10_08_00000*` migrations before serving the patched application.
++They add message identity/presentation, conversation client identity, request
++identity and native display data. Old nullable rows remain readable. Rolling back
++those migrations removes the new metadata, so preserve a database backup if it
++must be retained.
++
++## Verify the contracts
++
++From the UnoPIM root, Node 18+ can exercise the actual widget methods without an
++application server, database or external provider:
++
++```sh
++node --test packages/Webkul/AiAgent/tests/JavaScript/composer-contract.test.cjs
++```
++
++The [harness notes](tests/JavaScript/README.md) describe what is stubbed. Tests cover
++caret replacement and bounds, IME/key delegation, reference boundaries, escaping,
++model visibility and the actual submitted model/selection. The Pest bridge is
++[ComposerContractTest](tests/Unit/ComposerContractTest.php).
++
++With UnoPIM's normal test dependencies and a migrated, isolated test database,
++also run the relevant native regressions:
++
++```sh
++vendor/bin/pest packages/Webkul/AiAgent/tests/Unit/ToolRegistryExtensibilityTest.php \
++  packages/Webkul/AiAgent/tests/Unit/AgentMutationFlagTest.php \
++  packages/Webkul/AiAgent/tests/Unit/ModelSelectionConfigTest.php \
++  packages/Webkul/AiAgent/tests/Feature/ChatWidgetDefaultPlatformTest.php \
++  packages/Webkul/AiAgent/tests/Feature/ChatWidgetVisibilityTest.php \
++  packages/Webkul/AiAgent/tests/Feature/AgentRunnerTokenUsageTest.php
++```
++
++Extension integration tests should additionally cover descriptor ownership,
++stale/concurrent history saves, retry receipts and asynchronous result recovery.
++Those tests belong with their package and are not implied by the widget suite.
++Automated checks do not replace browser checks of native chat, reopening history,
++switching providers and using the installed composer's keyboard controls.
+diff --git a/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000001_add_message_presentation.php b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000001_add_message_presentation.php
+new file mode 100644
+index 00000000..6416cd77
+--- /dev/null
++++ b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000001_add_message_presentation.php
+@@ -0,0 +1,21 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('ai_agent_messages', function (Blueprint $table) {
++            $table->string('message_id', 64)->nullable();
++            $table->json('presentation')->nullable();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('ai_agent_messages', fn (Blueprint $table) => $table->dropColumn(['message_id', 'presentation']));
++    }
++};
+diff --git a/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000002_add_conversation_client_identity.php b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000002_add_conversation_client_identity.php
+new file mode 100644
+index 00000000..1debbdd5
+--- /dev/null
++++ b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000002_add_conversation_client_identity.php
+@@ -0,0 +1,24 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('ai_agent_conversations', function (Blueprint $table) {
++            $table->string('client_id', 64)->nullable();
++            $table->unique(['user_id', 'client_id']);
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('ai_agent_conversations', function (Blueprint $table) {
++            $table->dropUnique(['user_id', 'client_id']);
++            $table->dropColumn('client_id');
++        });
++    }
++};
+diff --git a/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000003_add_message_request_identity.php b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000003_add_message_request_identity.php
+new file mode 100644
+index 00000000..6037ef76
+--- /dev/null
++++ b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000003_add_message_request_identity.php
+@@ -0,0 +1,18 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('ai_agent_messages', fn (Blueprint $t) =>$t->uuid('request_id')->nullable());
++    }
++
++    public function down(): void
++    {
++        Schema::table('ai_agent_messages', fn (Blueprint $t) =>$t->dropColumn('request_id'));
++    }
++};
+diff --git a/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000004_add_native_message_display.php b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000004_add_native_message_display.php
+new file mode 100644
+index 00000000..1854987b
+--- /dev/null
++++ b/packages/Webkul/AiAgent/Database/Migration/2026_10_08_000004_add_native_message_display.php
+@@ -0,0 +1,18 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('ai_agent_messages', fn (Blueprint $table) => $table->json('display_data')->nullable());
++    }
++
++    public function down(): void
++    {
++        Schema::table('ai_agent_messages', fn (Blueprint $table) => $table->dropColumn('display_data'));
++    }
++};
+diff --git a/packages/Webkul/AiAgent/Resources/views/components/chat-widget.blade.php b/packages/Webkul/AiAgent/Resources/views/components/chat-widget.blade.php
+index dae7759f..f5a0d44e 100644
+--- a/packages/Webkul/AiAgent/Resources/views/components/chat-widget.blade.php
++++ b/packages/Webkul/AiAgent/Resources/views/components/chat-widget.blade.php
+@@ -7,7 +7,9 @@
+     $magicAiModel    = trim(explode(',', $magicAiModels)[0]) ?: ucfirst($magicAiPlatform);
+ 
+     $platformRepo    = app(\Webkul\MagicAI\Repository\MagicAIPlatformRepository::class);
+-    $aiPlatforms     = $platformRepo->getActivePlatformOptions();
++    $extensionRegistry = app(\Webkul\AiAgent\Chat\ExtensionRegistry::class);
++    $aiPlatforms = array_merge($extensionRegistry->options(), $platformRepo->getActivePlatformOptions());
++    $magicAiEnabled = $magicAiEnabled || count($extensionRegistry->options()) > 0;
+     $defaultPlatform = collect($aiPlatforms)->firstWhere('is_default', true);
+     $defaultPlatformId = $defaultPlatform['id'] ?? ($aiPlatforms[0]['id'] ?? null);
+ 
+@@ -38,6 +40,14 @@
+ })();
+ </script>
+ 
++@foreach($extensionRegistry->composers() as $composer)
++    @include($composer['view'])
++@endforeach
++
++@foreach(app(\Webkul\AiAgent\Chat\ResultRendererRegistry::class)->views() as $rendererView)
++    @include($rendererView)
++@endforeach
++
+ @pushOnce('scripts')
+ <script type="text/x-template" id="v-agenting-pim-template">
+     <div class="ap-shell">
+@@ -269,8 +279,10 @@ class="ap-clear-chat-btn"
+                                         <div class="text-[13px] text-gray-700 dark:text-gray-300 leading-[1.75] ap-ai-response" v-html="renderMarkdown(renderContent(msg, idx))"></div>
+                                     </div>
+ 
++                                    <component v-if="resultComponent(msg.presentation)" :is="resultComponent(msg.presentation)"
++                                        :descriptor="msg.presentation" :visible="isOpen && activeTab === 'chat'" style="margin-top:16px"></component>
+                                     {{-- Result details card --}}
+-                                    <div v-if="msg.result && Object.keys(msg.result).length" class="rounded-xl border border-primary-200 dark:border-cherry-700 overflow-hidden">
++                                    <div v-if="!resultComponent(msg.presentation) && msg.result && Object.keys(msg.result).length" class="rounded-xl border border-primary-200 dark:border-cherry-700 overflow-hidden">
+                                         <div class="px-4 py-2 border-b border-primary-100 dark:border-cherry-700" style="background:linear-gradient(135deg,rgb(var(--c-primary-50)),rgb(var(--c-primary-100)));">
+                                             <p class="text-[10px] font-bold text-primary-500 dark:text-primary-400 uppercase tracking-wider" v-text="trans.result"></p>
+                                         </div>
+@@ -385,23 +397,32 @@ class="ap-pending-chip-icon"
+                         </div>
+                     </div>
+ 
++                    @foreach($extensionRegistry->composers() as $composer)
++                    <{{ $composer['component'] }} :value="extensionContext['{{ $composer['key'] }}'] || {}" :conversation-id="activeSessionId" :draft="inputText" :cursor="composerCursor" :disabled="isLoading" :ref="el => composerRefs['{{ $composer['key'] }}'] = el" @replace-draft="replaceComposerDraft" @change="extensionContext['{{ $composer['key'] }}'] = $event"></{{ $composer['component'] }}>
++                    @endforeach
+                     {{-- Input — always-visible bordered box --}}
+                     <div class="ap-input-wrap">
+ 
+                         {{-- Outer bordered container --}}
+                         <div class="ap-input-box">
+ 
+-                            {{-- Textarea --}}
++                            <div class="ap-composer-editor">
++                            <div v-if="composerHasReferences" ref="composerHighlight" class="ap-composer-highlight" aria-hidden="true"><template v-for="(part, i) in composerSegments" :key="i"><span :class="{'ap-composer-reference': part.reference}" v-text="part.text"></span></template></div>
++                            {{-- Native textarea retains editing, selection, paste, undo and IME. --}}
+                             <textarea
+                                 ref="textInput"
+                                 v-model="inputText"
+-                                @keydown.enter.exact.prevent="send"
+                                 rows="3"
+                                 class="ap-input-textarea"
+                                 :placeholder="inputPlaceholder"
+                                 :disabled="isLoading"
+-                                @input="autoResize"
++                                @input="composerInput"
++                                @click="composerSelection" @keyup="composerSelection" @select="composerSelection"
++                                @scroll="syncComposerScroll"
++                                :style="composerHasReferences ? {color: 'transparent', caretColor: 'var(--ap-caret, #7c3aed)'} : {}"
++                                @keydown="onComposerKey"
+                             ></textarea>
++                            </div>
+ 
+                             {{-- Toolbar row: Attach + Platform/Model + Send --}}
+                             <div class="ap-input-toolbar">
+@@ -426,12 +447,14 @@ class="ap-input-chip">
+                                             v-model="selectedPlatformId"
+                                             @change="onPlatformChange"
+                                             class="ap-input-select"
++                                            :style="hideSingleModelSelector ? {maxWidth: 'calc(100% - 34px)'} : null"
+                                             :title="trans.selectPlatform"
+                                             :aria-label="trans.selectPlatform"
+                                         >
+                                             <option v-for="p in platforms" :key="p.id" :value="p.id" v-text="p.label"></option>
+                                         </select>
+                                         <select
++                                            v-if="!hideSingleModelSelector"
+                                             v-model="selectedModel"
+                                             class="ap-input-select"
+                                             :title="trans.selectModel"
+@@ -479,6 +502,8 @@ class="ap-fab"
+ </script>
+ 
+ <style>
++.ap-composer-editor{position:relative}.ap-composer-highlight{position:absolute;inset:0;pointer-events:none;white-space:pre-wrap;overflow-wrap:break-word;overflow:hidden;font-family:inherit;font-size:13px;line-height:1.55;padding:12px 14px 6px;color:#374151;border:0}.dark .ap-composer-highlight{color:#f3f4f6}.ap-composer-reference{color:#2563eb}.dark .ap-composer-reference{color:#93c5fd}
++
+ :root { --ap-panel-size: 420px; --ap-panel-width: 0px; }
+ 
+ /* Docked width: the panel pushes the app aside instead of covering it. Zero on
+@@ -859,6 +884,15 @@ class="ap-fab"
+     return models[0];
+ };
+ 
++// getRandomValues also works on self-hosted HTTP origins where randomUUID is unavailable.
++const chatRequestId = () => {
++    const bytes = crypto.getRandomValues(new Uint8Array(16));
++    bytes[6] = (bytes[6] & 15) | 64;
++    bytes[8] = (bytes[8] & 63) | 128;
++    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
++    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
++};
++
+ app.component('v-agenting-pim', {
+     template: '#v-agenting-pim-template',
+ 
+@@ -967,6 +1001,8 @@ class="ap-fab"
+             activeCapability: null,
+             messages: [],
+             inputText: '',
++            composerCursor: 0,
++            composerRefs: {},
+             pendingFiles: [],
+             isLoading: false,
+             streamingStatus: '',
+@@ -974,6 +1010,7 @@ class="ap-fab"
+             productContext: null,
+             noTransition: false,
+             capabilitySearch: '',
++            extensionContext: {},
+             // Session management
+             sessions: [],
+             activeSessionId: null,
+@@ -1093,6 +1130,28 @@ class="ap-fab"
+     },
+ 
+     computed: {
++        composerSegments() {
++            // Highlight full labels, longest first, so a name with spaces or a
++            // shared prefix is one reference. The template renders text, not HTML.
++            const references = [...new Set(
++                Object.values(this.extensionContext)
++                    .flatMap(v => Array.isArray(v?.references) ? v.references : [])
++                    .filter(x => typeof x === 'string' && Array.from(x).length <= 255)
++            )].sort((a, b) => b.length - a.length);
++            if (!references.length) return [{text: this.inputText, reference: false}];
++            const escaped = references.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
++            const pattern = new RegExp('(?<![\\p{L}\\p{N}_])(?:'+escaped.join('|')+')(?![\\p{L}\\p{N}_-])', 'gu');
++            const parts = [];
++            let offset = 0;
++            for (const match of this.inputText.matchAll(pattern)) {
++                parts.push({text: this.inputText.slice(offset, match.index), reference: false}, {text: match[0], reference: true});
++                offset = match.index + match[0].length;
++            }
++            parts.push({text: this.inputText.slice(offset), reference: false});
++            return parts;
++        },
++        composerHasReferences() { return this.composerSegments.some(x => x.reference); },
++
+         filteredCapabilities() {
+             if (!this.capabilitySearch.trim()) return this.capabilities;
+             const q = this.capabilitySearch.toLowerCase();
+@@ -1106,6 +1165,12 @@ class="ap-fab"
+             const platform = this.platforms.find(p => p.id === this.selectedPlatformId);
+             return platform ? (platform.models || []) : [];
+         },
++        hideSingleModelSelector() {
++            // This is a presentation hint from installed code. Keep the selected
++            // model in the request even when its redundant selector is hidden.
++            const platform = this.platforms.find(p => p.id === this.selectedPlatformId);
++            return platform?.hide_single_model === true && this.availableModels.length === 1;
++        },
+         fileAccept() {
+             if (this.activeCapability?.acceptsSpreadsheet) return '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
+             return 'image/jpeg,image/png,image/webp,image/gif';
+@@ -1118,6 +1183,14 @@ class="ap-fab"
+     },
+ 
+     mounted() {
++        const overrides = @json($extensionRegistry->capabilities());
++        this.capabilities = this.capabilities.map(c => ({...c, ...(overrides[c.key] || {})}));
++        this._composeListener = (event) => {
++            this.isOpen = true; this.activeTab = 'chat';
++            if (typeof event.detail?.text === 'string') this.inputText = event.detail.text;
++            this.$nextTick(() => this.$refs.textInput?.focus());
++        };
++        window.addEventListener('ai-agent:compose', this._composeListener);
+         this.$nextTick(() => this.observeMessages());
+         this.loadSessions();
+         this.detectProductContext();
+@@ -1165,7 +1238,55 @@ class="ap-fab"
+         activeCapability: { deep: true, handler() { this.saveState(); } },
+     },
+ 
++    beforeUnmount() { window.removeEventListener('ai-agent:compose', this._composeListener); },
+     methods: {
++        composerSelection() {
++            this.composerCursor = this.$refs.textInput?.selectionStart ?? this.inputText.length;
++        },
++        composerInput() {
++            this.composerSelection();
++            this.autoResize();
++        },
++        syncComposerScroll() {
++            // The native textarea owns editing/selection; the overlay only colors
++            // references and must track both scroll axes to stay aligned.
++            const input = this.$refs.textInput, layer = this.$refs.composerHighlight;
++            if (input && layer) {
++                layer.scrollTop = input.scrollTop;
++                layer.scrollLeft = input.scrollLeft;
++            }
++        },
++        replaceComposerDraft(change) {
++            if (this.isLoading || !change || typeof change.text !== 'string') return;
++            const {start, end, text} = change;
++            if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > this.inputText.length || text.length > 10000) return;
++            this.inputText = this.inputText.slice(0, start) + text + this.inputText.slice(end);
++            this.composerCursor = start + text.length;
++            this.$nextTick(() => {
++                const input = this.$refs.textInput;
++                input?.focus();
++                input?.setSelectionRange(this.composerCursor, this.composerCursor);
++                this.autoResize();
++            });
++        },
++        onComposerKey(event) {
++            // Let IME composition finish, then let an open picker consume keys
++            // before the normal Enter-to-send shortcut handles the event.
++            if (event.isComposing) return;
++            for (const composer of Object.values(this.composerRefs)) {
++                if (composer?.handleKey?.(event)) return;
++            }
++            if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
++                event.preventDefault();
++                this.send();
++            }
++        },
++        resultComponent(descriptor) {
++            // A saved descriptor can select only a server-registered component.
++            // Unknown types fall back without evaluating a supplied template.
++            const installed = @json(app(\Webkul\AiAgent\Chat\ResultRendererRegistry::class)->components());
++            return descriptor && Object.prototype.hasOwnProperty.call(installed, descriptor.type) ? installed[descriptor.type] : null;
++        },
+         detectProductContext() {
+             const match = window.location.pathname.match(/\/catalog\/products\/edit\/(\d+)/);
+             if (match) {
+@@ -1220,7 +1341,7 @@ class="ap-fab"
+ 
+         createNewSession() {
+             if (this.messages.length > 0) {
+-                // Save current session to localStorage only (not DB — avoids duplicates)
++                // Save before changing identity; the server merges by conversation/message ID.
+                 this.saveCurrentSession();
+             }
+             this.activeSessionId = this.generateSessionId();
+@@ -1233,7 +1354,7 @@ class="ap-fab"
+             this.$nextTick(() => this.$refs.textInput?.focus());
+         },
+ 
+-        saveCurrentSession(persistToDb = false) {
++        saveCurrentSession(persistToDb = true) {
+             if (!this.activeSessionId || this.messages.length === 0) return;
+ 
+             const firstUserMsg = this.messages.find(m => m.role === 'user');
+@@ -1241,11 +1362,18 @@ class="ap-fab"
+                 ? firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '…' : '')
+                 : this.trans.sessionDefaultName;
+ 
+-            // Limit stored messages to prevent excessive localStorage usage.
+-            const recentMessages = this.messages.filter(m => !m.isRedirect).slice(-50);
++            // Build the full transcript for server persistence. Only the browser
++            // cache below is capped at 50 messages; it must not truncate DB history.
++            const recentMessages = this.messages.filter(m => !m.isRedirect);
+             const sessionMessages = recentMessages.map(m => ({
+                 role: m.role,
++                message_id: m.message_id || null,
++                request_id: m.request_id || null,
++                presentation: m.presentation || null,
++                tool_calls: m.tool_calls || null,
++                tokens_used: m.tokens_used || 0,
+                 content: m.content || '',
++                action: m.action || null,
+                 result: m.result || null,
+                 product_url: m.product_url || null,
+                 download_url: m.download_url || null,
+@@ -1258,7 +1386,8 @@ class="ap-fab"
+                 name: name,
+                 messageCount: this.messages.filter(m => m.role === 'user').length,
+                 lastActive: new Date().toLocaleDateString(),
+-                messages: sessionMessages,
++                dbId: this.sessions[existingIdx]?.dbId || null,
++                messages: sessionMessages.slice(-50),
+                 capability: this.activeCapability?.key || null,
+             };
+ 
+@@ -1273,9 +1402,72 @@ class="ap-fab"
+             }
+ 
+             this.persistSessions();
++            if (persistToDb && !this.messages.some(m => m.isStreaming)) {
++                const payload = {conversation_id: String(sessionData.id), title: name,
++                    messages: sessionMessages.map(m => ({role:m.role, content:m.content, message_id:m.message_id, request_id:m.request_id, presentation:m.presentation, tool_calls:m.tool_calls, tokens_used:m.tokens_used, result:m.result, product_url:m.product_url, download_url:m.download_url, _confirmed:m._confirmed, action:m.action}))};
++                const serialized = JSON.stringify(payload);
++                this._historyFingerprints ||= {};
++                if (this._historyFingerprints[sessionData.id] === serialized) return;
++                this._historyFingerprints[sessionData.id] = serialized;
++                // Serialize this tab's saves. The server also merges additively
++                // because other tabs and delayed requests can still arrive out of order.
++                this._historySave = (this._historySave || Promise.resolve()).catch(() => {}).then(() =>
++                    this.saveHistoryBatches(payload)
++                ).then(res => {
++                    const local = this.sessions.find(s => s.id === sessionData.id);
++                    if (local) local.dbId = res.data.id;
++                    this.persistSessions();
++                }).catch(() => { delete this._historyFingerprints[sessionData.id]; });
++            }
++            return this._historySave;
++        },
++
++        async saveHistoryBatches(payload) {
++            let response;
++            for (let offset = 0; offset < payload.messages.length; offset += 100) {
++                response = await this.$axios.post("{{ route('ai-agent.conversations.store') }}", {...payload, messages:payload.messages.slice(offset, offset + 100)});
++            }
++            return response;
++        },
++
++        historyLink(value, product = false) {
++            if (typeof value !== 'string' || value.length > 8192 || /[\x00-\x20\x7f\\]/.test(value)) return null;
++            try {
++                const decoded = decodeURIComponent(value);
++                if (/^[\/]{2}|[\x00-\x1f\x7f\\]/.test(decoded)) return null;
++                if (!value.startsWith('/') && !/^https?:\/\//.test(value)) return null;
++                const link = new URL(value, window.location.origin);
++                if (!['http:', 'https:'].includes(link.protocol) || link.username || link.password || (product && link.origin !== window.location.origin)) return null;
++                return value;
++            } catch { return null; }
++        },
++
++        mergeHistory(incoming, local = []) {
++            // Saved fields win, but retain unsaved local messages and fill display
++            // fields absent from older rows. Confirmation may only advance to true.
++            const remaining = new Set(local);
++            const merged = incoming.map(remote => {
++                const cached = local.find(m => m.message_id && m.message_id === remote.message_id)
++                    || local.find(m => !m.message_id && remaining.has(m) && m.role === remote.role && m.content === remote.content) || {};
++                remaining.delete(cached);
++                const message = {...cached, ...remote};
++                for (const field of ['result', 'product_url', 'download_url', 'action']) {
++                    if (remote[field] == null && cached[field] != null) message[field] = cached[field];
++                }
++                message._confirmed = Boolean(remote._confirmed || cached._confirmed);
++                if (typeof message.tool_calls === 'string') {
++                    try { message.tool_calls = JSON.parse(message.tool_calls); } catch { message.tool_calls = null; }
++                }
++                message.product_url = this.historyLink(message.product_url, true);
++                message.download_url = this.historyLink(message.download_url);
++                return message;
++            });
++            return [...merged, ...[...remaining].map(message => ({...message, product_url:this.historyLink(message.product_url, true), download_url:this.historyLink(message.download_url)}))];
+         },
+ 
+         async switchToSession(sessionId) {
++            // Ignore a slow history response if the user selected another session.
++            const selection = this._historySelection = (this._historySelection || 0) + 1;
+             if (this.messages.length > 0 && this.activeSessionId) {
+                 await this.saveCurrentSession();
+             }
+@@ -1284,15 +1476,18 @@ class="ap-fab"
+             let session = this.sessions.find(s => s.id === sessionId);
+ 
+             // If it's a DB-backed session (numeric ID), load from API
+-            if (!session && typeof sessionId === 'number') {
++            if (session?.dbId || typeof sessionId === 'number') {
+                 try {
+-                    const res = await this.$axios.get("{{ url(config('app.admin_url') . '/ai-agent/conversations') }}/" + sessionId);
++                    const res = await this.$axios.get("{{ url(config('app.admin_url') . '/ai-agent/conversations') }}/" + (session?.dbId || sessionId));
++                    if (selection !== this._historySelection) return;
+                     const data = res.data;
++                    const localMessages = this.activeSessionId === sessionId ? this.messages : session?.messages || [];
+                     session = {
+-                        id: data.conversation.id,
++                        id: data.conversation.client_id || data.conversation.id,
++                        dbId: data.conversation.id,
+                         name: data.conversation.title,
+-                        messages: data.messages.map(m => ({ role: m.role, content: m.content })),
+-                        capability: null,
++                        messages: this.mergeHistory(data.messages, localMessages),
++                        capability: session?.capability || null,
+                     };
+                 } catch (e) { return; }
+             }
+@@ -1316,9 +1511,10 @@ class="ap-fab"
+         },
+ 
+         async deleteSession(sessionId) {
+-            if (typeof sessionId === 'number') {
++            const dbId = this.sessions.find(s => s.id === sessionId)?.dbId || (typeof sessionId === 'number' ? sessionId : null);
++            if (dbId) {
+                 try {
+-                    await this.$axios.delete("{{ url(config('app.admin_url') . '/ai-agent/conversations') }}/" + sessionId);
++                    await this.$axios.delete("{{ url(config('app.admin_url') . '/ai-agent/conversations') }}/" + dbId);
+                 } catch (e) {
+                     this.$emitter.emit('add-flash', { type: 'error', message: this.trans.errorGeneric });
+ 
+@@ -1350,6 +1546,21 @@ class="ap-fab"
+                     });
+                 }
+             } catch (e) { this.sessions = []; }
++            this.$axios.get("{{ route('ai-agent.conversations.index') }}").then(async res => {
++                for (const item of res.data.conversations || []) {
++                    const id = item.client_id || item.id;
++                    const existing = this.sessions.find(s => s.id === id);
++                    if (existing) existing.dbId = item.id;
++                    else this.sessions.push({id, dbId:item.id, name:item.title, messageCount:'',lastActive:new Date(item.updated_at).toLocaleDateString()});
++                }
++                const activeId = this.activeSessionId;
++                const saved = this.sessions.find(s => s.id === activeId);
++                if (saved?.dbId) {
++                    const response = await this.$axios.get("{{ url(config('app.admin_url') . '/ai-agent/conversations') }}/" + saved.dbId);
++                    if (this.activeSessionId !== activeId || this.messages.some(m => m.isStreaming)) return;
++                    this.messages = this.mergeHistory(response.data.messages, this.messages);
++                }
++            }).catch(() => {});
+         },
+         onPlatformChange() {
+             this.selectedModel = pickTextModel(this.availableModels);
+@@ -1361,6 +1572,7 @@ class="ap-fab"
+             }
+ 
+             this.activeCapability = cap;
++            if (cap.extension_event) { window.dispatchEvent(new CustomEvent(cap.extension_event)); }
+             this.activeTab = 'chat';
+ 
+             // Auto-populate the prompt text if the capability has one
+@@ -1446,13 +1658,25 @@ class="ap-fab"
+             return true;
+         },
+ 
+-        async send() {
++        consumeExtensionContext(data) {
++            // A text reply may only be asking for clarification. Consume selections
++            // after a matching registered result, not simply after a successful send.
++            const consumers = @json(app(\Webkul\AiAgent\Chat\ResultRendererRegistry::class)->contextConsumers());
++            const key = consumers[data?.presentation?.type];
++            if (key) delete this.extensionContext[key];
++        },
++
++        async send(retryRequestId = null) {
+             const text = this.inputText.trim();
+             const files = [...this.pendingFiles];
++            // Snapshot the selection before clearing the draft; later picker edits
++            // must not change the inputs of this request or its retry.
++            const selectedContext = JSON.parse(JSON.stringify(this.extensionContext));
+             if (!text && files.length === 0) return;
+ 
+-            // Build user message for display
+-            const userMsg = { role: 'user', content: text || (files.length ? '📎 ' + files.map(f => f.name).join(', ') : ''), files: files.map(f => ({ type: f.type, preview: f.preview, name: f.name })) };
++            // message_id identifies a transcript entry; request_id identifies the
++            // operation. A retry gets a new entry but reuses its operation identity.
++            const userMsg = { message_id: chatRequestId(), request_id: typeof retryRequestId === 'string' ? retryRequestId : chatRequestId(), role: 'user', extensions: selectedContext, content: text || (files.length ? '📎 ' + files.map(f => f.name).join(', ') : ''), files: files.map(f => ({ type: f.type, preview: f.preview, name: f.name })) };
+             this.messages.push(userMsg);
+             this.inputText = ''; this.resetTextarea(); this.scrollBottom(true); this.isLoading = true;
+             this.streamingStatus = files.length > 0 ? this.trans.analyzingFiles : this.trans.thinking;
+@@ -1465,6 +1689,8 @@ class="ap-fab"
+                 if (this.selectedModel) fd.append('model', this.selectedModel);
+                 files.forEach((f, i) => { if (f.type === 'image') fd.append('images[' + i + ']', f.file); else fd.append('files[' + i + ']', f.file); });
+                 fd.append('conversation_id', this.activeSessionId);
++                fd.append('request_id', userMsg.request_id);
++                fd.append('extensions', JSON.stringify(selectedContext));
+                 fd.append('history', JSON.stringify(this.messages.slice(0, -1).map(m => ({ role: m.role, content: m.content || '' }))));
+                 fd.append('context[current_page]', window.location.pathname);
+                 if (this.productContext) {
+@@ -1472,7 +1698,8 @@ class="ap-fab"
+                     if (this.productContext.sku) fd.append('context[product_sku]', this.productContext.sku);
+                     if (this.productContext.name) fd.append('context[product_name]', this.productContext.name);
+                 }
+-                // Try SSE streaming first, fallback to blocking JSON endpoint
++                // Both transports reuse this FormData and request_id. Extensions
++                // must deduplicate their effects; an ID alone is not an execution lock.
+                 let data = null;
+                 try {
+                     const streamRes = await fetch("{{ route('ai-agent.chat.stream') }}", {
+@@ -1490,7 +1717,8 @@ class="ap-fab"
+ 
+                     if (streamRes.ok && ct.includes('text/event-stream')) {
+                         // SSE streaming works — process the stream
+-                        await this.processStream(streamRes, files);
++                        const completed = await this.processStream(streamRes, files);
++                        this.consumeExtensionContext(completed);
+                         return; // processStream handles everything
+                     } else if (streamRes.ok && ct.includes('application/json')) {
+                         data = await streamRes.json();
+@@ -1505,8 +1733,9 @@ class="ap-fab"
+                 }
+ 
+                 // Handle JSON response (from either stream JSON or blocking fallback)
++                this.consumeExtensionContext(data);
+                 this.pendingFiles = [];
+-                this.messages.push({ role: 'assistant', content: data.reply || this.trans.noResponse, action: data.action || null, result: data.result || null, product_url: data.product_url || null, download_url: data.download_url || null });
++                this.messages.push({ message_id: chatRequestId(), presentation: data.presentation || null, role: 'assistant', content: data.reply || this.trans.noResponse, action: data.action || null, result: data.result || null, product_url: data.product_url || null, download_url: data.download_url || null });
+ 
+                 // Auto-navigate to the created product page
+                 if (data.product_url && this.activeCapability?.key === 'create_from_image') {
+@@ -1543,6 +1772,9 @@ class="ap-fab"
+             const msgIndex = this.messages.length;
+             this.messages.push({ role: 'assistant', content: '', isStreaming: true });
+ 
++            // An event line and its data may arrive in different network chunks.
++            // Preserve the event name until its data line has been consumed.
++            let currentEvent = null;
+             try {
+                 while (true) {
+                     const { done, value } = await reader.read();
+@@ -1552,7 +1784,6 @@ class="ap-fab"
+                     const lines = buffer.split('\n');
+                     buffer = lines.pop() || '';
+ 
+-                    let currentEvent = null;
+                     for (const line of lines) {
+                         if (line.startsWith('event: ')) {
+                             currentEvent = line.substring(7).trim();
+@@ -1600,6 +1831,8 @@ class="ap-fab"
+                 content: streamedText || this.trans.noResponse,
+                 action: resultData.action || 'agent_response',
+                 result: resultData.result || null,
++                message_id: chatRequestId(),
++                presentation: resultData.presentation || null,
+                 product_url: resultData.product_url || null,
+                 download_url: resultData.download_url || null,
+                 isStreaming: false,
+@@ -1615,6 +1848,7 @@ class="ap-fab"
+                 this.streamingStatus = this.trans.refreshingPage;
+                 setTimeout(() => { window.location.reload(); }, 1500);
+             }
++            return resultData;
+         },
+ 
+         copyMessage(idx) {
+@@ -1647,11 +1881,13 @@ class="ap-fab"
+             let userIdx = idx - 1;
+             while (userIdx >= 0 && this.messages[userIdx].role !== 'user') { userIdx--; }
+             if (userIdx < 0) return;
++            const requestId = this.messages[userIdx].request_id || chatRequestId();
++            this.extensionContext = this.messages[userIdx].extensions || {};
+             const userText = this.messages[userIdx].content || '';
+             // Remove from that user message onwards and resend
+             this.messages.splice(userIdx);
+             this.inputText = userText;
+-            this.$nextTick(() => this.send());
++            this.$nextTick(() => this.send(requestId));
+         },
+ 
+         rateMessage(idx, rating) {
+@@ -1921,7 +2157,7 @@ class="ap-fab"
+                     selectedPlatformId: this.selectedPlatformId,
+                     selectedModel: this.selectedModel,
+                     activeSessionId: this.activeSessionId,
+-                    messages: this.messages.filter(m => !m.isRedirect).map(m => ({ role: m.role, content: m.content, result: m.result || null, product_url: m.product_url || null, download_url: m.download_url || null, _confirmed: m._confirmed || false })),
++                    messages: this.messages.filter(m => !m.isRedirect).map(m => ({ message_id: m.message_id || null, request_id: m.request_id || null, presentation: m.presentation || null, role: m.role, content: m.content, action: m.action || null, result: m.result || null, product_url: m.product_url || null, download_url: m.download_url || null, _confirmed: m._confirmed || false })),
+                 }));
+ 
+                 // Auto-save current session to localStorage
+diff --git a/packages/Webkul/AiAgent/src/Chat/AgentRunner.php b/packages/Webkul/AiAgent/src/Chat/AgentRunner.php
+index 814a19a3..7b542e4c 100644
+--- a/packages/Webkul/AiAgent/src/Chat/AgentRunner.php
++++ b/packages/Webkul/AiAgent/src/Chat/AgentRunner.php
+@@ -627,10 +627,13 @@ protected function extractStreamActionResults(mixed $stream, array &$result, ?Ch
+      */
+     protected function flagMutation(ToolResult $toolResult, mixed $payload, array &$result): void
+     {
++        // A write-capable tool may only queue a preview. Its explicit mutated:false
++        // prevents a product-page reload before the user chooses to apply anything.
+         if ($toolResult->failed
+             || $toolResult->denied
+             || ! is_array($payload)
+             || isset($payload['error'])
++            || ($payload['mutated'] ?? null) === false
+             || ! ($this->toolRegistry->metadata($toolResult->name)['write'] ?? false)) {
+             return;
+         }
+@@ -661,6 +664,10 @@ protected function mergeActionPayload(mixed $payload, array &$result): void
+             return;
+         }
+ 
++        if ($descriptor = app(ResultRendererRegistry::class)->descriptor($payload['presentation'] ?? null)) {
++            $result['presentation'] = $descriptor;
++        }
++
+         if (! empty($payload['product_url'])) {
+             $result['product_url'] = $payload['product_url'];
+         }
+diff --git a/packages/Webkul/AiAgent/src/Chat/ChatContext.php b/packages/Webkul/AiAgent/src/Chat/ChatContext.php
+index a2105401..bc50abd4 100644
+--- a/packages/Webkul/AiAgent/src/Chat/ChatContext.php
++++ b/packages/Webkul/AiAgent/src/Chat/ChatContext.php
+@@ -28,6 +28,10 @@
+      * @param  array<string>  $uploadedFilePaths  Stored paths of uploaded CSV/XLSX files
+      * @param  string|null  $currentPage  The URL path the user is on
+      * @param  Admin|null  $user  The authenticated admin user (for ACL checks)
++     * @param  string|null  $conversationId  Stable browser conversation identity, not the database row ID
++     * @param  string|null  $requestId  Identity of one logical send; preserved across transport retries
++     * @param  bool  $hasNewImages  Distinguishes a new upload from images retained from earlier turns
++     * @param  array  $extensions  Bounded client selections; extensions must resolve and authorize them
+      */
+     public function __construct(
+         public string $message,
+@@ -43,6 +47,10 @@ public function __construct(
+         public array $uploadedFilePaths = [],
+         public ?string $currentPage = null,
+         public ?Admin $user = null,
++        public ?string $conversationId = null,
++        public ?string $requestId = null,
++        public bool $hasNewImages = false,
++        public array $extensions = [],
+     ) {
+         // Validate locale and channel to prevent SQL injection in JSON_EXTRACT paths.
+         if (! preg_match('/^[a-zA-Z0-9_-]+$/', $locale)) {
+diff --git a/packages/Webkul/AiAgent/src/Chat/ExtensionRegistry.php b/packages/Webkul/AiAgent/src/Chat/ExtensionRegistry.php
+new file mode 100644
+index 00000000..67d1f07d
+--- /dev/null
++++ b/packages/Webkul/AiAgent/src/Chat/ExtensionRegistry.php
+@@ -0,0 +1,65 @@
++<?php
++
++namespace Webkul\AiAgent\Chat;
++
++use Webkul\MagicAI\Models\MagicAIPlatform;
++
++/**
++ * Registration boundary for trusted, installed extensions.
++ *
++ * Providers, views and components come from service providers, never HTTP input.
++ * Registration supplies integration points, not permission to access a resource;
++ * each extension must authorize its requests. See CHAT_EXTENSIONS.md.
++ */
++class ExtensionRegistry
++{
++    public const COMPOSER_REFERENCES = 2;
++
++    private array $providers = [];
++
++    private array $composers = [];
++
++    private array $capabilities = [];
++
++    public function provider(int $id, callable $resolve, array $option): void
++    {
++        // Negative IDs cannot collide with persisted MagicAI platform IDs. Resolve
++        // the platform on demand so connection state and credentials stay server-side.
++        if ($id >= 0) {
++            throw new \InvalidArgumentException('Extension provider IDs must be negative.');
++        }
++        $this->providers[$id] = ['resolve' => $resolve, 'option' => $option + ['id' => $id]];
++    }
++
++    public function resolve(int $id): ?MagicAIPlatform
++    {
++        return isset($this->providers[$id]) ? ($this->providers[$id]['resolve'])() : null;
++    }
++
++    public function options(): array
++    {
++        return array_values(array_map(fn ($entry) => $entry['option'], $this->providers));
++    }
++
++    public function composer(string $key, string $component, string $view): void
++    {
++        // The key also namespaces this composer's inert request context. It is not
++        // a client-selectable view name or a substitute for server validation.
++        $this->composers[$key] = compact('key', 'component', 'view');
++    }
++
++    public function composers(): array
++    {
++        return array_values($this->composers);
++    }
++
++    public function capability(string $key, array $presentation): void
++    {
++        $this->capabilities[$key] = $presentation;
++    }
++
++    public function capabilities(): array
++    {
++        return $this->capabilities;
++    }
++}
+diff --git a/packages/Webkul/AiAgent/src/Chat/MessageDisplay.php b/packages/Webkul/AiAgent/src/Chat/MessageDisplay.php
+new file mode 100644
+index 00000000..447191ae
+--- /dev/null
++++ b/packages/Webkul/AiAgent/src/Chat/MessageDisplay.php
+@@ -0,0 +1,76 @@
++<?php
++
++namespace Webkul\AiAgent\Chat;
++
++use Illuminate\Validation\ValidationException;
++
++/** Inert native result data only: never authorization or executable tool instructions. */
++class MessageDisplay
++{
++    public function normalize(array $message): array
++    {
++        $data = array_intersect_key($message, array_flip(['result', 'product_url', 'download_url', '_confirmed', 'action']));
++        if (isset($data['result'])) {
++            if (! is_array($data['result']) || strlen(json_encode($data['result'])) > 65536) {
++                $this->invalid();
++            }
++            $nodes = 0;
++            $this->value($data['result'], 0, $nodes);
++        }
++        foreach (['product_url', 'download_url'] as $field) {
++            if (isset($data[$field]) && ! $this->safeUrl($data[$field], $field === 'product_url')) {
++                $this->invalid();
++            }
++        }
++        if (isset($data['_confirmed']) && ! is_bool($data['_confirmed'])) {
++            $this->invalid();
++        }
++        if (isset($data['action']) && (! is_string($data['action']) || ! preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $data['action']))) {
++            $this->invalid();
++        }
++
++        return array_filter($data, fn ($value) => $value !== null);
++    }
++
++    private function value(mixed $value, int $depth, int &$nodes): void
++    {
++        if (++$nodes > 2048 || $depth > 8) {
++            $this->invalid();
++        }
++        if (is_array($value)) {
++            foreach ($value as $key => $child) {
++                if (strlen((string) $key) > 128 || in_array($key, ['__proto__', 'prototype', 'constructor'], true)) {
++                    $this->invalid();
++                }
++                $this->value($child, $depth + 1, $nodes);
++            }
++        } elseif (! is_null($value) && ! is_scalar($value) || is_string($value) && strlen($value) > 16384) {
++            $this->invalid();
++        }
++    }
++
++    private function safeUrl(mixed $url, bool $product): bool
++    {
++        if (! is_string($url) || strlen($url) > 8192 || (preg_match('/[\x00-\x20\x7f\\\\]/', $url) || preg_match('/[\x00-\x1f\x7f\\\\]/', rawurldecode($url)))) {
++            return false;
++        }
++        if (str_starts_with($url, '/') && ! str_starts_with(rawurldecode($url), '//')) {
++            return true;
++        }
++        $parts = parse_url($url);
++        if (! $parts || ! in_array($parts['scheme'] ?? '', ['http', 'https'], true) || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
++            return false;
++        }
++        if (! $product) {
++            return true;
++        }
++        $origin = parse_url(config('app.url'));
++
++        return strtolower($parts['host']) === strtolower($origin['host'] ?? '') && $parts['scheme'] === ($origin['scheme'] ?? '') && ($parts['port'] ?? ($parts['scheme'] === 'https' ? 443 : 80)) === ($origin['port'] ?? (($origin['scheme'] ?? '') === 'https' ? 443 : 80));
++    }
++
++    private function invalid(): never
++    {
++        throw ValidationException::withMessages(['messages' => 'Invalid or oversized message display data.']);
++    }
++}
+diff --git a/packages/Webkul/AiAgent/src/Chat/ResultRendererRegistry.php b/packages/Webkul/AiAgent/src/Chat/ResultRendererRegistry.php
+new file mode 100644
+index 00000000..40415f8a
+--- /dev/null
++++ b/packages/Webkul/AiAgent/src/Chat/ResultRendererRegistry.php
+@@ -0,0 +1,50 @@
++<?php
++
++namespace Webkul\AiAgent\Chat;
++
++/** Only installed server code registers component/view names. Descriptors are inert references. */
++class ResultRendererRegistry
++{
++    private array $renderers = [];
++
++    public function register(string $type, string $component, string $view, ?string $consumesContext = null): void
++    {
++        // Clear a composer's selection only when its tool actually returns this
++        // result type; a clarification reply must leave the selection available.
++        if (! preg_match('/^[a-z][a-z0-9.-]{0,63}$/', $type)
++            || ! preg_match('/^v-[a-z0-9-]+$/', $component)) {
++            throw new \InvalidArgumentException('Invalid result renderer registration.');
++        }
++        $this->renderers[$type] = compact('component', 'view', 'consumesContext');
++    }
++
++    public function components(): array
++    {
++        return array_map(fn ($r) => $r['component'], $this->renderers);
++    }
++
++    public function contextConsumers(): array
++    {
++        return array_filter(array_map(fn ($r) => $r['consumesContext'], $this->renderers));
++    }
++
++    public function views(): array
++    {
++        return array_unique(array_column($this->renderers, 'view'));
++    }
++
++    public function descriptor(mixed $value): ?array
++    {
++        // Keep unknown but well-formed types in history so removing an extension
++        // does not destroy its references. The widget uses its generic fallback.
++        // An opaque ID grants no access: the renderer's endpoints must check ownership.
++        if (! is_array($value) || count($value) !== 2
++            || ! is_string($value['type'] ?? null) || ! is_string($value['id'] ?? null)
++            || ! preg_match('/^[a-z][a-z0-9.-]{0,63}$/', $value['type'])
++            || ! preg_match('/^[A-Za-z0-9_-]{1,64}$/', $value['id'])) {
++            return null;
++        }
++
++        return ['type' => $value['type'], 'id' => $value['id']];
++    }
++}
+diff --git a/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php b/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php
+index 3f702d8c..379eb13e 100644
+--- a/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php
++++ b/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php
+@@ -20,6 +20,15 @@ class ToolRegistry
+     /** @var array<class-string<PimTool>, PimTool> */
+     protected array $tools = [];
+ 
++    protected array $decorators = [];
++
++    public function decorate(callable $decorator): void
++    {
++        // Wrappers can add receipts or tracing without replacing catalog tools.
++        // build() applies them only after the tool's normal authorization checks.
++        $this->decorators[] = $decorator;
++    }
++
+     /** @var array<class-string<PimTool>, array{name: string, group: string, write: bool, permission: ?string, guidance: ?string}> */
+     protected array $metadata = [];
+ 
+@@ -170,7 +179,13 @@ public function build(ChatContext $context): array
+                 continue;
+             }
+ 
+-            $built[] = $tool->register($context);
++            $registered = $tool->register($context);
++            // Decorators receive this request's context; do not cache the resulting
++            // Tool between users. Wrappers must preserve the wrapped tool's checks.
++            foreach ($this->decorators as $decorator) {
++                $registered = $decorator($registered, $context, $this->metadata[$class]);
++            }
++            $built[] = $registered;
+         }
+ 
+         return $built;
+diff --git a/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php b/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php
+index da0da3c7..9d8d131d 100644
+--- a/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php
++++ b/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php
+@@ -12,6 +12,7 @@
+ use Webkul\AiAgent\Chat\AiErrorResolver;
+ use Webkul\AiAgent\Chat\ChatContext;
+ use Webkul\AiAgent\Chat\ChatUploadStore;
++use Webkul\AiAgent\Chat\ExtensionRegistry;
+ use Webkul\AiAgent\Http\Requests\ChatRequest;
+ use Webkul\MagicAI\Models\MagicAIPlatform;
+ use Webkul\MagicAI\Repository\MagicAIPlatformRepository;
+@@ -197,6 +198,10 @@ protected function buildChatContext(ChatRequest $request): ChatContext|JsonRespo
+             uploadedFilePaths: $filePaths,
+             currentPage: $context['current_page'] ?? null,
+             user: auth()->guard('admin')->user(),
++            conversationId: $request->conversationId(),
++            requestId: $request->validated('request_id'),
++            hasNewImages: $request->hasFile('images'),
++            extensions: $request->validated('extensions') ?? [],
+         );
+     }
+ 
+@@ -287,6 +292,9 @@ protected function recordTokenUsage(ChatContext $context, int $tokensUsed): void
+      */
+     protected function resolvePlatform(int $platformId): ?MagicAIPlatform
+     {
++        if ($platformId < 0) {
++            return app(ExtensionRegistry::class)->resolve($platformId);
++        }
+         if ($platformId > 0) {
+             $platform = $this->platformRepository->find($platformId);
+ 
+diff --git a/packages/Webkul/AiAgent/src/Http/Controllers/ConversationController.php b/packages/Webkul/AiAgent/src/Http/Controllers/ConversationController.php
+index e67879b8..6b9b62a1 100644
+--- a/packages/Webkul/AiAgent/src/Http/Controllers/ConversationController.php
++++ b/packages/Webkul/AiAgent/src/Http/Controllers/ConversationController.php
+@@ -6,6 +6,9 @@
+ use Illuminate\Http\Request;
+ use Illuminate\Routing\Controller;
+ use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Str;
++use Webkul\AiAgent\Chat\MessageDisplay;
++use Webkul\AiAgent\Chat\ResultRendererRegistry;
+ 
+ /**
+  * Handles persistent conversation storage for the AI chat widget.
+@@ -32,7 +35,7 @@ public function index(): JsonResponse
+             ->where('user_id', $userId)
+             ->latest('updated_at')
+             ->limit(50)
+-            ->get(['id', 'title', 'metadata', 'created_at', 'updated_at']);
++            ->get(['id', 'client_id', 'title', 'metadata', 'created_at', 'updated_at']);
+ 
+         return new JsonResponse(['conversations' => $conversations]);
+     }
+@@ -54,8 +57,18 @@ public function show(int $id): JsonResponse
+         }
+ 
+         $messages = DB::table('ai_agent_messages')
+-            ->where('conversation_id', $id)->oldest()
+-            ->get(['role', 'content', 'tool_calls', 'tokens_used', 'created_at']);
++            ->where('conversation_id', $id)->orderBy('id')
++            ->get(['role', 'content', 'tool_calls', 'tokens_used', 'created_at', 'message_id', 'request_id', 'presentation', 'display_data'])
++            ->map(function ($message) {
++                $message->presentation = app(ResultRendererRegistry::class)->descriptor(json_decode($message->presentation ?? 'null', true));
++
++                foreach (json_decode($message->display_data ?? '{}', true) ?: [] as $key => $value) {
++                    $message->{$key} = $value;
++                }
++                unset($message->display_data);
++
++                return $message;
++            });
+ 
+         return new JsonResponse([
+             'conversation' => $conversation,
+@@ -69,32 +82,79 @@ public function show(int $id): JsonResponse
+     public function store(Request $request): JsonResponse
+     {
+         $request->validate([
+-            'title'              => ['nullable', 'string', 'max:255'],
+-            'messages'           => ['required', 'array'],
+-            'messages.*.role'    => ['required', 'in:user,assistant,system'],
+-            'messages.*.content' => ['required', 'string'],
++            'conversation_id'              => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
++            'metadata'                     => ['nullable', 'array', 'max:100'],
++            'messages.*.tool_calls'        => ['nullable', 'array', 'max:100'],
++            'messages.*.tokens_used'       => ['nullable', 'integer', 'min:0', 'max:2147483647'],
++            'title'                        => ['nullable', 'string', 'max:255'],
++            'messages'                     => ['required', 'array', 'max:100'],
++            'messages.*.request_id'        => ['nullable', 'uuid'],
++            'messages.*.message_id'        => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
++            'messages.*.presentation'      => ['nullable', 'array:type,id'],
++            'messages.*.presentation.type' => ['required_with:messages.*.presentation', 'string', 'max:64', 'regex:/^[a-z][a-z0-9.-]*$/'],
++            'messages.*.presentation.id'   => ['required_with:messages.*.presentation', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
++            'messages.*.role'              => ['required', 'in:user,assistant,system'],
++            'messages.*.content'           => ['present', 'string', 'max:50000'],
+         ]);
+ 
+         $userId = auth()->guard('admin')->id();
+ 
+-        $conversationId = DB::table('ai_agent_conversations')->insertGetId([
+-            'user_id'    => $userId,
+-            'title'      => $request->input('title', 'Chat '.now()->format('M d, H:i')),
+-            'metadata'   => json_encode($request->input('metadata', [])),
+-            'created_at' => now(),
+-            'updated_at' => now(),
+-        ]);
+-
+-        $messages = collect($request->input('messages'))->map(fn ($m): array => [
+-            'conversation_id' => $conversationId,
+-            'role'            => $m['role'],
+-            'content'         => $m['content'],
+-            'tool_calls'      => isset($m['tool_calls']) ? json_encode($m['tool_calls']) : null,
+-            'tokens_used'     => $m['tokens_used'] ?? 0,
+-            'created_at'      => now(),
+-        ]);
+-
+-        DB::table('ai_agent_messages')->insert($messages->toArray());
++        abort_if(strlen(json_encode($request->input('metadata', []))) > 65536, 422);
++        foreach ($request->input('messages') as $message) {
++            app(MessageDisplay::class)->normalize($message);
++            abort_if(strlen(json_encode($message['tool_calls'] ?? [])) > 65536, 422);
++        }
++        $conversationId = DB::transaction(function () use ($request, $userId) {
++            $clientId = $request->input('conversation_id') ?: (string) Str::uuid();
++            // The unique (user, client ID) pair handles simultaneous first saves.
++            // Lock that row before merging so later saves cannot race the inserts.
++            DB::table('ai_agent_conversations')->upsert([
++                'user_id'  => $userId, 'client_id' => $clientId,
++                'title'    => $request->input('title') ?: 'Chat '.now()->format('M d, H:i'),
++                'metadata' => json_encode($request->input('metadata') ?? new \stdClass), 'created_at' => now(), 'updated_at' => now(),
++            ], ['user_id', 'client_id'], ['updated_at']);
++            $conversation = DB::table('ai_agent_conversations')->where('user_id', $userId)->where('client_id', $clientId)->lockForUpdate()->first();
++            $id = $conversation->id;
++            // Additive metadata and immutable message identities prevent a delayed snapshot
++            // from erasing newer data. Explicit conversation deletion remains a separate route.
++            $metadata = json_decode($conversation->metadata ?? '{}', true) ?: [];
++            $metadata += $request->input('metadata') ?? [];
++            DB::table('ai_agent_conversations')->where('id', $id)->update(['metadata' => json_encode($metadata ?: new \stdClass)]);
++            foreach ($request->input('messages') as $index => $m) {
++                // Legacy snapshots have no message IDs. Position/role/content gives
++                // repeat saves a stable identity; editing a message needs a new ID.
++                $messageId = $m['message_id'] ?? hash('sha256', json_encode([$index, $m['role'], $m['content']]));
++                $existing = DB::table('ai_agent_messages')->where('conversation_id', $id)->where('message_id', $messageId)->first();
++                $display = app(MessageDisplay::class)->normalize($m);
++                if ($existing) {
++                    if ($existing->role === $m['role'] && $existing->content === $m['content']) {
++                        $saved = json_decode($existing->display_data ?? '{}', true) ?: [];
++                        // Upgrade old records using locally retained fields; stale saves cannot
++                        // replace saved results or turn a handled confirmation back into a prompt.
++                        $merged = $saved + $display;
++                        if (($saved['_confirmed'] ?? false) || ($display['_confirmed'] ?? false)) {
++                            $merged['_confirmed'] = true;
++                        }
++                        if ($merged !== $saved) {
++                            DB::table('ai_agent_messages')->where('id', $existing->id)->update(['display_data' => json_encode($merged)]);
++                        }
++                    }
++
++                    continue;
++                }
++                DB::table('ai_agent_messages')->insert([
++                    'conversation_id' => $id, 'role' => $m['role'], 'content' => $m['content'],
++                    'message_id'      => $messageId, 'request_id' => $m['request_id'] ?? null,
++                    'tool_calls'      => isset($m['tool_calls']) ? json_encode($m['tool_calls']) : null,
++                    'tokens_used'     => $m['tokens_used'] ?? 0,
++                    'presentation'    => json_encode(app(ResultRendererRegistry::class)->descriptor($m['presentation'] ?? null)),
++                    'display_data'    => json_encode($display),
++                    'created_at'      => now(),
++                ]);
++            }
++
++            return $id;
++        });
+ 
+         return new JsonResponse([
+             'id'    => $conversationId,
+diff --git a/packages/Webkul/AiAgent/src/Http/Requests/ChatRequest.php b/packages/Webkul/AiAgent/src/Http/Requests/ChatRequest.php
+index ce6f31d5..87a55699 100644
+--- a/packages/Webkul/AiAgent/src/Http/Requests/ChatRequest.php
++++ b/packages/Webkul/AiAgent/src/Http/Requests/ChatRequest.php
+@@ -41,8 +41,11 @@ public function rules(): array
+             }],
+             'platform_id'     => ['nullable', 'integer'],
+             'model'           => ['nullable', 'string', 'max:200'],
++            'extensions'      => ['nullable', 'array', 'max:10'],
++            'extensions.*'    => ['array'],
+             'context'         => ['nullable', 'array'],
+             'history'         => ['nullable', 'array'],
++            'request_id'      => ['nullable', 'uuid'],
+             'conversation_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
+         ];
+     }
+@@ -81,6 +84,10 @@ public function conversationId(): ?string
+      */
+     protected function prepareForValidation(): void
+     {
++        if (is_string($this->input('extensions'))) {
++            abort_if(strlen($this->input('extensions')) > 16384, 422);
++            $this->merge(['extensions' => json_decode($this->input('extensions'), true)]);
++        }
+         if (is_string($this->input('history'))) {
+             $this->merge(['history' => json_decode($this->input('history'), true) ?: []]);
+         }
+diff --git a/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php b/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php
+index 72713406..293e18c9 100644
+--- a/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php
++++ b/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php
+@@ -6,6 +6,8 @@
+ use Illuminate\Support\Facades\Route;
+ use Illuminate\Support\ServiceProvider;
+ use Webkul\AiAgent\Chat\AgentRunner;
++use Webkul\AiAgent\Chat\ExtensionRegistry;
++use Webkul\AiAgent\Chat\ResultRendererRegistry;
+ use Webkul\AiAgent\Chat\ToolRegistry;
+ use Webkul\AiAgent\Console\Commands\CatalogQualityMonitor;
+ use Webkul\AiAgent\Console\Commands\CleanupTempFiles;
+@@ -73,6 +75,7 @@ public function boot(): void
+      */
+     public function register(): void
+     {
++        $this->app->singleton(ExtensionRegistry::class);
+         $this->app->register(ModuleServiceProvider::class);
+ 
+         $this->registerConfig();
+@@ -125,6 +128,7 @@ protected function registerBindings(): void
+             return $registry;
+         });
+ 
++        $this->app->singleton(ResultRendererRegistry::class);
+         $this->app->singleton(AgentRunner::class);
+     }
+ }
+diff --git a/packages/Webkul/AiAgent/tests/JavaScript/README.md b/packages/Webkul/AiAgent/tests/JavaScript/README.md
+new file mode 100644
+index 00000000..e83027f3
+--- /dev/null
++++ b/packages/Webkul/AiAgent/tests/JavaScript/README.md
+@@ -0,0 +1,14 @@
++# Composer contract tests
++
++Run with Node 18 or later, without an application server or database:
++
++    node --test packages/Webkul/AiAgent/tests/JavaScript/composer-contract.test.cjs
++
++The Unit/ComposerContractTest.php bridge also runs this suite from the existing
++Pest AiAgent unit tests (Node must be on PATH).
++
++The harness evaluates the committed widget's JavaScript, substituting only
++server-rendered Blade values. Tests exercise actual component methods and
++computed properties. Small template assertions protect prop/event and selector
++bindings; this is not a substitute for authenticated browser acceptance.
++The send test captures FormData at a stub transport and makes no network call.
+diff --git a/packages/Webkul/AiAgent/tests/JavaScript/composer-contract.test.cjs b/packages/Webkul/AiAgent/tests/JavaScript/composer-contract.test.cjs
+new file mode 100644
+index 00000000..0134dfa6
+--- /dev/null
++++ b/packages/Webkul/AiAgent/tests/JavaScript/composer-contract.test.cjs
+@@ -0,0 +1,118 @@
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const {widget} = require('./widget-harness.cjs');
++
++test('composer receives draft/cursor and replacements update the native caret', () => {
++    const {widget: w, source} = widget();
++    assert.match(source, /:draft="inputText" :cursor="composerCursor"/);
++    assert.match(source, /@replace-draft="replaceComposerDraft"/);
++    const selection = [];
++    w.inputText = 'hello world';
++    w.$refs.textInput = {selectionStart: 6, focus() {}, setSelectionRange: (...args) => selection.push(args)};
++    w.autoResize = () => {};
++    w.composerInput();
++    assert.equal(w.composerCursor, 6);
++    w.replaceComposerDraft({start: 6, end: 11, text: '@Product 😀'});
++    assert.equal(w.inputText, 'hello @Product 😀');
++    // DOM caret offsets remain UTF-16 offsets; name limits count characters.
++    assert.equal(w.composerCursor, w.inputText.length);
++    assert.deepEqual(selection, [[w.inputText.length, w.inputText.length]]);
++    w.replaceComposerDraft({start: 0, end: 5, text: ''});
++    assert.equal(w.inputText, ' @Product 😀');
++    assert.equal(w.composerCursor, 0);
++});
++
++test('malformed, oversized and loading replacements cannot change a draft', () => {
++    const {widget: w} = widget();
++    w.inputText = 'keep'; w.composerCursor = 2;
++    const invalid = [null, {}, {start: -1, end: 1, text: 'x'}, {start: 3, end: 2, text: 'x'},
++        {start: 0, end: 5, text: 'x'}, {start: 0.5, end: 1, text: 'x'},
++        {start: '0', end: 1, text: 'x'}, {start: 0, end: 1, text: 1},
++        {start: 0, end: 1, text: 'x'.repeat(10001)}];
++    for (const change of invalid) {
++        w.replaceComposerDraft(change);
++        assert.equal(w.inputText, 'keep');
++        assert.equal(w.composerCursor, 2);
++    }
++    w.isLoading = true;
++    w.replaceComposerDraft({start: 0, end: 4, text: 'changed'});
++    assert.equal(w.inputText, 'keep');
++});
++
++test('consumed keys and IME do not send; unconsumed plain Enter sends once', () => {
++    const {widget: w} = widget();
++    let sends = 0, delegated = 0, prevented = 0;
++    w.send = () => { sends++; };
++    const event = {key: 'Enter', preventDefault() { prevented++; }};
++    w.composerRefs = {picker: {handleKey() { delegated++; return true; }}};
++    w.onComposerKey(event);
++    assert.equal(sends, 0);
++    w.onComposerKey({...event, isComposing: true});
++    assert.equal(delegated, 1);
++    w.composerRefs = {picker: {handleKey: () => false}, unmounted: null};
++    for (const modifier of ['shiftKey', 'ctrlKey', 'altKey', 'metaKey']) w.onComposerKey({...event, [modifier]: true});
++    assert.equal(sends, 0);
++    w.onComposerKey(event);
++    assert.equal(sends, 1);
++    assert.equal(prevented, 1);
++});
++
++test('highlight boundaries reject embedded mentions and preserve exact text', () => {
++    const {widget: w} = widget();
++    w.extensionContext = {fixture: {references: ['@Serum', '@Serum (2)', '@茶']}};
++    w.inputText = 'x@Serum é@Serum _@Serum 𝟙@Serum @SerumX @Serum-2; (@Serum), @Serum (2) @茶';
++    assert.deepEqual(Array.from(w.composerSegments.filter(p => p.reference), p => p.text), ['@Serum', '@Serum (2)', '@茶']);
++    assert.equal(w.composerSegments.map(p => p.text).join(''), w.inputText);
++});
++
++test('character-count bounds retain emoji labels without rendering markup', () => {
++    const {widget: w, source} = widget();
++    const label = '@' + '😀'.repeat(180);
++    w.extensionContext = {fixture: {references: [label, '@<img src=x>', '@' + 'x'.repeat(255)]}};
++    w.inputText = label + ' @<img src=x> @' + 'x'.repeat(255);
++    assert.deepEqual(Array.from(w.composerSegments.filter(p => p.reference), p => p.text), [label, '@<img src=x>']);
++    assert.match(source, /v-text="part.text"/);
++});
++
++test('single-model hint changes only visibility; switching restores native controls', () => {
++    const platforms = [
++        {id: -1, models: ['extension-chat'], hide_single_model: true},
++        {id: 1, models: ['native-model']},
++        {id: -2, models: ['a', 'b'], hide_single_model: true},
++        {id: -3, models: [], hide_single_model: true},
++        {id: -4, models: ['c'], hide_single_model: 'true'},
++    ];
++    const {widget: w, source} = widget(platforms);
++    w.saveState = () => {};
++    assert.match(source, /v-if="!hideSingleModelSelector"\s+v-model="selectedModel"/);
++    assert.equal(w.hideSingleModelSelector, true);
++    assert.equal(w.selectedModel, 'extension-chat');
++    for (const id of [1, -2, -3, -4, 999]) {
++        w.selectedPlatformId = id; w.onPlatformChange();
++        assert.equal(w.hideSingleModelSelector, false, 'platform ' + id);
++    }
++    w.selectedPlatformId = 1; w.onPlatformChange();
++    assert.equal(w.selectedModel, 'native-model');
++    w.selectedPlatformId = -1; w.onPlatformChange();
++    assert.equal(w.selectedModel, 'extension-chat');
++    assert.equal(w.hideSingleModelSelector, true);
++});
++
++test('actual send retains hidden model and snapshots composer attachments', async () => {
++    let request;
++    const {widget: w} = widget([{id: -1, models: ['extension-chat'], hide_single_model: true}], {
++        fetch: (url, options) => { request = options; return new Promise(() => {}); },
++    });
++    w.inputText = 'edit @Product'; w.activeSessionId = 'fixture-conversation';
++    w.extensionContext = {fixture: {references: ['@Product'], token: 'opaque-fixture'}};
++    w.resetTextarea = w.scrollBottom = () => {};
++    // Stop at the intercepted transport; no server or provider is involved.
++    void w.send();
++    await Promise.resolve();
++    assert.equal(w.hideSingleModelSelector, true);
++    assert.equal(request.body.get('model'), 'extension-chat');
++    assert.equal(request.body.get('platform_id'), '-1');
++    assert.deepEqual(JSON.parse(request.body.get('extensions')), {fixture: {references: ['@Product'], token: 'opaque-fixture'}});
++    w.extensionContext.fixture.token = 'later';
++    assert.equal(JSON.parse(request.body.get('extensions')).fixture.token, 'opaque-fixture');
++});
+diff --git a/packages/Webkul/AiAgent/tests/JavaScript/widget-harness.cjs b/packages/Webkul/AiAgent/tests/JavaScript/widget-harness.cjs
+new file mode 100644
+index 00000000..f09281be
+--- /dev/null
++++ b/packages/Webkul/AiAgent/tests/JavaScript/widget-harness.cjs
+@@ -0,0 +1,69 @@
++// Execute the actual Blade component, substituting server-rendered values only.
++const fs = require('node:fs');
++const vm = require('node:vm');
++const {webcrypto} = require('node:crypto');
++const path = require('node:path');
++
++function directive(source, name, value) {
++    const start = source.indexOf('@' + name + '(');
++    if (start < 0) return source;
++    let depth = 1, quote = null, end = start + name.length + 2;
++    for (; depth && end < source.length; end++) {
++        const c = source[end];
++        if (quote) {
++            if (c === '\\') end++;
++            else if (c === quote) quote = null;
++        } else if (c === "'" || c === '"') quote = c;
++        else if (c === '(') depth++;
++        else if (c === ')') depth--;
++    }
++    if (depth) throw Error('Unclosed Blade directive');
++    return directive(source.slice(0, start) + value + source.slice(end), name, value);
++}
++
++function compileModules(file, values = {}) {
++    const source = fs.readFileSync(file, 'utf8');
++    const scripts = [...source.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)];
++    if (!scripts.length) throw Error('No component scripts in ' + file);
++    let javascript = scripts.map(m => m[1]).join('\n');
++    for (const [expression, value] of Object.entries(values)) javascript = javascript.replaceAll(expression, JSON.stringify(value));
++    javascript = directive(javascript, 'json', '{}');
++    javascript = directive(javascript, 'lang', 'translation');
++    javascript = javascript.replace(/\{\{[\s\S]*?\}\}/g, 'null');
++    return {source, javascript};
++}
++
++function loadComponents(file, globals = {}, values = {}) {
++    const {source, javascript} = compileModules(file, values);
++    const components = {};
++    vm.runInNewContext(javascript, {
++        app: {component: (name, definition) => { components[name] = definition; }},
++        crypto: webcrypto, FormData, URL,
++        sessionStorage: {getItem: () => null, setItem() {}},
++        window: {location: {pathname: '/fixture'}, addEventListener() {}, removeEventListener() {}},
++        document: {hidden: false, addEventListener() {}, removeEventListener() {}},
++        setTimeout: () => 1, clearTimeout() {},
++        fetch: () => { throw Error('Unexpected network request'); },
++        ...globals,
++    }, {filename: file});
++    return {source, components};
++}
++
++function instance(component, props = {}) {
++    const context = {...props, $refs: {}, $nextTick: callback => callback()};
++    Object.assign(context, component.data?.call(context));
++    for (const [name, fn] of Object.entries(component.methods || {})) context[name] = fn.bind(context);
++    for (const [name, fn] of Object.entries(component.computed || {})) Object.defineProperty(context, name, {get: () => fn.call(context), configurable: true});
++    return context;
++}
++
++const widgetFile = path.resolve(__dirname, '../../Resources/views/components/chat-widget.blade.php');
++function widget(platforms = [], globals = {}) {
++    const loaded = loadComponents(widgetFile, globals, {
++        '@json($aiPlatforms)': platforms,
++        '@json($openByDefault)': false,
++        "{{ $defaultPlatformId ?? 'null' }}": platforms[0]?.id ?? null,
++    });
++    return {...loaded, widget: instance(loaded.components['v-agenting-pim'])};
++}
++module.exports = {compileModules, loadComponents, instance, widget, widgetFile};
+diff --git a/packages/Webkul/AiAgent/tests/Unit/ComposerContractTest.php b/packages/Webkul/AiAgent/tests/Unit/ComposerContractTest.php
+new file mode 100644
+index 00000000..153a7eca
+--- /dev/null
++++ b/packages/Webkul/AiAgent/tests/Unit/ComposerContractTest.php
+@@ -0,0 +1,11 @@
++<?php
++
++use Symfony\Component\Process\Process;
++
++it('executes the composer and model-selector behavior from the actual widget', function () {
++    $process = new Process(['node', '--test', __DIR__.'/../JavaScript/composer-contract.test.cjs']);
++    $process->setTimeout(30);
++    $process->run();
++
++    expect($process->getExitCode())->toBe(0, $process->getOutput().$process->getErrorOutput());
++});
