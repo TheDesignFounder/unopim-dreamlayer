@@ -66,6 +66,12 @@ The source checkout's XML defaults to the session's isolated PostgreSQL fixture 
 
 Build the fixture-free ZIP from the reviewed Git commit with `python tools/build_release.py` in the source checkout. It uses a tracked-file allowlist and verifies every archived byte against HEAD.
 
-This package is a technical review candidate, not a live-pilot approval. It has not been published or submitted to a marketplace. Earlier local real-provider and Google acceptance evidence is preserved in the review bundle. This candidate still needs the final acceptance pass in the selected pilot environment and Webkul’s review of the core patch. Use evidence for the exact candidate being reviewed; simulated providers do not establish live behavior.
+The extension source is MIT licensed. Publication of the source does not deploy
+DreamLayer services, publish to a marketplace, or submit the generic core change
+to Webkul. The owner accepted the fresh install, connection and real image flow
+on runtime 0.2.12. Version 0.2.13 preserves that runtime and adds installation and
+review documentation. Use [NEW_USER_TEST.md](../NEW_USER_TEST.md) for release
+verification, including reconnect/revoke. Windows execution is unverified.
+
 
 Connection attempts use encrypted, ten-minute entries in Laravel’s configured cache with an atomic lock, scoped to the administrator and authenticated session. Use a lock-capable shared cache (for example Redis) for multiple web replicas; local file cache is suitable only when those processes share the same storage. Clearing the cache requires starting connection again, but never removes the saved encrypted credential. After clearing pending connection state, start Connect again.

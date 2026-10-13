@@ -4,8 +4,10 @@ Use a fresh UnoPIM checkout with a separate database and storage. Follow the
 [README](README.md#install), or [Windows/WSL guide](docs/WINDOWS_INSTALL.md), using
 the public repository and tag `0.2.13`. Record both Git commits and the environment.
 
-Complete [the installation, connection, picker, preview, Apply and history
-checklist](docs/FRESH_INSTALL_TEST.md). Check sidebar navigation in both themes
+Complete [the installation, connection and picker checklist](docs/FRESH_INSTALL_TEST.md).
+The optional image edit/Apply section spends image credits; record separately
+whether it was exercised in this run or covered by earlier accepted runtime
+evidence. Do not report earlier evidence as a new provider call. Check sidebar navigation in both themes
 before refreshing: spacing, status chip, buttons and the double-diamond icons
 must be correct. Confirm Copy becomes Copied, Chat & Images is the default,
 Select Product Image opens the picker, and progress details start expanded.

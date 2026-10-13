@@ -2,13 +2,13 @@
 
 Use a new UnoPIM checkout and a separate database/storage location. Keep the
 currently working installation available until this test passes. This guide is
-for the **0.2.13 local review candidate**; it supersedes older rehearsal instructions
+for the **0.2.13 source release candidate**; it supersedes older rehearsal instructions
 for 0.2.3–0.2.12. The owner completed the installation, connection and generation flow on macOS/Docker using runtime 0.2.12. This checklist remains available for reviewers; Windows execution is not yet verified. See [Windows setup](WINDOWS_INSTALL.md).
 
 ## Record the starting point
 
 Record the downloaded UnoPIM revision, package version and archive checksum. The
-full generic patch targets the preserved 3.x baseline `614139f5b2267022e1a585d6653ac5cd50cf6faf`.
+full generic patch targets the upstream 3.x revision `d29ffdcd7b26527dd6a06d24c90d3e787cbb9b00`.
 A newly downloaded revision may differ: `git apply --check` must pass before
 application. If it does not, keep the error and reconcile the source revision;
 do not force a partial patch or apply the full patch twice.
@@ -89,7 +89,7 @@ button must not resubmit work. Local checkout may be disabled; record that
 separately from whether the link works. Do not repeatedly submit an uncertain
 request; inspect its saved status and worker logs first.
 
-## Record the result before PR submission
+## Record the result
 
 | Check | Result (PASS / FAIL / NOT RUN) | Evidence |
 | --- | --- | --- |
@@ -103,5 +103,5 @@ request; inspect its saved status and worker logs first.
 
 Record failures with their exact steps and logs, excluding keys, cookies and
 tokens. Automated regression results are listed in the review handoff; they do
-not substitute for this fresh-install run. Submit the PR only after the owner
-has completed this acceptance and authorized submission.
+not substitute for this fresh-install run. Publishing this package does not submit the separate generic core change or
+DreamLayer service changes for review.

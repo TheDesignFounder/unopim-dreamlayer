@@ -21,6 +21,20 @@ application runtime is unchanged from that accepted version.
 - UnoPIM's database queue tables, a supervised queue worker and the Laravel scheduler.
 - Access to a DreamLayer account or API key issued by the configured DreamLayer environment. English (`en_US`) is the initial supported locale.
 
+## Standard UnoPIM without the hooks
+
+This version requires the generic core compatibility patch. Installing it on
+unmodified UnoPIM does **not** fall back to a standalone settings page or chat.
+Its service provider stops application boot with:
+
+> DreamLayer requires the UnoPIM 3.x generic chat hooks patch. See patches/ and installation instructions.
+
+Composer's package-discovery script can fail during installation, and web/Artisan
+requests cannot boot while the extension remains enabled without the hooks.
+Apply the matching core patch **before** `composer require`. This prerequisite
+also applies when installing from the public Git repository. A standard UnoPIM
+release alone is not sufficient until compatible hooks are included upstream.
+
 ## Install
 
 **Windows:** follow [the WSL 2 and Docker guide](docs/WINDOWS_INSTALL.md), including
