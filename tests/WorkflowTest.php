@@ -118,8 +118,49 @@ final class WorkflowTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_unchanged_successful_polls_keep_long_running_work_live_on_both_api_paths(): void
+    {
+        foreach (['execute_v1', 'workflow_v1'] as $path) {
+            $w = $this->generate();
+            $upstream = (string) Str::uuid();
+            $progress = [['description' => 'Generating image', 'status' => 'running']];
+            $w->update(['execution_path' => $path, 'status' => 'running',
+                'upstream_execution_id' => $path === 'execute_v1' ? $upstream : null,
+                'upstream_workflow_id' => $path === 'workflow_v1' ? $upstream : null,
+                'progress' => $path === 'workflow_v1' ? $progress : null]);
+            Http::fake([Client::BASE_URL.($path === 'execute_v1' ? '/executions/' : '/image-workflows/').$upstream => Http::response(['contract_version' => 1, 'workflow_id' => $upstream,
+                'execution_id' => $upstream, 'status' => 'running', 'steps' => $progress])]);
+            // Each identical poll used to leave updated_at unchanged. After two
+            // minutes the UI called healthy work delayed and recovery scanned it.
+            for ($i = 0; $i < 3; $i++) {
+                $this->travel(121)->seconds();
+                $this->assertTrue($w->fresh()->delayed());
+                (new RunWorkflow($w->id))->handle();
+                $this->assertFalse($w->fresh()->delayed(), $path);
+                $this->assertSame('running', $w->fresh()->status);
+            }
+            Http::assertSentCount(3);
+        }
+        Http::assertNotSent(fn ($request) => $request->method() !== 'GET');
+    }
+
+    public function test_recovery_refuses_a_non_database_extension_queue_before_reading_or_dispatching(): void
+    {
+        $w = $this->generate();
+        $w->update(['updated_at' => now()->subMinutes(3)]);
+        // An invalid table makes any accidental SQL access fail the test.
+        config(['queue.connections.dreamlayer.driver' => 'redis',
+            'queue.connections.dreamlayer.table' => 'must_not_be_queried']);
+        $this->artisan('dreamlayer:recover')
+            ->expectsOutputToContain('requires the dreamlayer queue connection to use the database driver')
+            ->assertFailed();
+        Queue::assertPushed(RunWorkflow::class, 1); // Admission only; no recovery delivery.
+        Http::assertNothingSent();
+    }
+
     public function test_recovery_preserves_existing_queue_jobs_and_rebuilds_only_missing_jobs(): void
     {
+        config(['queue.default' => 'redis']); // Only the extension's connection must be database-backed.
         $w = $this->generate(); // Fake admission; exercise recovery against the real test database queue.
         $w->update(['updated_at' => now()->subMinutes(3)]);
         Queue::swap($this->realQueue);

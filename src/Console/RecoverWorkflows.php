@@ -18,6 +18,14 @@ class RecoverWorkflows extends Command
 
     public function handle(): int
     {
+        // Recovery checks durable database payloads before dispatching. A different
+        // driver cannot provide that deduplication contract; do not guess and requeue.
+        if (config('queue.connections.dreamlayer.driver') !== 'database') {
+            $this->error('DreamLayer recovery requires the dreamlayer queue connection to use the database driver. The default UnoPIM queue may use another driver.');
+
+            return self::FAILURE;
+        }
+
         Batch::whereIn('status', ['queued', 'running'])->where('updated_at', '<', now()->subMinutes(2))->each(fn ($b) => $this->dispatchMissing($b, RunBatch::class));
         Workflow::whereNotIn('status', ['completed', 'failed'])->where('updated_at', '<', now()->subMinutes(2))->chunkById(100, function ($rows) {
             foreach ($rows as $w) {

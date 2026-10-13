@@ -75,3 +75,17 @@ verification, including reconnect/revoke. Windows execution is unverified.
 
 
 Connection attempts use encrypted, ten-minute entries in Laravel’s configured cache with an atomic lock, scoped to the administrator and authenticated session. Use a lock-capable shared cache (for example Redis) for multiple web replicas; local file cache is suitable only when those processes share the same storage. Clearing the cache requires starting connection again, but never removes the saved encrypted credential. After clearing pending connection state, start Connect again.
+
+## Queue connection and delayed status (0.2.14)
+
+The extension registers its own `dreamlayer` database queue. UnoPIM's default
+queue can still use Redis or another driver. Keep `queue.connections.dreamlayer.driver`
+set to `database`: recovery deduplicates against that connection's durable job
+rows. If overridden, `dreamlayer:recover` exits with an actionable error before
+querying job tables or dispatching recovery jobs. Restore that configuration and
+restart the extension worker before running recovery again.
+
+A valid, successful status poll refreshes the workflow heartbeat even when the
+reported step has not changed. Edits that take longer than two minutes therefore
+remain running. If polls stop, the existing two-minute delayed indication still
+appears. Status reads from the browser do not refresh the heartbeat.

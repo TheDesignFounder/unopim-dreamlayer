@@ -4,9 +4,13 @@
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
-This is the review package, version **0.2.13**. Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
+This is the review package, version **0.2.14** (local candidate; not tagged or published yet). Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
 
-Version 0.2.13 includes the 0.2.12 correction for missing page styles when entering DreamLayer through UnoPIM's
+Version 0.2.14 also fixes picker rows moving while hovering over images of different shapes, so a click reliably selects the intended product.
+
+This candidate updates the bundled core patch to PR #770 commit `c3fefa34` so completed results survive a later stream error. Successful polls keep long-running edits from appearing delayed, and recovery refuses unsupported queue drivers. See [core patch upgrade instructions](docs/CORE_PATCH.md).
+
+It also includes the 0.2.12 correction for missing page styles when entering DreamLayer through UnoPIM's
 sidebar. Upgrading from 0.2.11 does not change the core patch or database schema;
 update the package, clear compiled views and restart the web process if its PHP
 opcode cache does not check changed files. Do not apply the core patch again.
@@ -55,7 +59,7 @@ Clone the tagged source from the public repository into the host's shared tree:
 
 ```sh
 mkdir -p packages/DreamLayer
-git clone --branch 0.2.13 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
+git clone --branch 0.2.14 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
 ```
 
 **If the generic core hooks are already installed, skip this next block.**
@@ -71,7 +75,7 @@ Do not force the patch or apply it twice. Install the cloned Composer package:
 
 ```sh
 composer config repositories.dreamlayer path packages/DreamLayer/unopim-dreamlayer
-composer require dreamlayer/unopim-dreamlayer:0.2.13 --minimal-changes
+composer require dreamlayer/unopim-dreamlayer:0.2.14 --minimal-changes
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```

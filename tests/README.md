@@ -66,3 +66,20 @@ Back and direct loads in light/dark themes. It verifies navigation did not fall
 back to a reload. Connection-code requests are fulfilled inside the browser;
 other non-login writes and requests to external origins are blocked. It does
 not connect an account, send chat, apply images or run paid work.
+
+For picker layout and actual Vue composer updates, without any running service:
+
+```sh
+UNOPIM_HOST_ROOT=/path/to/patched-host \
+  PLAYWRIGHT_MODULE=/path/to/existing/@playwright/test \
+  CHROME_PATH=/path/to/chrome \
+  node tests/fixtures/browser-picker-layout.cjs
+```
+
+This uses synthetic tall/wide catalog images and the existing admin bundle. It
+checks that changing the hovered preview does not move the selection row, mouse
+selection inserts the name and chip, and Enter selects a reference. All requests
+are fulfilled in the browser; no account, chat submission or provider is used.
+For before/after diagnosis, `PICKER_TEST_VIEW` and `UNOPIM_TEST_WIDGET_FILE` can
+point at the corresponding saved Blade sources. Normal runs use this checkout
+and the patched host.

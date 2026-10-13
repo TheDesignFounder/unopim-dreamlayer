@@ -89,7 +89,7 @@ mounted checkout. Web, worker and scheduler must all see this directory:
 ```sh
 cd ~/dreamlayer-review/unopim
 mkdir -p packages/DreamLayer
-git clone --branch 0.2.13 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
+git clone --branch 0.2.14 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
 ```
 
 For reproducibility, record `git -C packages/DreamLayer/unopim-dreamlayer rev-parse HEAD`
@@ -112,7 +112,7 @@ the mounted UnoPIM checkout, so the package is visible to web and worker service
 
 ```sh
 docker compose -f compose.dev.yaml exec -T unopim-fpm composer config repositories.dreamlayer path /var/www/html/packages/DreamLayer/unopim-dreamlayer
-docker compose -f compose.dev.yaml exec -T unopim-fpm composer require dreamlayer/unopim-dreamlayer:0.2.13 --minimal-changes
+docker compose -f compose.dev.yaml exec -T unopim-fpm composer require dreamlayer/unopim-dreamlayer:0.2.14 --minimal-changes
 docker compose -f compose.dev.yaml exec -T unopim-fpm php artisan migrate --no-interaction
 docker compose -f compose.dev.yaml exec -T unopim-fpm php artisan optimize:clear
 ```

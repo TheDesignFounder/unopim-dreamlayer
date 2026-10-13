@@ -8,7 +8,7 @@ Composer package.
 | Source | Revision |
 | --- | --- |
 | Upstream UnoPIM 3.x base | `d29ffdcd7b26527dd6a06d24c90d3e787cbb9b00` |
-| Generic core candidate | `5cbfd1f7a95f257b34f2b152e9dbd7f3dc7b34af` (rebased onto the 3.x base above) |
+| Generic core candidate | `c3fefa34ea96fefded6a880b523108dfe49540b8` (PR #770 head; based on 3.x above) |
 | Included hook capability | `COMPOSER_REFERENCES = 2` |
 
 
@@ -40,8 +40,19 @@ implementation is patched.
 ## Host already using the hooks
 
 Do not apply the full patch again. Compare the installed hooks with the bundled
-patch and reconcile changes against the exact installed version. Historical
-incremental patches are not included in this public release. The generic core
+patch and reconcile changes against the exact installed version. For an unmodified 0.2.13 bundled patch (`5cbfd1f7`), this candidate includes
+an incremental update:
+
+```sh
+git apply --check /path/to/extension/patches/unopim-3x-chat-hooks-0.2.13-to-0.2.14.patch
+git apply /path/to/extension/patches/unopim-3x-chat-hooks-0.2.13-to-0.2.14.patch
+php artisan optimize:clear
+```
+
+Back up the installed files first. If the check fails because changes are already
+applied or the host has custom edits, reconcile against `c3fefa34`; do not force it.
+Restart PHP workers when OPcache does not check timestamps. The incremental patch
+adds no migrations beyond the four already installed with 0.2.13. The generic core
 change is a separate upstream proposal. This release still requires the bundled
 patch until compatible hooks are included in your installed UnoPIM version.
 
@@ -58,3 +69,5 @@ Older independent review at `3dd2e0b` remains historical evidence; it is not a n
 independent review of this annotated candidate. The owner confirmed successful fresh installation, connection and image
 generation on 2026-10-13. The 0.2.12 navigation-style regression passes 18 browser
 scenarios; 0.2.13 adds Windows instructions without changing application behavior.
+
+Version 0.2.14 includes both the completion-listener history fix and its PHP/JavaScript regressions from `c3fefa34`. The new paid acceptance run remains on hold; free picker and history checks are separate evidence.

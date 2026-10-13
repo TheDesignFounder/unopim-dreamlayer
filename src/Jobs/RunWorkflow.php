@@ -95,7 +95,9 @@ class RunWorkflow implements ShouldQueue
                     if (($execution['status'] ?? '') === 'completed') {
                         return $this->deliver($w, $client, $execution['image_job']['finished_assets'][0]['download_url'] ?? '', null);
                     }
-                    $w->update(['status' => 'running', 'progress' => null, 'error' => null]);
+                    // An unchanged healthy poll is still a heartbeat. Eloquent otherwise
+                    // leaves updated_at unchanged and the UI incorrectly reports a delay.
+                    $w->update(['status' => 'running', 'progress' => null, 'error' => null, 'updated_at' => now()]);
 
                     return true;
                 }
@@ -148,7 +150,8 @@ class RunWorkflow implements ShouldQueue
                 if (($remote['status'] ?? '') === 'completed') {
                     return $this->deliver($w, $client, $remote['image']['download_url'] ?? '', $progress);
                 }
-                $w->update(['progress' => $progress, 'status' => 'running', 'error' => null]);
+                // Refresh liveness even when the same step is still running.
+                $w->update(['progress' => $progress, 'status' => 'running', 'error' => null, 'updated_at' => now()]);
             } catch (ApiException $e) {
                 if (in_array($e->status, [400, 401, 402, 403, 404, 409, 422], true)) {
                     $w->update(['status' => 'failed', 'error_code' => $e->status, 'error' => $e->getMessage()]);
