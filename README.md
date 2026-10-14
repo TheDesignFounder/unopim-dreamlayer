@@ -1,14 +1,14 @@
 # DreamLayer for UnoPIM
 
-> **Release status (2026-10-14 21:45 UTC): live validation complete; this branch is still an unreleased candidate.** The DreamLayer API is live. With this candidate's default console URL the live flow passed end to end: account connection, one paid image edit, revoke detection, reconnect after a revoke, reconnect while already connected (after the server-side key-limit fix deployed on 2026-10-14), Disconnect, and onboarding with the shipped defaults. The published 0.2.14 release needs `DREAMLAYER_PLATFORM_URL=https://platform.dreamlayer.io` to connect to the live API; this candidate fixes that default.
+> **Release 0.2.15 (2026-10-14).** The DreamLayer API is live. This release fixes the default console address (`https://platform.dreamlayer.io`), so a fresh installation connects without any environment override; a 0.2.14 installation that explicitly set `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io` must change it to `https://platform.dreamlayer.io` and clear the configuration cache. The full live flow was validated on 2026-10-14: account connection, one paid image edit, revoke detection, reconnect after a revoke, reconnect while already connected (after the server-side key-limit fix), Disconnect, and onboarding with the shipped defaults. No core patch or database change since 0.2.14: update the package, clear the configuration and view caches, and restart PHP workers.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
-This is the review package, version **0.2.14** (local candidate; not tagged or published yet). Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
+This is version **0.2.15**. Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
 
 Version 0.2.14 also fixes picker rows moving while hovering over images of different shapes, so a click reliably selects the intended product.
 
-This candidate updates the bundled core patch to PR #770 commit `c3fefa34` so completed results survive a later stream error. Successful polls keep long-running edits from appearing delayed, and recovery refuses unsupported queue drivers. See [core patch upgrade instructions](docs/CORE_PATCH.md).
+Version 0.2.14 updated the bundled core patch to PR #770 commit `c3fefa34` so completed results survive a later stream error. Successful polls keep long-running edits from appearing delayed, and recovery refuses unsupported queue drivers. See [core patch upgrade instructions](docs/CORE_PATCH.md).
 
 It also includes the 0.2.12 correction for missing page styles when entering DreamLayer through UnoPIM's
 sidebar. Upgrading from 0.2.11 does not change the core patch or database schema;
@@ -59,7 +59,7 @@ Clone the tagged source from the public repository into the host's shared tree:
 
 ```sh
 mkdir -p packages/DreamLayer
-git clone --branch 0.2.14 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
+git clone --branch 0.2.15 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
 ```
 
 **If the generic core hooks are already installed, skip this next block.**
@@ -75,7 +75,7 @@ Do not force the patch or apply it twice. Install the cloned Composer package:
 
 ```sh
 composer config repositories.dreamlayer path packages/DreamLayer/unopim-dreamlayer
-composer require dreamlayer/unopim-dreamlayer:0.2.14 --minimal-changes
+composer require dreamlayer/unopim-dreamlayer:0.2.15 --minimal-changes
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```
