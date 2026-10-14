@@ -1,6 +1,6 @@
 # DreamLayer for UnoPIM
 
-> **Release status (2026-10-14):** The DreamLayer API is live. This published 0.2.14 package ships with the wrong default console address, so it connects to the live service only when the host sets `DREAMLAYER_PLATFORM_URL=https://platform.dreamlayer.io` (and clears the configuration cache). The next release fixes that default. Known limitation: *Connect another account* while already connected fails with "Connection denied" when the DreamLayer account already holds 5 active API keys; disconnect first or revoke an unused key in the DreamLayer console. The server-side fix (Abloh PR #528) is merged and being deployed.
+> **Release status (2026-10-14):** The DreamLayer API is live and the full connection flow (connect, reconnect after a revoke, reconnect while connected, disconnect) has been validated live. This published 0.2.14 package ships with the wrong default console address, so it connects to the live service only when the host sets `DREAMLAYER_PLATFORM_URL=https://platform.dreamlayer.io` (and clears the configuration cache). The next release fixes that default.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
