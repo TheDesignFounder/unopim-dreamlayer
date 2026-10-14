@@ -1,6 +1,6 @@
 # DreamLayer for UnoPIM
 
-> **Release status: live validation is incomplete.** The paid image-edit step passed on 0.2.14, but the full reconnect/disconnect flow and browser acceptance of this revised core are still pending. This candidate is not validated for production use. Keep this warning until the required live flow and browser checks pass.
+> **Release status (2026-10-14 18:00 UTC): review candidate, not a published release.** The DreamLayer API is live. Browser acceptance of this revised core (result cards, picker and composer controls, opt-in saved history, regeneration including a stale tab and a migrated legacy conversation, default console URL) passed on a disposable host on 2026-10-14 with no paid image edit. On 0.2.14 the live flow passed account connection, one paid edit, revoke detection, reconnect after a revoke and Disconnect. Still blocked: *Connect another account* while already connected fails with "Connection denied" when the DreamLayer account already holds 5 active API keys; the server-side fix (Abloh PR #528) is merged and being deployed, and this note stays until that reconnect passes against the deployed fix.
 
 > **Review branch:** This unreleased compatibility candidate follows Webkul's requested split of the core chat hooks. Automated verification is separate from the browser release checks; this branch does not declare a new production release.
 
