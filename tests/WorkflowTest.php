@@ -2,6 +2,7 @@
 
 use DreamLayer\UnoPIM\Chat\Tools\GenerateImage;
 use DreamLayer\UnoPIM\Jobs\RunWorkflow;
+use DreamLayer\UnoPIM\Models\Batch;
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Models\Workflow;
 use DreamLayer\UnoPIM\Services\Client;
@@ -9,6 +10,7 @@ use DreamLayer\UnoPIM\Services\PendingConnection;
 use DreamLayer\UnoPIM\Services\ProductImages;
 use DreamLayer\UnoPIM\Services\Workflows;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Queue\QueueManager;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Tools\Request;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 use Webkul\AiAgent\Chat\ChatContext;
@@ -34,7 +37,7 @@ final class WorkflowTest extends TestCase
 {
     private Admin $admin;
 
-    private Illuminate\Queue\QueueManager $realQueue;
+    private QueueManager $realQueue;
 
     private function pending(?array $attempt = null): ?array
     {
@@ -125,11 +128,11 @@ final class WorkflowTest extends TestCase
             $upstream = (string) Str::uuid();
             $progress = [['description' => 'Generating image', 'status' => 'running']];
             $w->update(['execution_path' => $path, 'status' => 'running',
-                'upstream_execution_id' => $path === 'execute_v1' ? $upstream : null,
-                'upstream_workflow_id' => $path === 'workflow_v1' ? $upstream : null,
-                'progress' => $path === 'workflow_v1' ? $progress : null]);
+                'upstream_execution_id'  => $path === 'execute_v1' ? $upstream : null,
+                'upstream_workflow_id'   => $path === 'workflow_v1' ? $upstream : null,
+                'progress'               => $path === 'workflow_v1' ? $progress : null]);
             Http::fake([Client::BASE_URL.($path === 'execute_v1' ? '/executions/' : '/image-workflows/').$upstream => Http::response(['contract_version' => 1, 'workflow_id' => $upstream,
-                'execution_id' => $upstream, 'status' => 'running', 'steps' => $progress])]);
+                'execution_id'                                                                                                                           => $upstream, 'status' => 'running', 'steps' => $progress])]);
             // Each identical poll used to leave updated_at unchanged. After two
             // minutes the UI called healthy work delayed and recovery scanned it.
             for ($i = 0; $i < 3; $i++) {
@@ -150,7 +153,7 @@ final class WorkflowTest extends TestCase
         $w->update(['updated_at' => now()->subMinutes(3)]);
         // An invalid table makes any accidental SQL access fail the test.
         config(['queue.connections.dreamlayer.driver' => 'redis',
-            'queue.connections.dreamlayer.table' => 'must_not_be_queried']);
+            'queue.connections.dreamlayer.table'      => 'must_not_be_queried']);
         $this->artisan('dreamlayer:recover')
             ->expectsOutputToContain('requires the dreamlayer queue connection to use the database driver')
             ->assertFailed();
@@ -187,11 +190,11 @@ final class WorkflowTest extends TestCase
     public function test_recovery_waits_for_batch_admission_before_dispatching_a_child(): void
     {
         $w = $this->generate();
-        $batch = DreamLayer\UnoPIM\Models\Batch::create([
-            'id' => (string) Str::uuid(), 'user_id' => $this->admin->id,
+        $batch = Batch::create([
+            'id'              => (string) Str::uuid(), 'user_id' => $this->admin->id,
             'conversation_id' => $w->conversation_id, 'request_id' => (string) Str::uuid(),
-            'fingerprint' => str_repeat('a', 64), 'credential_version' => $w->credential_version,
-            'api_url' => $w->api_url, 'children' => [$w->id], 'updated_at' => now()->subMinutes(3),
+            'fingerprint'     => str_repeat('a', 64), 'credential_version' => $w->credential_version,
+            'api_url'         => $w->api_url, 'children' => [$w->id], 'updated_at' => now()->subMinutes(3),
         ]);
         $w->update(['batch_id' => $batch->id, 'updated_at' => now()->subMinutes(3)]);
         Queue::swap($this->realQueue);
@@ -374,7 +377,7 @@ final class WorkflowTest extends TestCase
         return [['workflow_v1'], ['execute_v1'], ['admission']];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('creditFailurePaths')]
+    #[DataProvider('creditFailurePaths')]
     public function test_credit_failure_keeps_its_reason_and_billing_link_without_resubmitting(string $path): void
     {
         config(['dreamlayer.billing_url' => 'https://dreamlayer.example/console/billing']);
@@ -387,7 +390,7 @@ final class WorkflowTest extends TestCase
             $w->update(['execution_path' => 'workflow_v1', 'upstream_workflow_id' => $path === 'admission' ? null : $id]);
             Http::fake(['*/image-workflows*' => $path === 'admission' ? Http::response([], 402) : Http::response([
                 'workflow_id' => $id, 'status' => 'failed', 'error_code' => 402, 'error' => 'Untrusted upstream text',
-                'steps' => [['description' => 'Requested edit', 'status' => 'failed']],
+                'steps'       => [['description' => 'Requested edit', 'status' => 'failed']],
             ])]);
         }
         (new RunWorkflow($w->id))->handle();
@@ -482,7 +485,7 @@ final class WorkflowTest extends TestCase
     {
         config(['dreamlayer.connections_enabled'=>true]);
         $secret = 'dl_live_inst_'.str_repeat('q', 40);
-        Http::fake(['*/device-authorization'=>Http::response(['device_code'=>'private-device-secret', 'user_code'=>'BCDF-2345', 'verification_uri'=>'https://dreamlayer.io/console/connect', 'expires_in'=>600, 'interval'=>5]), '*/token'=>Http::response(['access_token'=>$secret, 'connection_id'=>(string) Str::uuid()])]);
+        Http::fake(['*/device-authorization'=>Http::response(['device_code'=>'private-device-secret', 'user_code'=>'BCDF-2345', 'verification_uri'=>config('dreamlayer.platform_url').'/console/connect', 'expires_in'=>600, 'interval'=>5]), '*/token'=>Http::response(['access_token'=>$secret, 'connection_id'=>(string) Str::uuid()])]);
         $this->postJson(route('dreamlayer.connect'))->assertOk()->assertJsonMissingPath('device_code');
         $d = $this->pending();
         $d['next_poll'] = time() - 1;
@@ -495,7 +498,7 @@ final class WorkflowTest extends TestCase
     public function test_stale_session_response_cannot_replace_pending_connection(): void
     {
         config(['dreamlayer.connections_enabled' => true]);
-        Http::fake(['*/device-authorization' => Http::response(['device_code' => 'new-private-device', 'user_code' => 'BCDF-2345', 'verification_uri' => 'https://dreamlayer.io/console/connect', 'expires_in' => 600, 'interval' => 5]), '*/token' => Http::response(['access_token' => 'new-installation-key', 'connection_id' => (string) Str::uuid()])]);
+        Http::fake(['*/device-authorization' => Http::response(['device_code' => 'new-private-device', 'user_code' => 'BCDF-2345', 'verification_uri' => config('dreamlayer.platform_url').'/console/connect', 'expires_in' => 600, 'interval' => 5]), '*/token' => Http::response(['access_token' => 'new-installation-key', 'connection_id' => (string) Str::uuid()])]);
         $this->postJson(route('dreamlayer.connect'))->assertOk()->assertSessionMissing('dreamlayer.device');
         $d = $this->pending();
         $this->assertSame('new-private-device', $d['device_code']);

@@ -70,4 +70,4 @@ independent review of this annotated candidate. The owner confirmed successful f
 generation on 2026-10-13. The 0.2.12 navigation-style regression passes 18 browser
 scenarios; 0.2.13 adds Windows instructions without changing application behavior.
 
-Version 0.2.14 includes both the completion-listener history fix and its PHP/JavaScript regressions from `c3fefa34`. The new paid acceptance run remains on hold; free picker and history checks are separate evidence.
+Version 0.2.15 changes only the extension's default console address; the bundled patch, hook capability and migrations are unchanged. Version 0.2.14 includes both the completion-listener history fix and its PHP/JavaScript regressions from `c3fefa34`. The paid acceptance run on this patch passed on 2026-10-14 (one image edit, 476.4 to 475.4 credits, submit to visible result 220 s); the free picker and history checks are separate evidence.

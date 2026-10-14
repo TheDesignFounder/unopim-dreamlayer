@@ -5,6 +5,14 @@ use Tests\TestCase;
 
 final class EndpointTest extends TestCase
 {
+    public function test_platform_fallback_uses_the_production_console_host(): void
+    {
+        $configuration = config('dreamlayer');
+        unset($configuration['platform_url']);
+        config(['dreamlayer' => $configuration]);
+        $this->assertSame('https://platform.dreamlayer.io', Endpoints::platform());
+    }
+
     public function test_explicit_local_configuration_and_staging_origins(): void
     {
         config(['dreamlayer.api_url'=>'https://staging.example/v1/', 'dreamlayer.platform_url'=>'https://staging.example']);

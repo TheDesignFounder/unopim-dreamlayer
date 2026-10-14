@@ -2,7 +2,7 @@
 
 Use a new UnoPIM checkout and a separate database/storage location. Keep the
 currently working installation available until this test passes. This guide is
-for the **0.2.14 source release candidate**; it supersedes older rehearsal instructions
+for the **0.2.15 source release**; it supersedes older rehearsal instructions
 for 0.2.3–0.2.12. The owner completed the installation, connection and generation flow on macOS/Docker using runtime 0.2.12. This checklist remains available for reviewers; Windows execution is not yet verified. See [Windows setup](WINDOWS_INSTALL.md).
 
 ## Record the starting point
@@ -22,7 +22,7 @@ the core patch, install the package with Composer, migrate, clear caches and
 start the supervised worker and scheduler. Laravel discovers the provider;
 manual registration is unnecessary. Confirm:
 
-- Composer reports `dreamlayer/unopim-dreamlayer` version `0.2.14`.
+- Composer reports `dreamlayer/unopim-dreamlayer` version `0.2.15`.
 - Migrations finish successfully, including the nullable workflow `error_code`.
 - `php artisan schedule:list` includes `dreamlayer:recover` every minute.
 - The worker consumes connection/queue `dreamlayer`, with automatic restart after

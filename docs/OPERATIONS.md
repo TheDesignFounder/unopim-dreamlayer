@@ -55,7 +55,7 @@ See the separate review bundle for measured verification and external limitation
 # From the isolated host, with a dedicated test database configured:
 UNOPIM_HOST_ROOT="$PWD" DREAMLAYER_FIXTURE_HOST=0 \
 DREAMLAYER_API_URL=https://api.dreamlayer.io/v1 \
-DREAMLAYER_PLATFORM_URL=https://dreamlayer.io \
+DREAMLAYER_PLATFORM_URL=https://platform.dreamlayer.io \
 DREAMLAYER_ALLOW_LOCAL_HTTP=false DREAMLAYER_CONNECTIONS_ENABLED=false \
 php vendor/bin/phpunit -c /path/to/package/tests/phpunit.xml
 ```

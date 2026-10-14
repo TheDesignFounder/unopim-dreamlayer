@@ -12,7 +12,7 @@ class Endpoints
 
     public static function platform(): string
     {
-        return self::validate(config('dreamlayer.platform_url', 'https://dreamlayer.io'), '');
+        return self::validate(config('dreamlayer.platform_url', 'https://platform.dreamlayer.io'), '');
     }
 
     private static function validate(string $url, string $path): string

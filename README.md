@@ -1,14 +1,14 @@
 # DreamLayer for UnoPIM
 
-> **Release status (2026-10-14):** The DreamLayer API is live and the full connection flow (connect, reconnect after a revoke, reconnect while connected, disconnect) has been validated live. This published 0.2.14 package ships with the wrong default console address, so it connects to the live service only when the host sets `DREAMLAYER_PLATFORM_URL=https://platform.dreamlayer.io` (and clears the configuration cache). The next release fixes that default.
+> **Release 0.2.15 (2026-10-14).** The DreamLayer API is live. This release fixes the default console address (`https://platform.dreamlayer.io`), so a fresh installation connects without any environment override; a 0.2.14 installation that explicitly set `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io` must change it to `https://platform.dreamlayer.io` and clear the configuration cache. The full live flow was validated on 2026-10-14: account connection, one paid image edit, revoke detection, reconnect after a revoke, reconnect while already connected (after the server-side key-limit fix), Disconnect, and onboarding with the shipped defaults (the paid edit, revoke and reconnect steps ran on 0.2.14 with the console address set explicitly, the same effective configuration as this release's default; onboarding with the shipped defaults ran on this release's code). No core patch or database change since 0.2.14: update the package, clear the configuration and view caches, and restart PHP workers.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
-This is the review package, version **0.2.14** (local candidate; not tagged or published yet). Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
+This is version **0.2.15**. Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
 
 Version 0.2.14 also fixes picker rows moving while hovering over images of different shapes, so a click reliably selects the intended product.
 
-This candidate updates the bundled core patch to PR #770 commit `c3fefa34` so completed results survive a later stream error. Successful polls keep long-running edits from appearing delayed, and recovery refuses unsupported queue drivers. See [core patch upgrade instructions](docs/CORE_PATCH.md).
+Version 0.2.14 updated the bundled core patch to PR #770 commit `c3fefa34` so completed results survive a later stream error. Successful polls keep long-running edits from appearing delayed, and recovery refuses unsupported queue drivers. See [core patch upgrade instructions](docs/CORE_PATCH.md).
 
 It also includes the 0.2.12 correction for missing page styles when entering DreamLayer through UnoPIM's
 sidebar. Upgrading from 0.2.11 does not change the core patch or database schema;
@@ -59,7 +59,7 @@ Clone the tagged source from the public repository into the host's shared tree:
 
 ```sh
 mkdir -p packages/DreamLayer
-git clone --branch 0.2.14 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
+git clone --branch 0.2.15 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
 ```
 
 **If the generic core hooks are already installed, skip this next block.**
@@ -75,7 +75,7 @@ Do not force the patch or apply it twice. Install the cloned Composer package:
 
 ```sh
 composer config repositories.dreamlayer path packages/DreamLayer/unopim-dreamlayer
-composer require dreamlayer/unopim-dreamlayer:0.2.14 --minimal-changes
+composer require dreamlayer/unopim-dreamlayer:0.2.15 --minimal-changes
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```
@@ -151,7 +151,7 @@ Open **My image results** to find saved previews, download outputs and apply com
 
 ## Configure the environment
 
-The default endpoints are `https://api.dreamlayer.io/v1` and `https://dreamlayer.io`. For another independently deployed environment, set:
+The default endpoints are `https://api.dreamlayer.io/v1` and `https://platform.dreamlayer.io`. If an existing installation explicitly sets `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io`, update that override to `https://platform.dreamlayer.io` and clear Laravel's configuration cache. The console origin must match the connection URL returned by the selected API. For another independently deployed environment, set:
 
 ```dotenv
 DREAMLAYER_API_URL=https://your-api.example/v1
@@ -166,7 +166,7 @@ For multiple web replicas, use a shared cache with atomic-lock support and share
 
 - [Reviewer guide](docs/REVIEWING.md): request flow, design decisions, trust boundaries and test map.
 - [New-user and reconnect/revoke test](NEW_USER_TEST.md)
-- [Fresh installation test](docs/FRESH_INSTALL_TEST.md): installation, connection and chat acceptance for this candidate.
+- [Fresh installation test](docs/FRESH_INSTALL_TEST.md): installation, connection and chat acceptance for this release.
 
 - [Core extension hooks](docs/CORE_PATCH.md): integration points and compatibility.
 - [API contract](docs/API_CONTRACT_V1.md): supported operations and capability negotiation.

@@ -3,7 +3,7 @@
   "description": "DreamLayer preview and apply image workflows for UnoPIM 3.x",
   "type": "library",
   "license": "MIT",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "require": {
     "php": "^8.4.1",
     "illuminate/support": "^13.0",
