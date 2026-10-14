@@ -1,6 +1,6 @@
 # DreamLayer for UnoPIM
 
-> **Release 0.2.15 (2026-10-14).** The DreamLayer API is live. This release fixes the default console address (`https://platform.dreamlayer.io`), so a fresh installation connects without any environment override; a 0.2.14 installation that explicitly set `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io` must change it to `https://platform.dreamlayer.io` and clear the configuration cache. The full live flow was validated on 2026-10-14: account connection, one paid image edit, revoke detection, reconnect after a revoke, reconnect while already connected (after the server-side key-limit fix), Disconnect, and onboarding with the shipped defaults. No core patch or database change since 0.2.14: update the package, clear the configuration and view caches, and restart PHP workers.
+> **Release 0.2.15 (2026-10-14).** The DreamLayer API is live. This release fixes the default console address (`https://platform.dreamlayer.io`), so a fresh installation connects without any environment override; a 0.2.14 installation that explicitly set `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io` must change it to `https://platform.dreamlayer.io` and clear the configuration cache. The full live flow was validated on 2026-10-14: account connection, one paid image edit, revoke detection, reconnect after a revoke, reconnect while already connected (after the server-side key-limit fix), Disconnect, and onboarding with the shipped defaults (the paid edit, revoke and reconnect steps ran on 0.2.14 with the console address set explicitly, the same effective configuration as this release's default; onboarding with the shipped defaults ran on this release's code). No core patch or database change since 0.2.14: update the package, clear the configuration and view caches, and restart PHP workers.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
@@ -166,7 +166,7 @@ For multiple web replicas, use a shared cache with atomic-lock support and share
 
 - [Reviewer guide](docs/REVIEWING.md): request flow, design decisions, trust boundaries and test map.
 - [New-user and reconnect/revoke test](NEW_USER_TEST.md)
-- [Fresh installation test](docs/FRESH_INSTALL_TEST.md): installation, connection and chat acceptance for this candidate.
+- [Fresh installation test](docs/FRESH_INSTALL_TEST.md): installation, connection and chat acceptance for this release.
 
 - [Core extension hooks](docs/CORE_PATCH.md): integration points and compatibility.
 - [API contract](docs/API_CONTRACT_V1.md): supported operations and capability negotiation.
