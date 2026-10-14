@@ -1,27 +1,18 @@
 # DreamLayer for UnoPIM
 
-> **Release status:** This extension requires a DreamLayer API release that is not yet live. Image edits will **not work against `dreamlayer.io`** until that release is deployed. For now, testing requires a compatible development or review API.
+> **Release status: live validation is incomplete.** The paid image-edit step passed on 0.2.14, but the full reconnect/disconnect flow and browser acceptance of this revised core are still pending. This candidate is not validated for production use. Keep this warning until the required live flow and browser checks pass.
+
+> **Review branch:** This unreleased compatibility candidate follows Webkul's requested split of the core chat hooks. Automated verification is separate from the browser release checks; this branch does not declare a new production release.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
-This is the review package, version **0.2.14** (local candidate; not tagged or published yet). Account connection, managed chat and advanced image workflows require the corresponding DreamLayer services to be enabled in the environment you use.
+The published release remains **0.2.14**. This branch adds the production console URL correction, explicitly enables UnoPIM's optional saved history, and updates the bundled core patch to the three-part review candidate. Core history is disabled by default; DreamLayer opts the host in unless `DREAMLAYER_PERSIST_CHAT_HISTORY=false`.
 
-Version 0.2.14 also fixes picker rows moving while hovering over images of different shapes, so a click reliably selects the intended product.
-
-This candidate updates the bundled core patch to PR #770 commit `c3fefa34` so completed results survive a later stream error. Successful polls keep long-running edits from appearing delayed, and recovery refuses unsupported queue drivers. See [core patch upgrade instructions](docs/CORE_PATCH.md).
-
-It also includes the 0.2.12 correction for missing page styles when entering DreamLayer through UnoPIM's
-sidebar. Upgrading from 0.2.11 does not change the core patch or database schema;
-update the package, clear compiled views and restart the web process if its PHP
-opcode cache does not check changed files. Do not apply the core patch again.
-
-The owner completed fresh installation, account connection and image generation
-on macOS/Docker with 0.2.12. This submission adds Windows documentation; the
-application runtime is unchanged from that accepted version.
+Existing 0.2.14 hosts must use the incremental core update and its new migration before testing this candidate. See [core patch upgrade instructions](docs/CORE_PATCH.md). The following installation instructions target this review branch; use the published tag's README for 0.2.14.
 
 ## Requirements
 
-- A compatible UnoPIM 3.x installation with the [generic chat extension hooks](docs/CORE_PATCH.md). The bundled patch has been checked against UnoPIM 3.x revision `d29ffdcd7b26527dd6a06d24c90d3e787cbb9b00`; check compatibility before applying it to another revision.
+- A compatible UnoPIM 3.x installation with the [generic chat extension hooks](docs/CORE_PATCH.md). The bundled patch has been checked against UnoPIM 3.x revision `f5d9d663b027ab86ff707aae221bcf31079be47c`; check compatibility before applying it to another revision.
 - PHP 8.4.1 or later, Laravel 13 and the GD extension.
 - Private writable local storage shared by the web application and queue workers. Storage must support atomic file renames.
 - UnoPIM's database queue tables, a supervised queue worker and the Laravel scheduler.
@@ -55,14 +46,14 @@ Composer available. For Docker, use the container commands in the Windows/WSL
 guide (the same Linux-container paths apply on macOS). Back up an existing host
 and database before installing.
 
-Clone the tagged source from the public repository into the host's shared tree:
+Clone this review branch into a disposable host's shared tree:
 
 ```sh
 mkdir -p packages/DreamLayer
-git clone --branch 0.2.14 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
+git clone --branch fix/opt-in-core-history --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
 ```
 
-**If the generic core hooks are already installed, skip this next block.**
+**If generic core hooks are already installed, follow the incremental upgrade in [CORE_PATCH.md](docs/CORE_PATCH.md) instead of this next block.**
 Otherwise apply the full patch once, only after its compatibility check succeeds:
 
 ```sh
@@ -151,7 +142,9 @@ Open **My image results** to find saved previews, download outputs and apply com
 
 ## Configure the environment
 
-The default endpoints are `https://api.dreamlayer.io/v1` and `https://dreamlayer.io`. For another independently deployed environment, set:
+DreamLayer enables UnoPIM's optional database chat history so conversations and result cards can be reopened. This setting applies to the host's AI chat, including other providers. Set `DREAMLAYER_PERSIST_CHAT_HISTORY=false` to leave the core history setting unchanged; core database history is off by default. Browser storage remains available when database history is disabled. After changing environment settings, clear Laravel's configuration cache. Existing saved conversations are retained when persistence is disabled.
+
+The default endpoints are `https://api.dreamlayer.io/v1` and `https://platform.dreamlayer.io`. If an existing installation explicitly sets `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io`, update that override to `https://platform.dreamlayer.io` and clear Laravel's configuration cache. The console origin must match the connection URL returned by the selected API. For another independently deployed environment, set:
 
 ```dotenv
 DREAMLAYER_API_URL=https://your-api.example/v1

@@ -35,6 +35,58 @@ final class OnboardingTest extends TestCase
         return $request;
     }
 
+    private function loadDefaultPlatformConfiguration(): void
+    {
+        $key = 'DREAMLAYER_PLATFORM_URL';
+        $environment = [$_ENV[$key] ?? null, $_SERVER[$key] ?? null, getenv($key)];
+        unset($_ENV[$key], $_SERVER[$key]);
+        putenv($key);
+
+        try {
+            $defaults = require __DIR__.'/../config/dreamlayer.php';
+            config(['dreamlayer.platform_url' => $defaults['platform_url'], 'dreamlayer.billing_url' => $defaults['billing_url']]);
+        } finally {
+            if ($environment[0] !== null) {
+                $_ENV[$key] = $environment[0];
+            }
+            if ($environment[1] !== null) {
+                $_SERVER[$key] = $environment[1];
+            }
+            putenv($environment[2] === false ? $key : $key.'='.$environment[2]);
+        }
+    }
+
+    public function test_shipped_defaults_accept_the_production_console_url(): void
+    {
+        $this->loadDefaultPlatformConfiguration();
+        // Keep the server response literal: deriving it from configuration hid the
+        // production hostname mismatch in the original onboarding fixtures.
+        Http::fake(['*/device-authorization' => Http::response([
+            'device_code' => 'private-device-secret', 'user_code' => 'ABCD-1234',
+            'verification_uri' => 'https://platform.dreamlayer.io/console/connect',
+            'expires_in' => 600, 'interval' => 5,
+        ])]);
+
+        $this->postJson(route('dreamlayer.connect'), ['automatic' => true])->assertOk()
+            ->assertJsonPath('verification_uri', 'https://platform.dreamlayer.io/console/connect')
+            ->assertDontSee('private-device-secret');
+        $this->assertSame('https://platform.dreamlayer.io/console/billing', config('dreamlayer.billing_url'));
+    }
+
+    public function test_production_defaults_still_reject_an_untrusted_console_origin(): void
+    {
+        $this->loadDefaultPlatformConfiguration();
+        Http::fake(['*/device-authorization' => Http::response([
+            'device_code' => 'private-device-secret', 'user_code' => 'ABCD-1234',
+            'verification_uri' => 'https://platform.dreamlayer.io.attacker.example/console/connect',
+            'expires_in' => 600, 'interval' => 5,
+        ])]);
+
+        $this->postJson(route('dreamlayer.connect'), ['automatic' => true])->assertStatus(502);
+        $this->assertNull(Settings::current()->credential);
+        $this->assertNull(PendingConnection::get($this->request()));
+    }
+
     public function test_automatic_code_is_reused_on_reload_and_chat_is_requested_by_default(): void
     {
         $this->device();

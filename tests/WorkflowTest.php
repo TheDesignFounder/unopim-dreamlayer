@@ -482,7 +482,7 @@ final class WorkflowTest extends TestCase
     {
         config(['dreamlayer.connections_enabled'=>true]);
         $secret = 'dl_live_inst_'.str_repeat('q', 40);
-        Http::fake(['*/device-authorization'=>Http::response(['device_code'=>'private-device-secret', 'user_code'=>'BCDF-2345', 'verification_uri'=>'https://dreamlayer.io/console/connect', 'expires_in'=>600, 'interval'=>5]), '*/token'=>Http::response(['access_token'=>$secret, 'connection_id'=>(string) Str::uuid()])]);
+        Http::fake(['*/device-authorization'=>Http::response(['device_code'=>'private-device-secret', 'user_code'=>'BCDF-2345', 'verification_uri'=>config('dreamlayer.platform_url').'/console/connect', 'expires_in'=>600, 'interval'=>5]), '*/token'=>Http::response(['access_token'=>$secret, 'connection_id'=>(string) Str::uuid()])]);
         $this->postJson(route('dreamlayer.connect'))->assertOk()->assertJsonMissingPath('device_code');
         $d = $this->pending();
         $d['next_poll'] = time() - 1;
@@ -495,7 +495,7 @@ final class WorkflowTest extends TestCase
     public function test_stale_session_response_cannot_replace_pending_connection(): void
     {
         config(['dreamlayer.connections_enabled' => true]);
-        Http::fake(['*/device-authorization' => Http::response(['device_code' => 'new-private-device', 'user_code' => 'BCDF-2345', 'verification_uri' => 'https://dreamlayer.io/console/connect', 'expires_in' => 600, 'interval' => 5]), '*/token' => Http::response(['access_token' => 'new-installation-key', 'connection_id' => (string) Str::uuid()])]);
+        Http::fake(['*/device-authorization' => Http::response(['device_code' => 'new-private-device', 'user_code' => 'BCDF-2345', 'verification_uri' => config('dreamlayer.platform_url').'/console/connect', 'expires_in' => 600, 'interval' => 5]), '*/token' => Http::response(['access_token' => 'new-installation-key', 'connection_id' => (string) Str::uuid()])]);
         $this->postJson(route('dreamlayer.connect'))->assertOk()->assertSessionMissing('dreamlayer.device');
         $d = $this->pending();
         $this->assertSame('new-private-device', $d['device_code']);

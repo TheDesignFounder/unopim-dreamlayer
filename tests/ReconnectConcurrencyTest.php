@@ -23,7 +23,11 @@ final class ReconnectConcurrencyTest extends TestCase
 
     public function test_new_credential_is_committed_and_account_writers_are_locked_during_revoke(): void
     {
-        $this->assertSame('unopim_release_catalog_test', DB::connection()->getDatabaseName());
+        $database = getenv('DREAMLAYER_CONCURRENCY_TEST_DATABASE') ?: 'unopim_release_catalog_test';
+        $this->assertTrue(app()->environment('testing'));
+        $this->assertStringEndsWith('_test', $database);
+        $this->assertSame('pgsql', DB::connection()->getDriverName());
+        $this->assertSame($database, DB::connection()->getDatabaseName());
         $original = Settings::current()->getRawOriginal();
         $role = Role::factory()->create(['permission_type' => 'all']);
         $admin = Admin::factory()->create(['role_id' => $role->id]);

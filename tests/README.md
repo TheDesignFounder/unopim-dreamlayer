@@ -26,6 +26,13 @@ For the existing Laravel host, set DB_DATABASE to its disposable test database
 and UNOPIM_HOST_ROOT to that host; run its PHPUnit with this package's
 tests/bootstrap.php and test directory. HTTP provider calls are faked.
 
+The reconnect concurrency test commits fixtures and observes them through a second
+PostgreSQL connection. It requires `APP_ENV=testing`, PostgreSQL, and an exact
+match with `DREAMLAYER_CONCURRENCY_TEST_DATABASE` (default
+`unopim_release_catalog_test`); the configured name must end in `_test`.
+Set that variable explicitly when using another disposable database. The test
+restores the settings row and removes its admin/role fixtures afterwards.
+
 For the picker, highlighting parity, Unicode limits and live settings behavior:
 
     UNOPIM_HOST_ROOT=/path/to/patched-host node --test tests/fixtures/ui-contract.test.cjs

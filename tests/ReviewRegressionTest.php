@@ -170,7 +170,7 @@ final class ReviewRegressionTest extends TestCase
     public function test_second_admin_attempt_supersedes_first(): void
     {
         config(['dreamlayer.connections_enabled' => true]);
-        Http::fake(['*/device-authorization' => Http::response(['device_code' => 'secret', 'user_code' => 'BCDF-2345', 'verification_uri' => 'https://dreamlayer.io/console/connect', 'expires_in' => 600, 'interval' => 5])]);
+        Http::fake(['*/device-authorization' => Http::response(['device_code' => 'secret', 'user_code' => 'BCDF-2345', 'verification_uri' => config('dreamlayer.platform_url').'/console/connect', 'expires_in' => 600, 'interval' => 5])]);
         $this->postJson(route('dreamlayer.connect'))->assertOk();
         $d = $this->pending();
         $d['next_poll'] = time() - 1;
