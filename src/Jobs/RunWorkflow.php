@@ -88,7 +88,7 @@ class RunWorkflow implements ShouldQueue
                     if (in_array($execution['status'] ?? '', ['failed', 'cancelled', 'needs_input'], true)) {
                         $creditFailure = ($execution['error']['reason'] ?? null) === 'insufficient_credits';
                         $w->update(['status' => 'failed', 'error_code' => $creditFailure ? 402 : null,
-                            'error' => $creditFailure ? (new ApiException(402))->getMessage() : 'The image operation could not complete.']);
+                            'error'          => $creditFailure ? (new ApiException(402))->getMessage() : 'The image operation could not complete.']);
 
                         return false;
                     }
@@ -143,7 +143,7 @@ class RunWorkflow implements ShouldQueue
                     // Do not infer billing state from arbitrary upstream error text.
                     $creditFailure = ($remote['error_code'] ?? null) === 402;
                     $w->update(['progress' => $progress, 'status' => 'failed', 'error_code' => $creditFailure ? 402 : null,
-                        'error' => $creditFailure ? (new ApiException(402))->getMessage() : 'Image workflow failed. Later steps were not started.']);
+                        'error'            => $creditFailure ? (new ApiException(402))->getMessage() : 'Image workflow failed. Later steps were not started.']);
 
                     return false;
                 }
