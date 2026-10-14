@@ -9,7 +9,7 @@ This branch is an unreleased compatibility candidate, not a new package release.
 | UnoPIM 3.x base | `f5d9d663b027ab86ff707aae221bcf31079be47c` |
 | Registries and decorators | `d936e80d163da8b8934d9972b580ec9dafa395ac` |
 | Result cards and composer controls | `5ba1766506efd8255bfc143a314763fd9e7e14d9` |
-| Optional saved history, complete candidate | `ae7b778d7d6057db21e04d6f685d30003b902731` |
+| Optional saved history, complete candidate | `e38b05f2f629eb45de7372826f7779d8327c445d` |
 | Required hook capability | `COMPOSER_REFERENCES = 2` |
 
 The [generic hook guide and screenshots](https://github.com/TheDesignFounder/unopim/blob/docs/chat-extension-guide/docs/chat-extensions/README.md)
@@ -36,7 +36,9 @@ Run all five additive migrations: the four `2026_10_08_00000*` migrations plus
 `2026_10_14_000005_add_message_deletion_identity`. They add message presentation,
 conversation and request identity, native display data and deletion markers.
 A unique `(conversation_id, message_id)` index supports batched writes and
-prevents duplicate identities. Existing nullable legacy messages stay readable.
+prevents duplicate identities. The fifth migration assigns UUIDs only to legacy conversations/messages missing
+identities, in bounded chunks, so reopening and regenerating old chats use the
+same merge/deletion contract. Existing content and non-null identities are preserved.
 No provider enum, credential table or product persistence implementation changes.
 
 ## Host using the published 0.2.14 core patch
@@ -77,7 +79,7 @@ serve the new application against a rolled-back schema.
 
 ## Verification
 
-On the complete core candidate, the AiAgent suite passed 296 PHP tests (823
+On the complete core candidate, the AiAgent suite passed 297 PHP tests (834
 assertions); two Node bridges skipped because the PHP container has no Node.
 All 14 JavaScript tests passed separately. The registries-only stage passed 284
 PHP tests; result cards passed 287 PHP tests plus seven JavaScript tests.
