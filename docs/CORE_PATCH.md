@@ -8,8 +8,8 @@ This branch is an unreleased compatibility candidate, not a new package release.
 | --- | --- |
 | UnoPIM 3.x base | `f5d9d663b027ab86ff707aae221bcf31079be47c` |
 | Registries and decorators | `d936e80d163da8b8934d9972b580ec9dafa395ac` |
-| Result cards and composer controls | `5ba1766506efd8255bfc143a314763fd9e7e14d9` |
-| Optional saved history, complete candidate | `e38b05f2f629eb45de7372826f7779d8327c445d` |
+| Result cards and composer controls | `73f519944f36f04a4b7fd2d7824e13afbecf55d5` |
+| Optional saved history, complete candidate | `dec819a5a7ba7872aba2f3b202d0248a8fc32dad` |
 | Required hook capability | `COMPOSER_REFERENCES = 2` |
 
 The [generic hook guide and screenshots](https://github.com/TheDesignFounder/unopim/blob/docs/chat-extension-guide/docs/chat-extensions/README.md)
@@ -42,6 +42,10 @@ same merge/deletion contract. Existing content and non-null identities are prese
 No provider enum, credential table or product persistence implementation changes.
 
 ## Host using the published 0.2.14 core patch
+
+The original 0.2.14 core history is preserved on the fork's
+[`archive/pr-770-before-split-0.2.14` branch](https://github.com/TheDesignFounder/unopim/tree/archive/pr-770-before-split-0.2.14),
+including the earlier submission heads.
 
 For unmodified core hooks at `c3fefa34ea96fefded6a880b523108dfe49540b8`, use only:
 
@@ -79,10 +83,12 @@ serve the new application against a rolled-back schema.
 
 ## Verification
 
-On the complete core candidate, the AiAgent suite passed 297 PHP tests (834
+On the complete core candidate, the AiAgent suite passed 297 PHP tests (835
 assertions); two Node bridges skipped because the PHP container has no Node.
 All 14 JavaScript tests passed separately. The registries-only stage passed 284
-PHP tests; result cards passed 287 PHP tests plus seven JavaScript tests.
+PHP tests. Before the comment-only cleanup, result cards passed 287 PHP tests;
+the cleanup reran four focused PHP tests (17 assertions) and all seven composer
+JavaScript tests, with unchanged non-comment widget source.
 All five migrations passed upgrade, rollback and re-upgrade checks on an isolated
 PostgreSQL database while preserving legacy conversation/message content.
 

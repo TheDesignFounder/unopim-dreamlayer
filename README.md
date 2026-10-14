@@ -1,5 +1,7 @@
 # DreamLayer for UnoPIM
 
+> **Release status: live validation is incomplete.** The paid image-edit step passed on 0.2.14, but the full reconnect/disconnect flow and browser acceptance of this revised core are still pending. This candidate is not validated for production use. Keep this warning until the required live flow and browser checks pass.
+
 > **Review branch:** This unreleased compatibility candidate follows Webkul's requested split of the core chat hooks. Automated verification is separate from the browser release checks; this branch does not declare a new production release.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
