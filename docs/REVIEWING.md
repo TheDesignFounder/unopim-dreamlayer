@@ -174,7 +174,7 @@ APP_ENV=testing DB_DATABASE=unopim_review_test UNOPIM_HOST_ROOT="$PWD" \
   DREAMLAYER_FIXTURE_HOST=0 DREAMLAYER_ALLOW_LOCAL_HTTP=false \
   DREAMLAYER_CONNECTIONS_ENABLED=false \
   DREAMLAYER_API_URL=https://api.dreamlayer.io/v1 \
-  DREAMLAYER_PLATFORM_URL=https://dreamlayer.io \
+  DREAMLAYER_PLATFORM_URL=https://platform.dreamlayer.io \
   vendor/bin/phpunit --bootstrap /path/to/extension/tests/bootstrap.php \
   /path/to/extension/tests
 UNOPIM_HOST_ROOT="$PWD" node --test /path/to/extension/tests/fixtures/ui-contract.test.cjs

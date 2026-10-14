@@ -151,7 +151,7 @@ Open **My image results** to find saved previews, download outputs and apply com
 
 ## Configure the environment
 
-The default endpoints are `https://api.dreamlayer.io/v1` and `https://dreamlayer.io`. For another independently deployed environment, set:
+The default endpoints are `https://api.dreamlayer.io/v1` and `https://platform.dreamlayer.io`. If an existing installation explicitly sets `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io`, update that override to `https://platform.dreamlayer.io` and clear Laravel's configuration cache. The console origin must match the connection URL returned by the selected API. For another independently deployed environment, set:
 
 ```dotenv
 DREAMLAYER_API_URL=https://your-api.example/v1
