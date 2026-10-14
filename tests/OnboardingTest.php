@@ -62,9 +62,9 @@ final class OnboardingTest extends TestCase
         // Keep the server response literal: deriving it from configuration hid the
         // production hostname mismatch in the original onboarding fixtures.
         Http::fake(['*/device-authorization' => Http::response([
-            'device_code' => 'private-device-secret', 'user_code' => 'ABCD-1234',
+            'device_code'      => 'private-device-secret', 'user_code' => 'ABCD-1234',
             'verification_uri' => 'https://platform.dreamlayer.io/console/connect',
-            'expires_in' => 600, 'interval' => 5,
+            'expires_in'       => 600, 'interval' => 5,
         ])]);
 
         $this->postJson(route('dreamlayer.connect'), ['automatic' => true])->assertOk()
@@ -77,9 +77,9 @@ final class OnboardingTest extends TestCase
     {
         $this->loadDefaultPlatformConfiguration();
         Http::fake(['*/device-authorization' => Http::response([
-            'device_code' => 'private-device-secret', 'user_code' => 'ABCD-1234',
+            'device_code'      => 'private-device-secret', 'user_code' => 'ABCD-1234',
             'verification_uri' => 'https://platform.dreamlayer.io.attacker.example/console/connect',
-            'expires_in' => 600, 'interval' => 5,
+            'expires_in'       => 600, 'interval' => 5,
         ])]);
 
         $this->postJson(route('dreamlayer.connect'), ['automatic' => true])->assertStatus(502);
