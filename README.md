@@ -1,6 +1,6 @@
 # DreamLayer for UnoPIM
 
-> **Release status:** This extension requires a DreamLayer API release that is not yet live. Image edits will **not work against `dreamlayer.io`** until that release is deployed. For now, testing requires a compatible development or review API.
+> **Release status (2026-10-14): live validation partly complete; not a published release.** The DreamLayer API is live. With this candidate's default console URL the live flow passed: account connection, one paid image edit, revoke detection, reconnect after a revoke, Disconnect, and onboarding with the shipped defaults. One flow is still **blocked**: *Connect another account* while already connected fails with "Connection denied" when the DreamLayer account already holds 5 active API keys, because the API's key limit counts the installation's own key. An API fix is prepared and must pass live testing before this note is removed; until then, disconnect first or revoke an unused key in the DreamLayer console before reconnecting. The published 0.2.14 release needs `DREAMLAYER_PLATFORM_URL=https://platform.dreamlayer.io` to connect to the live API; this candidate fixes that default.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
