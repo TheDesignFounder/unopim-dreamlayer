@@ -7,9 +7,9 @@ This branch is an unreleased compatibility candidate, not a new package release.
 | Source | Revision |
 | --- | --- |
 | UnoPIM 3.x base | `f5d9d663b027ab86ff707aae221bcf31079be47c` |
-| Registries and decorators | `d936e80d163da8b8934d9972b580ec9dafa395ac` |
-| Result cards and composer controls | `73f519944f36f04a4b7fd2d7824e13afbecf55d5` |
-| Optional saved history, complete candidate | `dec819a5a7ba7872aba2f3b202d0248a8fc32dad` |
+| Registries and decorators | `188f0e26ab198adb90b7982e5cb5db5c6f45f3ea` |
+| Result cards and composer controls | `0894214f3611c13d4a1461cfb72aeb7c192915ff` |
+| Optional saved history, complete candidate | `b406c71d04adbac8efd9ed02a0caea24a324f489` |
 | Required hook capability | `COMPOSER_REFERENCES = 2` |
 
 The [generic hook guide and screenshots](https://github.com/TheDesignFounder/unopim/blob/docs/chat-extension-guide/docs/chat-extensions/README.md)
@@ -41,13 +41,14 @@ identities, in bounded chunks, so reopening and regenerating old chats use the
 same merge/deletion contract. Existing content and non-null identities are preserved.
 No provider enum, credential table or product persistence implementation changes.
 
-## Host using the published 0.2.14 core patch
+## Host using the published 0.2.14 or 0.2.15 core patch
 
 The original 0.2.14 core history is preserved on the fork's
 [`archive/pr-770-before-split-0.2.14` branch](https://github.com/TheDesignFounder/unopim/tree/archive/pr-770-before-split-0.2.14),
 including the earlier submission heads.
 
-For unmodified core hooks at `c3fefa34ea96fefded6a880b523108dfe49540b8`, use only:
+Published 0.2.14 and 0.2.15 contain the same core patch. For unmodified core hooks
+at `c3fefa34ea96fefded6a880b523108dfe49540b8`, use only:
 
 ```sh
 git apply --check /path/to/extension/patches/unopim-3x-chat-hooks-0.2.14-to-reviewed-history.patch
@@ -83,20 +84,33 @@ serve the new application against a rolled-back schema.
 
 ## Verification
 
-On the complete core candidate, the AiAgent suite passed 297 PHP tests (835
-assertions); two Node bridges skipped because the PHP container has no Node.
-All 14 JavaScript tests passed separately. The registries-only stage passed 284
-PHP tests. Before the comment-only cleanup, result cards passed 287 PHP tests;
-the cleanup reran four focused PHP tests (17 assertions) and all seven composer
-JavaScript tests, with unchanged non-comment widget source.
-All five migrations passed upgrade, rollback and re-upgrade checks on an isolated
-PostgreSQL database while preserving legacy conversation/message content.
+The October 16 review update was checked with PHP 8.4.26, the dependencies pinned
+in UnoPIM's lockfile, and separate PostgreSQL test databases:
+
+| Review stage | AiAgent PHP suite | JavaScript | Package Pint |
+| --- | --- | --- | --- |
+| Registries and decorators (#770) | 304 passed, 829 assertions | No widget changes | 235 files pass |
+| Result cards and composer controls (#775) | 320 passed, 865 assertions; one Node bridge skipped | 7 passed | 240 files pass |
+| Optional history (#776), complete candidate | 331 passed, 938 assertions; two Node bridges skipped | 14 passed | 249 files pass |
+
+The Node bridges skip because the PHP container has no Node; the JavaScript
+suites run separately on the host. Scoped Larastan analysis checks the AiAgent
+source; unmatched repository-wide ignore rules are disabled for that local scope.
+
+All five migrations passed rollback and re-upgrade twice on an isolated
+PostgreSQL database while preserving conversation/message content. Rollback
+removes the added metadata; it is not a substitute for a backup.
 
 DreamLayer compatibility passed all 122 PHP tests (707 assertions), including
-its history opt-in and reconnect concurrency checks; all 28 extension JavaScript
-checks passed. Clean-install patches on both the current 3.x and original
-submission bases, plus the 0.2.14 incremental upgrade, produce the exact reviewed
-AiAgent tree.
+history opt-in and reconnect concurrency checks, and all 28 JavaScript checks.
+Both the fresh patch and the 0.2.14 incremental patch apply cleanly and reproduce
+exactly the reviewed AiAgent tree `c93b551835637641cebdac035038f68d56dd894d`, with no
+changes outside that package.
 
-These checks use the dependencies pinned in UnoPIM's lockfile. Browser acceptance
-and paid edits are separate release evidence and were not repeated for this change.
+Disposable-host Chrome checks passed on October 16 for history off by default,
+DreamLayer opt-in and opt-out behavior, picker keyboard controls, result cards in
+both themes and after reload, regeneration with stale tabs and migrated legacy
+conversations, native-provider fallback and the default console link. These checks
+exercise real controllers, Vue and database history with local provider/API
+fixtures. They do not constitute new live account-connection acceptance, a paid
+image test or a production release.

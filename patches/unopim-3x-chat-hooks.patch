@@ -1248,10 +1248,10 @@ index a2105401..bc50abd4 100644
          if (! preg_match('/^[a-zA-Z0-9_-]+$/', $locale)) {
 diff --git a/packages/Webkul/AiAgent/src/Chat/ExtensionRegistry.php b/packages/Webkul/AiAgent/src/Chat/ExtensionRegistry.php
 new file mode 100644
-index 00000000..23af426f
+index 00000000..25337e0e
 --- /dev/null
 +++ b/packages/Webkul/AiAgent/src/Chat/ExtensionRegistry.php
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,89 @@
 +<?php
 +
 +namespace Webkul\AiAgent\Chat;
@@ -1264,17 +1264,30 @@ index 00000000..23af426f
 + * Providers, views and components come from service providers, never HTTP input.
 + * Registration supplies integration points, not permission to access a resource;
 + * each extension must authorize its requests.
++ *
++ * @phpstan-type ProviderOption array{label: string, id?: int, provider?: string, models?: list<string>, is_default?: bool, hide_single_model?: bool}
++ * @phpstan-type ComposerRegistration array{key: string, component: string, view: string}
++ * @phpstan-type CapabilityPresentation array{description?: string, extension_event?: string|null}
 + */
 +class ExtensionRegistry
 +{
 +    public const COMPOSER_REFERENCES = 2;
 +
++    /** @var array<int, array{resolve: callable(): ?MagicAIPlatform, option: ProviderOption}> */
 +    private array $providers = [];
 +
++    /** @var array<string, ComposerRegistration> */
 +    private array $composers = [];
 +
++    /** @var array<string, CapabilityPresentation> */
 +    private array $capabilities = [];
 +
++    /**
++     * Register a lazy provider; the negative ID overrides any ID in its display options.
++     *
++     * @param  callable(): ?MagicAIPlatform  $resolve
++     * @param  ProviderOption  $option
++     */
 +    public function provider(int $id, callable $resolve, array $option): void
 +    {
 +        if ($id >= 0) {
@@ -1283,16 +1296,19 @@ index 00000000..23af426f
 +        $this->providers[$id] = ['resolve' => $resolve, 'option' => ['id' => $id] + $option];
 +    }
 +
++    /** Resolve an installed provider, or return null when it is unavailable. */
 +    public function resolve(int $id): ?MagicAIPlatform
 +    {
 +        return isset($this->providers[$id]) ? ($this->providers[$id]['resolve'])() : null;
 +    }
 +
++    /** @return list<ProviderOption> */
 +    public function options(): array
 +    {
 +        return array_values(array_map(fn ($entry) => $entry['option'], $this->providers));
 +    }
 +
++    /** Register trusted component/view names under a validated composer key. */
 +    public function composer(string $key, string $component, string $view): void
 +    {
 +        if (! preg_match('/^[a-z][a-z0-9._-]{0,63}$/D', $key)
@@ -1303,16 +1319,23 @@ index 00000000..23af426f
 +        $this->composers[$key] = compact('key', 'component', 'view');
 +    }
 +
++    /** @return list<ComposerRegistration> */
 +    public function composers(): array
 +    {
 +        return array_values($this->composers);
 +    }
 +
++    /** @param CapabilityPresentation $presentation */
 +    public function capability(string $key, array $presentation): void
 +    {
++        if (! preg_match('/^[a-z][a-z0-9._-]{0,63}$/D', $key)) {
++            throw new \InvalidArgumentException('Invalid capability registration.');
++        }
++
 +        $this->capabilities[$key] = $presentation;
 +    }
 +
++    /** @return array<string, CapabilityPresentation> */
 +    public function capabilities(): array
 +    {
 +        return $this->capabilities;
@@ -1402,19 +1425,26 @@ index 00000000..d7a93fb4
 +}
 diff --git a/packages/Webkul/AiAgent/src/Chat/ResultRendererRegistry.php b/packages/Webkul/AiAgent/src/Chat/ResultRendererRegistry.php
 new file mode 100644
-index 00000000..5e518135
+index 00000000..237eaba0
 --- /dev/null
 +++ b/packages/Webkul/AiAgent/src/Chat/ResultRendererRegistry.php
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,57 @@
 +<?php
 +
 +namespace Webkul\AiAgent\Chat;
 +
-+/** Only installed server code registers component/view names. Descriptors are inert references. */
++/**
++ * Only installed server code registers component/view names. Descriptors are inert references.
++ *
++ * @phpstan-type RendererRegistration array{component: string, view: string, consumesContext: string|null}
++ * @phpstan-type ResultDescriptor array{type: string, id: string}
++ */
 +class ResultRendererRegistry
 +{
++    /** @var array<string, RendererRegistration> */
 +    private array $renderers = [];
 +
++    /** Register trusted component/view names and an optional composer context to clear. */
 +    public function register(string $type, string $component, string $view, ?string $consumesContext = null): void
 +    {
 +        if (! preg_match('/^[a-z][a-z0-9.-]{0,63}$/D', $type)
@@ -1425,21 +1455,25 @@ index 00000000..5e518135
 +        $this->renderers[$type] = compact('component', 'view', 'consumesContext');
 +    }
 +
++    /** @return array<string, string> */
 +    public function components(): array
 +    {
 +        return array_map(fn ($r) => $r['component'], $this->renderers);
 +    }
 +
++    /** @return array<string, string> */
 +    public function contextConsumers(): array
 +    {
 +        return array_filter(array_map(fn ($r) => $r['consumesContext'], $this->renderers));
 +    }
 +
++    /** @return array<int, string> */
 +    public function views(): array
 +    {
 +        return array_unique(array_column($this->renderers, 'view'));
 +    }
 +
++    /** @return ResultDescriptor|null An inert reference; the renderer authorizes access. */
 +    public function descriptor(mixed $value): ?array
 +    {
 +        if (! is_array($value) || count($value) !== 2
@@ -1453,38 +1487,49 @@ index 00000000..5e518135
 +    }
 +}
 diff --git a/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php b/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php
-index 3f702d8c..f276263f 100644
+index 3f702d8c..9fe1dca1 100644
 --- a/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php
 +++ b/packages/Webkul/AiAgent/src/Chat/ToolRegistry.php
-@@ -20,6 +20,13 @@ class ToolRegistry
+@@ -20,9 +20,18 @@ class ToolRegistry
      /** @var array<class-string<PimTool>, PimTool> */
      protected array $tools = [];
  
++    /** @var list<callable(Tool, ChatContext, array{name: string, group: string, write: bool, permission: ?string, guidance: ?string}): Tool> */
 +    protected array $decorators = [];
 +
+     /** @var array<class-string<PimTool>, array{name: string, group: string, write: bool, permission: ?string, guidance: ?string}> */
+     protected array $metadata = [];
+ 
++    /** @param callable(Tool, ChatContext, array{name: string, group: string, write: bool, permission: ?string, guidance: ?string}): Tool $decorator */
 +    public function decorate(callable $decorator): void
 +    {
 +        $this->decorators[] = $decorator;
 +    }
 +
-     /** @var array<class-string<PimTool>, array{name: string, group: string, write: bool, permission: ?string, guidance: ?string}> */
-     protected array $metadata = [];
- 
-@@ -170,7 +177,11 @@ public function build(ChatContext $context): array
+     /**
+      * Register a PIM tool with optional metadata (name, group, write,
+      * permission, guidance). Registering the same class again replaces the
+@@ -170,7 +179,17 @@ public function build(ChatContext $context): array
                  continue;
              }
  
 -            $built[] = $tool->register($context);
 +            $registered = $tool->register($context);
++
 +            foreach ($this->decorators as $decorator) {
 +                $registered = $decorator($registered, $context, $this->metadata[$class]);
++
++                if (! $registered instanceof Tool) {
++                    throw new \UnexpectedValueException(sprintf('Decorator for tool "%s" must return %s; received %s.', $this->metadata[$class]['name'], Tool::class, get_debug_type($registered)));
++                }
 +            }
++
 +            $built[] = $registered;
          }
  
          return $built;
 diff --git a/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php b/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php
-index da0da3c7..9d8d131d 100644
+index da0da3c7..2e707cfc 100644
 --- a/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php
 +++ b/packages/Webkul/AiAgent/src/Http/Controllers/ChatController.php
 @@ -12,6 +12,7 @@
@@ -1506,13 +1551,18 @@ index da0da3c7..9d8d131d 100644
          );
      }
  
-@@ -287,6 +292,9 @@ protected function recordTokenUsage(ChatContext $context, int $tokensUsed): void
+@@ -287,6 +292,14 @@ protected function recordTokenUsage(ChatContext $context, int $tokensUsed): void
       */
      protected function resolvePlatform(int $platformId): ?MagicAIPlatform
      {
 +        if ($platformId < 0) {
-+            return app(ExtensionRegistry::class)->resolve($platformId);
++            $platform = app(ExtensionRegistry::class)->resolve($platformId);
++
++            if ($platform) {
++                return $platform;
++            }
 +        }
++
          if ($platformId > 0) {
              $platform = $this->platformRepository->find($platformId);
  
@@ -1855,7 +1905,7 @@ index 00000000..a41c475d
 +    }
 +}
 diff --git a/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php b/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php
-index 72713406..293e18c9 100644
+index 72713406..85a9630e 100644
 --- a/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php
 +++ b/packages/Webkul/AiAgent/src/Providers/AiAgentServiceProvider.php
 @@ -6,6 +6,8 @@
@@ -1867,22 +1917,15 @@ index 72713406..293e18c9 100644
  use Webkul\AiAgent\Chat\ToolRegistry;
  use Webkul\AiAgent\Console\Commands\CatalogQualityMonitor;
  use Webkul\AiAgent\Console\Commands\CleanupTempFiles;
-@@ -73,6 +75,7 @@ public function boot(): void
+@@ -73,6 +75,8 @@ public function boot(): void
       */
      public function register(): void
      {
 +        $this->app->singleton(ExtensionRegistry::class);
++        $this->app->singleton(ResultRendererRegistry::class);
          $this->app->register(ModuleServiceProvider::class);
  
          $this->registerConfig();
-@@ -125,6 +128,7 @@ protected function registerBindings(): void
-             return $registry;
-         });
- 
-+        $this->app->singleton(ResultRendererRegistry::class);
-         $this->app->singleton(AgentRunner::class);
-     }
- }
 diff --git a/packages/Webkul/AiAgent/src/Rules/BoundedJson.php b/packages/Webkul/AiAgent/src/Rules/BoundedJson.php
 new file mode 100644
 index 00000000..8369f9fc
@@ -2027,14 +2070,15 @@ index 00000000..afdc49c0
 +})->with(['observer disabled' => false, 'observer throws after result' => true]);
 diff --git a/packages/Webkul/AiAgent/tests/Feature/ChatExtensionRequestTest.php b/packages/Webkul/AiAgent/tests/Feature/ChatExtensionRequestTest.php
 new file mode 100644
-index 00000000..8af25203
+index 00000000..9056f41f
 --- /dev/null
 +++ b/packages/Webkul/AiAgent/tests/Feature/ChatExtensionRequestTest.php
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,52 @@
 +<?php
 +
 +use Illuminate\Support\Facades\Http;
 +use Illuminate\Support\Facades\Route;
++use Illuminate\Support\Str;
 +use Webkul\AiAgent\Http\Requests\ChatRequest;
 +use Webkul\User\Models\Admin;
 +use Webkul\User\Models\Role;
@@ -2074,6 +2118,14 @@ index 00000000..8af25203
 +    $this->postJson('/_test/chat-extensions', ['message' => 'Preview', 'extensions' => $value])
 +        ->assertUnprocessable()->assertJsonValidationErrors('extensions');
 +})->with(['{broken', 'null', '"string"', 'false']);
++
++it('validates a logical request identity for saved conversations', function () {
++    $id = (string) Str::uuid();
++    $this->postJson('/_test/chat-extensions', ['message' => 'Preview', 'request_id' => $id, 'conversation_id' => 'session_42'])
++        ->assertOk()->assertJsonPath('request_id', $id)->assertJsonPath('conversation_id', 'session_42');
++    $this->postJson('/_test/chat-extensions', ['message' => 'Preview', 'request_id' => 'invalid'])
++        ->assertUnprocessable()->assertJsonValidationErrors('request_id');
++});
 diff --git a/packages/Webkul/AiAgent/tests/Feature/ConversationPersistenceTest.php b/packages/Webkul/AiAgent/tests/Feature/ConversationPersistenceTest.php
 new file mode 100644
 index 00000000..339becb3
@@ -2566,12 +2618,94 @@ index 00000000..8e6cf92e
 +
 +    expect($process->getExitCode())->toBe(0, $process->getOutput().$process->getErrorOutput());
 +});
+diff --git a/packages/Webkul/AiAgent/tests/Unit/ExtensionPresentationTest.php b/packages/Webkul/AiAgent/tests/Unit/ExtensionPresentationTest.php
+new file mode 100644
+index 00000000..bd8ac3c0
+--- /dev/null
++++ b/packages/Webkul/AiAgent/tests/Unit/ExtensionPresentationTest.php
+@@ -0,0 +1,23 @@
++<?php
++
++use Webkul\AiAgent\Chat\ExtensionRegistry;
++
++it('keeps the registered negative provider ID in the widget options', function () {
++    $registry = app(ExtensionRegistry::class);
++    $registry->provider(-7, fn () => null, ['id' => 42, 'label' => 'Example', 'models' => ['example']]);
++
++    expect($registry->options())->toBe([['id' => -7, 'label' => 'Example', 'models' => ['example']]]);
++});
++
++it('rejects invalid capability keys', function (string $key) {
++    expect(fn () => app(ExtensionRegistry::class)->capability($key, ['description' => 'Example']))
++        ->toThrow(InvalidArgumentException::class);
++})->with(['', 'Upper', '1first', 'space key', "key\n", "bad'key", str_repeat('x', 65)]);
++
++it('replaces a capability presentation under the same valid key', function (string $key) {
++    $registry = app(ExtensionRegistry::class);
++    $registry->capability($key, ['description' => 'First']);
++    $registry->capability($key, ['description' => 'Updated', 'extension_event' => null]);
++
++    expect($registry->capabilities())->toBe([$key => ['description' => 'Updated', 'extension_event' => null]]);
++})->with(['edit_image', 'example.catalog-edit', str_repeat('x', 64)]);
+diff --git a/packages/Webkul/AiAgent/tests/Unit/ExtensionProviderFallbackTest.php b/packages/Webkul/AiAgent/tests/Unit/ExtensionProviderFallbackTest.php
+new file mode 100644
+index 00000000..98a3c794
+--- /dev/null
++++ b/packages/Webkul/AiAgent/tests/Unit/ExtensionProviderFallbackTest.php
+@@ -0,0 +1,47 @@
++<?php
++
++use Illuminate\Database\Eloquent\Collection;
++use Webkul\AiAgent\Chat\ExtensionRegistry;
++use Webkul\AiAgent\Http\Controllers\ChatController;
++use Webkul\MagicAI\Models\MagicAIPlatform;
++use Webkul\MagicAI\Repository\MagicAIPlatformRepository;
++
++it('uses a registered extension provider without looking up a database default', function () {
++    $platform = new MagicAIPlatform(['provider' => 'example']);
++    app(ExtensionRegistry::class)->provider(-7, fn () => $platform, ['label' => 'Example']);
++    $repository = Mockery::mock(MagicAIPlatformRepository::class);
++    $repository->shouldNotReceive('find', 'getActiveDefault', 'getActiveList');
++    app()->instance(MagicAIPlatformRepository::class, $repository);
++
++    expect((new ReflectionMethod(ChatController::class, 'resolvePlatform'))->invoke(app(ChatController::class), -7))
++        ->toBe($platform);
++});
++
++it('falls back consistently when the requested provider is unavailable', function (string $selection, string $fallback) {
++    $id = match ($selection) {
++        'unknown', 'unavailable' => -7,
++        'missing', 'disabled'    => 7,
++        default                  => 0,
++    };
++    if ($selection === 'unavailable') {
++        app(ExtensionRegistry::class)->provider(-7, fn () => null, ['label' => 'Unavailable']);
++    }
++    $platform = $fallback === 'none' ? null : new MagicAIPlatform(['provider' => 'fallback', 'status' => true]);
++    $repository = Mockery::mock(MagicAIPlatformRepository::class);
++    if ($id > 0) {
++        $repository->shouldReceive('find')->once()->with($id)
++            ->andReturn($selection === 'disabled' ? new MagicAIPlatform(['status' => false]) : null);
++    } else {
++        $repository->shouldNotReceive('find');
++    }
++    $repository->shouldReceive('getActiveDefault')->once()->andReturn($fallback === 'default' ? $platform : null);
++    if ($fallback === 'default') {
++        $repository->shouldNotReceive('getActiveList');
++    } else {
++        $repository->shouldReceive('getActiveList')->once()->andReturn(new Collection($platform ? [$platform] : []));
++    }
++    app()->instance(MagicAIPlatformRepository::class, $repository);
++
++    expect((new ReflectionMethod(ChatController::class, 'resolvePlatform'))->invoke(app(ChatController::class), $id))
++        ->toBe($platform);
++})->with(['unknown', 'unavailable', 'missing', 'disabled', 'default'])->with(['default', 'first', 'none']);
 diff --git a/packages/Webkul/AiAgent/tests/Unit/ExtensionRegistriesTest.php b/packages/Webkul/AiAgent/tests/Unit/ExtensionRegistriesTest.php
 new file mode 100644
-index 00000000..f9d83bf0
+index 00000000..9e184571
 --- /dev/null
 +++ b/packages/Webkul/AiAgent/tests/Unit/ExtensionRegistriesTest.php
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,103 @@
 +<?php
 +
 +use Laravel\Ai\Contracts\Tool;
@@ -2579,7 +2713,6 @@ index 00000000..f9d83bf0
 +use Webkul\AiAgent\Chat\Contracts\AuthorizesContext;
 +use Webkul\AiAgent\Chat\Contracts\PimTool;
 +use Webkul\AiAgent\Chat\ExtensionRegistry;
-+use Webkul\AiAgent\Chat\ResultRendererRegistry;
 +use Webkul\AiAgent\Chat\ToolRegistry;
 +use Webkul\MagicAI\Models\MagicAIPlatform;
 +use Webkul\User\Models\Admin;
@@ -2593,7 +2726,7 @@ index 00000000..f9d83bf0
 +
 +        return new MagicAIPlatform(['provider' => 'example']);
 +    }, ['id' => 42, 'label' => 'Example']);
-+    expect($registry->options()[0]['id'])->toBe(-7)->and($calls)->toBe(0);
++    expect($calls)->toBe(0);
 +    expect($registry->resolve(-7)->provider)->toBe('example')->and($calls)->toBe(1);
 +    expect($registry->resolve(-8))->toBeNull();
 +    expect(fn () => $registry->provider(1, fn () => null, []))->toThrow(InvalidArgumentException::class);
@@ -2613,26 +2746,6 @@ index 00000000..f9d83bf0
 +    $registry->composer('example.catalog', 'v-new-picker', 'example::new');
 +    expect($registry->composers())->toHaveCount(1)
 +        ->and($registry->composers()[0]['component'])->toBe('v-new-picker');
-+});
-+
-+it('keeps unknown result references inert and rejects executable descriptor fields', function () {
-+    $registry = app(ResultRendererRegistry::class);
-+    $reference = ['type' => 'uninstalled.lookup', 'id' => 'result_42'];
-+    expect($registry->descriptor($reference))->toBe($reference)
-+        ->and($registry->components())->toBe([])
-+        ->and($registry->descriptor($reference + ['component' => 'v-attacker']))->toBeNull()
-+        ->and($registry->descriptor(['type' => "lookup\n", 'id' => 'result']))->toBeNull()
-+        ->and($registry->descriptor(['type' => 'lookup', 'id' => '../other-user']))->toBeNull()
-+        ->and($registry->descriptor(['type' => 'lookup', 'id' => str_repeat('x', 65)]))->toBeNull();
-+});
-+
-+it('maps only registered renderer views and composer consumers', function () {
-+    $registry = app(ResultRendererRegistry::class);
-+    $registry->register('example.lookup', 'v-example-result', 'example::result', 'example.catalog');
-+    expect($registry->components())->toBe(['example.lookup' => 'v-example-result'])
-+        ->and($registry->views())->toBe(['example::result'])
-+        ->and($registry->contextConsumers())->toBe(['example.lookup' => 'example.catalog']);
-+    expect(fn () => $registry->register('bad', 'script', 'example::result'))->toThrow(InvalidArgumentException::class);
 +});
 +
 +it('runs decorators in order with fresh request context only after authorization', function (bool $acl, bool $authorized) {
@@ -2659,3 +2772,69 @@ index 00000000..f9d83bf0
 +    }
 +    expect($seen)->toBe($acl && $authorized ? [[1, 'first request'], [2, 'first request'], [1, 'second request'], [2, 'second request']] : []);
 +})->with([[true, true], [false, true], [true, false]]);
++
++it('rejects an invalid decorator result before the next decorator runs', function (mixed $invalid) {
++    $registry = new ToolRegistry;
++    $native = Mockery::mock(Tool::class);
++    $tool = Mockery::mock(PimTool::class);
++    $tool->shouldReceive('register')->once()->andReturn($native);
++    $registry->register($tool, ['name' => 'example']);
++    $registry->decorate(fn () => $invalid);
++    $called = false;
++    $registry->decorate(function ($value) use (&$called) {
++        $called = true;
++
++        return $value;
++    });
++    $context = new ChatContext('hello', [], null, null, null, 'en_US', 'default', new MagicAIPlatform);
++
++    expect(fn () => $registry->build($context))->toThrow(UnexpectedValueException::class, 'Decorator for tool "example" must return');
++    expect($called)->toBeFalse();
++})->with([null, false, 'invalid', [[]], [new stdClass]]);
++
++it('passes a replacement tool through the rest of the decorator chain', function () {
++    $registry = new ToolRegistry;
++    $native = Mockery::mock(Tool::class);
++    $replacement = Mockery::mock(Tool::class);
++    $tool = Mockery::mock(PimTool::class);
++    $tool->shouldReceive('register')->once()->andReturn($native);
++    $registry->register($tool);
++    $registry->decorate(fn () => $replacement);
++    $registry->decorate(function ($value) use ($replacement) {
++        expect($value)->toBe($replacement);
++
++        return $value;
++    });
++
++    expect($registry->build(new ChatContext('hello', [], null, null, null, 'en_US', 'default', new MagicAIPlatform)))
++        ->toBe([$replacement]);
++});
+diff --git a/packages/Webkul/AiAgent/tests/Unit/ResultRendererRegistryTest.php b/packages/Webkul/AiAgent/tests/Unit/ResultRendererRegistryTest.php
+new file mode 100644
+index 00000000..546f2ddc
+--- /dev/null
++++ b/packages/Webkul/AiAgent/tests/Unit/ResultRendererRegistryTest.php
+@@ -0,0 +1,23 @@
++<?php
++
++use Webkul\AiAgent\Chat\ResultRendererRegistry;
++
++it('keeps unknown result references inert and rejects executable descriptor fields', function () {
++    $registry = app(ResultRendererRegistry::class);
++    $reference = ['type' => 'uninstalled.lookup', 'id' => 'result_42'];
++    expect($registry->descriptor($reference))->toBe($reference)
++        ->and($registry->components())->toBe([])
++        ->and($registry->descriptor($reference + ['component' => 'v-attacker']))->toBeNull()
++        ->and($registry->descriptor(['type' => "lookup\n", 'id' => 'result']))->toBeNull()
++        ->and($registry->descriptor(['type' => 'lookup', 'id' => '../other-user']))->toBeNull()
++        ->and($registry->descriptor(['type' => 'lookup', 'id' => str_repeat('x', 65)]))->toBeNull();
++});
++
++it('maps only registered renderer views and composer consumers', function () {
++    $registry = app(ResultRendererRegistry::class);
++    $registry->register('example.lookup', 'v-example-result', 'example::result', 'example.catalog');
++    expect($registry->components())->toBe(['example.lookup' => 'v-example-result'])
++        ->and($registry->views())->toBe(['example::result'])
++        ->and($registry->contextConsumers())->toBe(['example.lookup' => 'example.catalog']);
++    expect(fn () => $registry->register('bad', 'script', 'example::result'))->toThrow(InvalidArgumentException::class);
++});

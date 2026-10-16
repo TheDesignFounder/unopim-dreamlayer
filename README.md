@@ -1,14 +1,14 @@
 # DreamLayer for UnoPIM
 
-> **Release status (2026-10-14 21:45 UTC): review candidate, not a published release.** The DreamLayer API is live. Browser acceptance of this revised core (result cards, picker and composer controls, opt-in saved history, regeneration including a stale tab and a migrated legacy conversation, default console URL) passed on a disposable host on 2026-10-14 with no paid image edit. The live connection flow passed end to end on 0.2.14 with the console URL fix, including reconnect while already connected after the server-side key-limit fix deployed on 2026-10-14. No step is blocked.
+> **Release status (2026-10-16): review candidate, not a published release.** The updated core (`b406c71d`) and extension passed automated checks and disposable-host browser validation for history settings, picker controls, result cards, regeneration with stale tabs and migrated legacy messages, provider fallback, and the default console link. Browser requests used local provider/API fixtures; no live account authorization or paid image edit was repeated. Earlier live connection validation remains separate historical release evidence.
 
-> **Review branch:** This unreleased compatibility candidate follows Webkul's requested split of the core chat hooks. Automated verification is separate from the browser release checks; this branch does not declare a new production release.
+> **Review branch:** This compatibility candidate follows Webkul's three-part review of the core chat hooks. It does not declare a new production release.
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
 
-The published release remains **0.2.14**. This branch adds the production console URL correction, explicitly enables UnoPIM's optional saved history, and updates the bundled core patch to the three-part review candidate. Core history is disabled by default; DreamLayer opts the host in unless `DREAMLAYER_PERSIST_CHAT_HISTORY=false`.
+The published release is **[0.2.15](https://github.com/TheDesignFounder/unopim-dreamlayer/tree/0.2.15)**. This branch retains the production console URL correction, explicitly enables UnoPIM's optional saved history, and updates the bundled core patch to the three-part review candidate. Core history is disabled by default; DreamLayer opts the host in unless `DREAMLAYER_PERSIST_CHAT_HISTORY=false`.
 
-Existing 0.2.14 hosts must use the incremental core update and its new migration before testing this candidate. See [core patch upgrade instructions](docs/CORE_PATCH.md). The following installation instructions target this review branch; use the published tag's README for 0.2.14.
+Existing 0.2.14 and 0.2.15 hosts using their published core patch must use the incremental core update and its new migration before testing this candidate. See [core patch upgrade instructions](docs/CORE_PATCH.md). The following installation instructions target this review branch; use the [published tag's README](https://github.com/TheDesignFounder/unopim-dreamlayer/blob/0.2.15/README.md) for 0.2.15.
 
 ## Requirements
 
@@ -70,6 +70,10 @@ composer require dreamlayer/unopim-dreamlayer:0.2.14 --minimal-changes
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```
+
+This review branch deliberately retains its existing Composer version `0.2.14`;
+the path repository above selects the checked-out review code, not the published
+0.2.14 tag. Evaluate it on a disposable host.
 
 This installation uses the public Git repository and a Composer path repository;
 Packagist or a marketplace listing is not required.
