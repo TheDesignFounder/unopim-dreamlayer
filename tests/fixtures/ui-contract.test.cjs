@@ -34,6 +34,25 @@ test('image card follows queued, delayed, running, and terminal state without re
     assert.equal(reads, 8);
 });
 
+test('delivery phases distinguish a batch wait, a download, and recovery without stopping polls', async () => {
+    const labels = {waiting:'Waiting for another image', waiting_help:'Processed one at a time.', downloading:'Downloading your preview…', retrying_delivery:'Retrying preview delivery…', delivery_help:'Your image is ready.', complete:'Edits complete'};
+    const {components} = loadComponents(path.join(root, 'resources/views/workflow.blade.php'), {}, {"@json(trans('dreamlayer::app'))": labels});
+    const component = components['v-dreamlayer-workflow'];
+    const card = instance(component, {descriptor:{id:'durable-result'}, visible:true});
+    for (const phase of ['waiting', 'downloading', 'retrying_delivery']) {
+        card.$axios = {get:async () => ({data:{status:'running',phase,delayed:phase==='retrying_delivery'}})};
+        await card.poll();
+        assert.equal(card.title, labels[phase]);
+        assert.equal(card.statusHelp, labels[phase==='waiting'?'waiting_help':'delivery_help']);
+        assert.ok(card.timer);
+    }
+    card.$axios = {get:async () => ({data:{status:'completed',phase:'completed',image_url:'/saved-image'}})};
+    await card.poll();
+    assert.equal(card.title, labels.complete);
+    assert.equal(card.state.image_url, '/saved-image');
+    component.beforeUnmount.call(card);
+});
+
 function picker() {
     const {components} = loadComponents(path.join(root, 'resources/views/picker.blade.php'));
     const component = components['v-dreamlayer-picker'];

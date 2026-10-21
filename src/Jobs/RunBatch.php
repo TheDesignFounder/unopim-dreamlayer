@@ -27,6 +27,37 @@ class RunBatch implements ShouldQueue
         $this->onConnection('dreamlayer')->onQueue(config('dreamlayer.queue'));
     }
 
+    private function advanceIndependent(Batch $batch): bool
+    {
+        // The parent row is locked by handle(). Lock children in a stable order;
+        // child workers never take a parent lock. Admission and queue writes commit
+        // together, so duplicate parent deliveries cannot consume extra slots.
+        $children = Workflow::where('batch_id', $batch->id)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+        $settings = Settings::current();
+        $stop = ! $settings->credential || $settings->credential_version !== $batch->credential_version
+            || $children->contains(fn ($w) => $w->status === 'failed' && in_array($w->error_code, [401, 402, 403, 410], true));
+        $active = $children->filter(fn ($w) => $w->status === 'running')->count();
+        foreach ($batch->children as $id) {
+            $child = $children->get($id);
+            if (! $child || $child->status !== 'queued') {
+                continue;
+            }
+            if ($stop) {
+                $child->update(['status' => 'failed', 'error' => 'This image was not started. Check available credits and connection.']);
+            } elseif ($active < $batch->concurrency) {
+                $child->update(['status' => 'running', 'error' => null]);
+                RunWorkflow::dispatch($child->id)->beforeCommit();
+                $active++;
+            }
+        }
+        $pending = $children->contains(fn ($w) => ! $w->terminal());
+        $completed = $children->filter(fn ($w) => $w->status === 'completed')->count();
+        $batch->update(['status' => $pending ? 'running' : ($completed === $children->count() ? 'completed' : ($completed ? 'partial' : 'failed')),
+            'error'              => $stop ? 'Remaining images were not started. Check available credits and connection.' : null, 'updated_at' => now()]);
+
+        return $pending;
+    }
+
     private function fail(Batch $batch, string $error): void
     {
         $children = Workflow::where('batch_id', $batch->id)->get();
@@ -49,6 +80,9 @@ class RunBatch implements ShouldQueue
                 $b->update(['error' => 'Restore the original API endpoint to resume this batch.']);
 
                 return true;
+            }
+            if ($b->dispatch_mode === 'independent') {
+                return $this->advanceIndependent($b);
             }
             $s = Settings::current();
             if (! $s->credential || $s->credential_version !== $b->credential_version) {
@@ -97,7 +131,7 @@ class RunBatch implements ShouldQueue
                         }
                     }
                 }
-                $b->update(['status' => $remote['status'], 'error' => $remote['error'] ?? null]);
+                $b->update(['status' => $remote['status'], 'error' => $remote['error'] ?? null, 'updated_at' => now()]);
 
                 return ! $terminal;
             } catch (ApiException $e) {

@@ -2,6 +2,7 @@
 
 namespace DreamLayer\UnoPIM\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -154,6 +155,9 @@ class Client
 
     public function image(string $url): string
     {
+        // One shared deadline includes the API request and every storage redirect.
+        // Leave time for PNG validation/storage before the 110-second worker timeout.
+        $deadline = hrtime(true) / 1e9 + 60;
         // Credentials go only to the operator-configured API origin, never to signed storage URLs.
         if (! str_starts_with($url, Endpoints::api().'/') || parse_url($url, PHP_URL_HOST) !== parse_url(Endpoints::api(), PHP_URL_HOST)) {
             throw new \RuntimeException('DreamLayer returned an unexpected asset location.');
@@ -166,7 +170,11 @@ class Client
                 || ! ($host === 'storage.googleapis.com' || str_ends_with($host, '.storage.googleapis.com'))) {
                 throw new \RuntimeException('DreamLayer asset redirect was not an approved storage host.');
             }
-            $response = Http::connectTimeout(10)->timeout(60)->withoutRedirecting()->get($location);
+            $remaining = $deadline - hrtime(true) / 1e9;
+            if ($remaining <= 0) {
+                throw new ConnectionException('Image download deadline exceeded');
+            }
+            $response = Http::connectTimeout(min(10, $remaining))->timeout($remaining)->withoutRedirecting()->get($location);
         }
         $bytes = $this->checked($response)->body();
         ImageStore::validate($bytes);

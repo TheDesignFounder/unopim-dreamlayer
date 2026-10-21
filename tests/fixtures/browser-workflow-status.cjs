@@ -51,6 +51,12 @@ const base = {id:'saved-request', kind:'edit', steps:[], target:null, error:null
             await expect(page.getByText(labels.processing, {exact:true})).toBeVisible();
             await expect(page.getByText(labels.delayed_help, {exact:true})).toHaveCount(0);
             await expect(page.getByRole('button', {name:labels.apply, exact:true})).toHaveCount(0);
+            for (const phase of ['waiting', 'downloading', 'retrying_delivery']) {
+                state = {...base, status:'running', phase, delayed:phase==='retrying_delivery'};
+                await expect(page.getByText(labels[phase], {exact:true})).toBeVisible();
+                await expect(page.getByText(labels.delayed, {exact:true})).toHaveCount(0);
+                await expect(page.getByRole('button', {name:labels.apply, exact:true})).toHaveCount(0);
+            }
             state = {...base, status:'failed', error:'Fixture service unavailable.'};
             await expect(page.getByText(labels.failed, {exact:true})).toBeVisible();
             await expect(page.getByRole('alert')).toHaveText(state.error);

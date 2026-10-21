@@ -30,7 +30,7 @@ class RecoverWorkflows extends Command
         Workflow::whereNotIn('status', ['completed', 'failed'])->where('updated_at', '<', now()->subMinutes(2))->chunkById(100, function ($rows) {
             foreach ($rows as $w) {
                 // Batch children are admitted by their parent, then get their own delivery job.
-                if (! $w->batch_id || $w->upstream_workflow_id) {
+                if (! $w->batch_id || $w->upstream_workflow_id || $w->independentlyAdmitted()) {
                     $this->dispatchMissing($w, RunWorkflow::class);
                 }
             }

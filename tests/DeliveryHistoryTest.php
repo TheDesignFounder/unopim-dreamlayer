@@ -67,6 +67,7 @@ final class DeliveryHistoryTest extends TestCase
             $path = 'dreamlayer/'.$w->id.'/step-0.png';
             Storage::disk('local')->put($path, $residue);
             (new RunWorkflow($w->id))->handle();
+            (new RunWorkflow($w->id))->handle(); // Resume the committed delivery checkpoint.
             $r = $this->getJson(route('dreamlayer.workflow', $w->id))->assertOk()->assertJsonPath('partial_success', true)->assertJsonPath('delivery_unavailable', false);
             $this->assertSame($this->png(), Storage::disk('local')->get($path));
             $this->get($r->json('steps.0.image_url'))->assertOk()->assertContent($this->png());
@@ -86,6 +87,7 @@ final class DeliveryHistoryTest extends TestCase
         $this->getJson(route('dreamlayer.image', ['id'=>$w->id, 'step'=>0]))->assertStatus(503);
         $this->artisan('dreamlayer:recover', ['--verify-deliveries'=>true])->assertSuccessful();
         Queue::assertPushed(RunWorkflow::class, fn ($job) =>$job->workflowId === $w->id);
+        (new RunWorkflow($w->id))->handle();
         (new RunWorkflow($w->id))->handle();
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('partial_success', true)->assertJsonPath('delivery_unavailable', false);
         Http::assertNotSent(fn ($r) =>$r->method() !== 'GET');
@@ -138,8 +140,10 @@ final class DeliveryHistoryTest extends TestCase
             }
         });
         (new RunWorkflow($w->id))->handle();
+        (new RunWorkflow($w->id))->handle(); // Exercise the failing write, after status is saved.
         $this->assertFalse($w->fresh()->terminal());
-        $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('steps', []);
+        $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('phase', 'retrying_delivery')
+            ->assertJsonPath('steps.0.status', 'completed')->assertJsonPath('steps.0.image_url', null);
         app()->instance(ImageStore::class, $real);
         (new RunWorkflow($w->id))->handle();
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('partial_success', true);
