@@ -1,0 +1,115 @@
+name: Extension compatibility
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extension-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    name: Extension compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: unopim_extension_test
+          POSTGRES_USER: extension
+          POSTGRES_PASSWORD: extension-local-test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U extension -d unopim_extension_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: testing
+      APP_URL: http://127.0.0.1:8000
+      APP_TIMEZONE: UTC
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: unopim_extension_test
+      DB_USERNAME: extension
+      DB_PASSWORD: extension-local-test
+      CACHE_STORE: array
+      CACHE_DRIVER: array
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: database
+      MAIL_MAILER: array
+      ELASTICSEARCH_ENABLED: 'false'
+      DREAMLAYER_CONCURRENCY_TEST_DATABASE: unopim_extension_test
+      INSTALLER_ADMIN_EMAIL: ci@example.test
+      INSTALLER_ADMIN_PASSWORD: disposable-local-ci-password
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: extension
+      - uses: actions/checkout@v4
+        with:
+          repository: unopim/unopim
+          ref: 1abbb5bfa393f62b7d3d8496a3afea2a93df4084
+          path: host
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: calendar, curl, dom, fileinfo, gd, intl, mbstring, pdo_mysql, pdo_pgsql, zip
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked UnoPIM dependencies
+        working-directory: host
+        run: |
+          cp .env.example .env
+          composer install --prefer-dist --no-interaction --no-progress
+          composer require enshrined/svg-sanitize:1.1.1 symfony/http-foundation:8.1.9 --minimal-changes --no-interaction --no-progress
+          composer audit
+          php artisan key:generate --no-interaction
+          php artisan migrate --force --no-interaction
+          php artisan db:seed --force --no-interaction
+      - name: Install extension without a core patch
+        working-directory: host
+        run: |
+          php ../extension/tools/check-host.php
+          composer config repositories.dreamlayer '{"type":"path","url":"../extension","options":{"symlink":true}}'
+          VERSION=$(php -r 'echo json_decode(file_get_contents("../extension/composer.json"), true)["version"];')
+          composer require "dreamlayer/unopim-dreamlayer:$VERSION" --no-interaction --no-progress
+          php artisan migrate --force --no-interaction
+          php artisan optimize:clear
+      - name: PHP extension regressions
+        working-directory: host
+        run: |
+          UNOPIM_HOST_ROOT="$PWD" vendor/bin/phpunit -c ../extension/tests/phpunit.xml --fail-on-warning --fail-on-risky
+      - name: Migration install and upgrade scenarios
+        working-directory: host
+        run: |
+          PGPASSWORD="$DB_PASSWORD" createdb -h "$DB_HOST" -U "$DB_USERNAME" unopim_extension_migration_test
+          DB_DATABASE=unopim_extension_migration_test DREAMLAYER_MIGRATION_TEST=1 UNOPIM_HOST_ROOT="$PWD" php ../extension/tests/migration-install.php
+      - name: Composer and chat JavaScript regressions
+        working-directory: extension
+        run: |
+          UNOPIM_HOST_ROOT="$GITHUB_WORKSPACE/host" node --test tests/fixtures/ui-contract.test.cjs
+          node --test "$GITHUB_WORKSPACE"/host/packages/Webkul/AiAgent/tests/JavaScript/*.test.cjs
+      - name: Browser controls
+        working-directory: extension
+        run: |
+          npm install --prefix "$RUNNER_TEMP/dl-browser" @playwright/test@1.62.1 --no-audit --no-fund
+          "$RUNNER_TEMP/dl-browser/node_modules/.bin/playwright" install --with-deps chromium
+          export UNOPIM_HOST_ROOT="$GITHUB_WORKSPACE/host"
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/dl-browser/node_modules/@playwright/test"
+          node tests/fixtures/browser-picker-layout.cjs
+          node tests/fixtures/browser-live-settings.cjs
+      - name: Build and verify the release package
+        working-directory: extension
+        run: |
+          composer validate --no-check-publish
+          python3 tools/build_release.py

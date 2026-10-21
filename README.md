@@ -1,36 +1,26 @@
 # DreamLayer for UnoPIM
 
-> **Release status (2026-10-16): review candidate, not a published release.** The updated core (`b406c71d`) and extension passed automated checks and disposable-host browser validation for history settings, picker controls, result cards, regeneration with stale tabs and migrated legacy messages, provider fallback, and the default console link. Browser requests used local provider/API fixtures; no live account authorization or paid image edit was repeated. Earlier live connection validation remains separate historical release evidence.
+Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and refine the preview through follow-up messages before choosing **Apply to product**. Generating a preview does not change the catalog.
 
-> **Review branch:** This compatibility candidate follows Webkul's three-part review of the core chat hooks. It does not declare a new production release.
+**Version 0.2.16** integrates with UnoPIM's merged chat extension hooks and optional saved history. The supported source baseline is UnoPIM `3.x` commit `1abbb5bfa393f62b7d3d8496a3afea2a93df4084` (October 19, 2026). This is a development-branch baseline, not a claim that every published UnoPIM 3.x release includes these hooks. See [compatibility and upgrades](docs/CORE_PATCH.md).
 
-Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and review the preview before choosing **Apply to product**. Generating a preview does not change the catalog.
+DreamLayer enables saved database chat history by default. This affects all chat providers on the host. Set `DREAMLAYER_PERSIST_CHAT_HISTORY=false` to leave UnoPIM's history setting unchanged.
 
-The published release is **[0.2.15](https://github.com/TheDesignFounder/unopim-dreamlayer/tree/0.2.15)**. This branch retains the production console URL correction, explicitly enables UnoPIM's optional saved history, and updates the bundled core patch to the three-part review candidate. Core history is disabled by default; DreamLayer opts the host in unless `DREAMLAYER_PERSIST_CHAT_HISTORY=false`.
-
-Existing 0.2.14 and 0.2.15 hosts using their published core patch must use the incremental core update and its new migration before testing this candidate. See [core patch upgrade instructions](docs/CORE_PATCH.md). The following installation instructions target this review branch; use the [published tag's README](https://github.com/TheDesignFounder/unopim-dreamlayer/blob/0.2.15/README.md) for 0.2.15.
+Validation details and the distinction between local API fixtures and live provider testing are recorded in [release verification](docs/VERIFICATION_0_2_16.md).
 
 ## Requirements
 
-- A compatible UnoPIM 3.x installation with the [generic chat extension hooks](docs/CORE_PATCH.md). The bundled patch has been checked against UnoPIM 3.x revision `f5d9d663b027ab86ff707aae221bcf31079be47c`; check compatibility before applying it to another revision.
+- UnoPIM at the supported source baseline above, with its native chat hooks. Older or customized installations need the [compatibility review](docs/CORE_PATCH.md) before upgrading.
 - PHP 8.4.1 or later, Laravel 13 and the GD extension.
 - Private writable local storage shared by the web application and queue workers. Storage must support atomic file renames.
 - UnoPIM's database queue tables, a supervised queue worker and the Laravel scheduler.
 - Access to a DreamLayer account or API key issued by the configured DreamLayer environment. English (`en_US`) is the initial supported locale.
 
-## Standard UnoPIM without the hooks
+## Older UnoPIM installations
 
-This version requires the generic core compatibility patch. Installing it on
-unmodified UnoPIM does **not** fall back to a standalone settings page or chat.
-Its service provider stops application boot with:
-
-> DreamLayer requires the UnoPIM 3.x generic chat hooks patch. See patches/ and installation instructions.
-
-Composer's package-discovery script can fail during installation, and web/Artisan
-requests cannot boot while the extension remains enabled without the hooks.
-Apply the matching core patch **before** `composer require`. This prerequisite
-also applies when installing from the public Git repository. A standard UnoPIM
-release alone is not sufficient until compatible hooks are included upstream.
+Check [the supported core revision](docs/CORE_PATCH.md) before installing. Hosts
+without the required hooks cannot boot this extension. Upgrade and validate the
+host first; the extension does not silently install or modify core hooks.
 
 ## Install
 
@@ -38,42 +28,32 @@ release alone is not sufficient until compatible hooks are included upstream.
 PowerShell setup, Ubuntu paths and the dedicated worker. Windows execution is
 not yet verified; the completed manual acceptance used macOS and Docker.
 
-If Composer blocks the host's older SVG sanitizer dependency, see
-[the separate UnoPIM prerequisite](docs/HOST_PREREQUISITE.md).
+Apply [the two required UnoPIM dependency updates](docs/HOST_PREREQUISITE.md)
+before installing the extension. The automated checks use this exact baseline.
 
 Run these commands from a compatible UnoPIM application directory with PHP and
 Composer available. For Docker, use the container commands in the Windows/WSL
 guide (the same Linux-container paths apply on macOS). Back up an existing host
 and database before installing.
 
-Clone this review branch into a disposable host's shared tree:
+From the UnoPIM project root, install the tagged extension into the host's shared tree:
 
 ```sh
 mkdir -p packages/DreamLayer
-git clone --branch fix/opt-in-core-history --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
+git clone --branch 0.2.16 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
 ```
 
-**If generic core hooks are already installed, follow the incremental upgrade in [CORE_PATCH.md](docs/CORE_PATCH.md) instead of this next block.**
-Otherwise apply the full patch once, only after its compatibility check succeeds:
+**Do not apply a bundled core patch to the supported merged UnoPIM baseline.** The hooks are already included. After installing the host's locked dependencies, check the required capabilities and register the package:
 
 ```sh
-git apply --check packages/DreamLayer/unopim-dreamlayer/patches/unopim-3x-chat-hooks.patch
-git apply packages/DreamLayer/unopim-dreamlayer/patches/unopim-3x-chat-hooks.patch
-```
-
-If the check fails, stop and consult [core compatibility](docs/CORE_PATCH.md).
-Do not force the patch or apply it twice. Install the cloned Composer package:
-
-```sh
-composer config repositories.dreamlayer path packages/DreamLayer/unopim-dreamlayer
-composer require dreamlayer/unopim-dreamlayer:0.2.14 --minimal-changes
+php packages/DreamLayer/unopim-dreamlayer/tools/check-host.php
+composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
+composer require dreamlayer/unopim-dreamlayer:0.2.16
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```
 
-This review branch deliberately retains its existing Composer version `0.2.14`;
-the path repository above selects the checked-out review code, not the published
-0.2.14 tag. Evaluate it on a disposable host.
+The capability check reads host classes without modifying them. It is not a substitute for the supported-version requirement or the checks on your own installation. If it reports missing hooks, follow [compatibility and upgrades](docs/CORE_PATCH.md); do not force an old patch into a newer host.
 
 This installation uses the public Git repository and a Composer path repository;
 Packagist or a marketplace listing is not required.

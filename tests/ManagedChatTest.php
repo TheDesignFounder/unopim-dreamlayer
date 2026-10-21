@@ -20,6 +20,7 @@ use Tests\TestCase;
 use Webkul\AiAgent\Chat\AgentRunner;
 use Webkul\AiAgent\Chat\ChatContext;
 use Webkul\AiAgent\Chat\ToolRegistry;
+use Webkul\MagicAI\Models\MagicAIPlatform;
 use Webkul\User\Models\Admin;
 use Webkul\User\Models\Role;
 
@@ -73,6 +74,8 @@ final class ManagedChatTest extends TestCase
 
     public function test_nested_embeddings_use_managed_endpoint_and_restore_configuration(): void
     {
+        MagicAIPlatform::create(['label' => 'Existing native provider', 'provider' => 'openai',
+            'api_key' => 'native-test-key', 'models' => 'gpt-4o', 'status' => true, 'is_default' => true]);
         $this->context();
         $old = config('ai.default_for_embeddings');
         Http::fake(function ($r) {
@@ -87,6 +90,32 @@ final class ManagedChatTest extends TestCase
         $this->assertSame(0, $rank[0]['index']);
         $this->assertSame($old, config('ai.default_for_embeddings'));
         Http::assertSentCount(1);
+    }
+
+    public function test_inactive_managed_chat_preserves_native_embedding_provider(): void
+    {
+        MagicAIPlatform::create(['label' => 'Native embeddings', 'provider' => 'openai',
+            'api_key' => 'native-test-key', 'models' => 'gpt-4o', 'status' => true, 'is_default' => true]);
+        $this->assertFalse(app(ManagedChat::class)->active);
+        Http::fake(function ($request) {
+            $this->assertSame('https://api.openai.com/v1/embeddings', $request->url());
+            $this->assertSame('Bearer native-test-key', $request->header('Authorization')[0]);
+
+            return Http::response(['data' => [['index' => 0, 'embedding' => [1, 0]], ['index' => 1, 'embedding' => [1, 0]]]]);
+        });
+        $this->assertCount(1, app(ManagedSimilarity::class)->rank('native-'.Str::uuid(), ['serum']));
+        Http::assertSentCount(1);
+    }
+
+    public function test_managed_embedding_failure_restores_provider_configuration(): void
+    {
+        $this->context();
+        $old = config('ai.default_for_embeddings');
+        $oldProvider = config('ai.providers.openai-compatible');
+        Http::fake(fn () => Http::response(['error' => ['message' => 'Fixture outage']], 503));
+        $this->assertSame([], app(ManagedSimilarity::class)->rank('failure-'.Str::uuid(), ['serum']));
+        $this->assertSame($old, config('ai.default_for_embeddings'));
+        $this->assertSame($oldProvider, config('ai.providers.openai-compatible'));
     }
 
     public function test_replayed_native_write_does_not_run_again_and_rechecks_permission(): void
