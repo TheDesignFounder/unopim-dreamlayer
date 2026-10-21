@@ -2,7 +2,7 @@
 
 Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and refine the preview through follow-up messages before choosing **Apply to product**. Generating a preview does not change the catalog.
 
-**Version 0.2.16** integrates with UnoPIM's merged chat extension hooks and optional saved history. The supported source baseline is UnoPIM `3.x` commit `1abbb5bfa393f62b7d3d8496a3afea2a93df4084` (October 19, 2026). This is a development-branch baseline, not a claim that every published UnoPIM 3.x release includes these hooks. See [compatibility and upgrades](docs/CORE_PATCH.md).
+**Version 0.2.16 — compatibility prerelease for pilots.** This version integrates with UnoPIM's merged chat extension hooks and optional saved history. The supported source baseline is UnoPIM `3.x` commit `1abbb5bfa393f62b7d3d8496a3afea2a93df4084` (October 19, 2026). This is a development-branch baseline, not a claim that every published UnoPIM 3.x release includes these hooks. See [compatibility and upgrades](docs/CORE_PATCH.md).
 
 DreamLayer enables saved database chat history by default. This affects all chat providers on the host. Set `DREAMLAYER_PERSIST_CHAT_HISTORY=false` to leave UnoPIM's history setting unchanged.
 

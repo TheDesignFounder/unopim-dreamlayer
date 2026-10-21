@@ -14,7 +14,7 @@ configured UnoPIM chat provider.
 | This Composer package | Connection settings, image selection, managed transport, durable local work, delivery, explicit Apply | [Service provider](../src/Providers/DreamLayerServiceProvider.php) |
 | DreamLayer services | Account approval, scoped credentials, chat/image execution, credits, remote status | [API contract](API_CONTRACT_V1.md), [backend prerequisites](BACKEND_SETUP.md) |
 
-The Webkul core patch contains only generic `packages/Webkul/AiAgent` changes.
+The chat hooks are now included in the supported UnoPIM core. Historical patches contain only generic `packages/Webkul/AiAgent` changes; do not apply them to the merged baseline.
 Composer path repositories, local host setup, DreamLayer secrets and fixtures do
 not belong in that PR. The package can be reviewed separately. The backend and
 account console are separately deployed dependencies, not code installed into
