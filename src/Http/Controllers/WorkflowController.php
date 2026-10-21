@@ -81,6 +81,7 @@ class WorkflowController extends Controller
         $damaged = $images->damaged($w);
 
         return response()->json(['id' => $w->id, 'status' => $w->status,
+            'phase'                   => $w->phase(),
             'error_code'              => $w->error_code,
             'billing_url'             => $w->status === 'failed' && $w->error_code === 402 ? config('dreamlayer.billing_url') : null,
             // A successful status GET is not evidence that a worker is processing it.

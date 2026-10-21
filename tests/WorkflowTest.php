@@ -541,13 +541,13 @@ final class WorkflowTest extends TestCase
         $bytes = $this->png();
         Http::fake(['*/capabilities'=>Http::response(['api_version'=>'1', 'operations'=>['text_to_image', 'image_to_image', 'background_remove']]), '*/input-assets'=>Http::response(['input_asset_id'=>$asset]), '*/execute'=>Http::response(['execution_id'=>$id], 202), '*/executions/*'=>Http::response(['execution_id'=>$id, 'status'=>'completed', 'image_job'=>['finished_assets'=>[['download_url'=>'https://api.dreamlayer.io/v1/image-jobs/'.$id.'/asset']]]]), '*/asset'=>Http::response($bytes)]);
         $w = $this->generate();
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 4; $i++) {
             (new RunWorkflow($w->id))->handle();
         }
         $this->assertSame('completed', $w->fresh()->status);
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('detailed_progress', false)->assertJsonPath('steps', []);
         $edit = app(Workflows::class)->start($this->context(), ['steps'=>[['operation'=>'background_remove']]], false);
-        for ($i = 0; $i < 4; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             (new RunWorkflow($edit->id))->handle();
         }
         $this->assertSame('completed', $edit->fresh()->status);

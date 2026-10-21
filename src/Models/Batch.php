@@ -18,6 +18,6 @@ class Batch extends Model
 
     protected function casts(): array
     {
-        return ['children' => 'array'];
+        return ['children' => 'array', 'concurrency' => 'integer'];
     }
 }

@@ -90,6 +90,9 @@ final class ReviewRegressionTest extends TestCase
             'steps'                                                                                                                                         => [['description' => 'Change background', 'status' => 'completed', 'image' => ['download_url' => 'https://api.dreamlayer.io/v1/image-jobs/'.Str::uuid().'/asset']], ['description' => 'Remove background', 'status' => 'failed', 'image' => null]], 'image' => null])]);
         (new RunWorkflow($w->id))->handle();
         $r = $this->getJson(route('dreamlayer.workflow', $w->id));
+        $r->assertOk()->assertJsonPath('phase', 'downloading');
+        (new RunWorkflow($w->id))->handle();
+        $r = $this->getJson(route('dreamlayer.workflow', $w->id));
         $r->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('steps.0.status', 'completed')->assertJsonPath('image_url', null)->assertJsonPath('partial_success', true);
         $this->assertStringContainsString('credits', $r->json('billing_notice'));
         $this->get($r->json('steps.0.image_url'))->assertOk()->assertHeader('Content-Type', 'image/png');

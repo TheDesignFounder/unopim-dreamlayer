@@ -37,7 +37,7 @@ class Batches
             }
             abort_if(Workflow::where(['user_id' => $c->user->id, 'conversation_id' => $c->conversationId, 'request_id' => $c->requestId])->exists(), 409, 'This request already owns an image workflow.');
             $caps = (new Client($settings->credential))->capabilities();
-            abort_unless(($caps['image_batches'] ?? false) && in_array(1, $caps['image_batch_versions'] ?? [], true), 422, 'This API does not support small batches. Select one image.');
+            abort_unless(($caps['image_workflows'] ?? false) && in_array(1, $caps['image_workflow_versions'] ?? [], true), 422, 'This API does not support independent image workflows. Select one image.');
             $id = (string) Str::uuid();
             $children = [];
             $destinations = [];
@@ -62,7 +62,8 @@ class Batches
                 $children[] = $w->id;
             }
             $batch = Batch::create(['id' => $id, 'user_id' => $c->user->id, 'conversation_id' => $c->conversationId, 'request_id' => $c->requestId,
-                'fingerprint'            => $fingerprint, 'credential_version' => $settings->credential_version, 'api_url' => Endpoints::api(), 'children' => $children]);
+                'fingerprint'            => $fingerprint, 'credential_version' => $settings->credential_version, 'api_url' => Endpoints::api(), 'children' => $children,
+                'dispatch_mode'          => 'independent', 'concurrency' => max(1, min(5, (int) config('dreamlayer.batch_concurrency', 2)))]);
             RunBatch::dispatch($id)->afterCommit();
 
             return $batch;

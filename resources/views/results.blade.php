@@ -12,6 +12,7 @@ $product = $workflow->target ? \Webkul\Product\Models\Product::find($workflow->t
 $name = $product ? app(\DreamLayer\UnoPIM\Services\CatalogImages::class)->name($product,$workflow->target['channel'],$workflow->target['locale']) : 'Image preview';
 $partial = $workflow->status === 'failed' && count(array_filter($workflow->progress ?? [], fn ($step) => ($step['status'] ?? '') === 'completed')) > 0;
 $status = $workflow->applied_at ? 'Applied' : ($workflow->status === 'completed' ? 'Ready to review' : ($partial ? 'Partially completed' : ($workflow->delayed() ? 'Delayed' : match ($workflow->status) {'queued' => 'Queued', 'running' => 'Processing', default => 'Failed'})));
+$status = match ($workflow->phase()) {'waiting' => 'Waiting for another image', 'downloading' => 'Downloading preview', 'retrying_delivery' => 'Retrying preview delivery', default => $status};
 @endphp
 <article class="dl-result-card"><h2 class="font-semibold">{{ $name }}</h2><p class="text-xs mb-2">{{ $workflow->target['sku'] ?? '' }} · {{ $status }}</p>
 

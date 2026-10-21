@@ -44,6 +44,9 @@ app.component('v-dreamlayer-workflow', {
                 return this.state.error_code === 402 ? 'Out of image credits' : this.labels.failed;
             if (this.state.status === 'completed')
                 return this.state.kind === 'generate' ? this.labels.ready : this.labels.complete;
+            if (this.state.phase === 'waiting') return this.labels.waiting;
+            if (this.state.phase === 'downloading') return this.labels.downloading;
+            if (this.state.phase === 'retrying_delivery') return this.labels.retrying_delivery;
             if (this.state.delayed) return this.labels.delayed;
             if (this.state.status === 'queued') return this.labels.queued;
             if (!this.state.detailed_progress) return this.labels.processing;
@@ -51,6 +54,8 @@ app.component('v-dreamlayer-workflow', {
         },
         statusHelp() {
             if (!this.state || ['completed', 'failed'].includes(this.state.status)) return '';
+            if (this.state.phase === 'waiting') return this.labels.waiting_help;
+            if (['downloading', 'retrying_delivery'].includes(this.state.phase)) return this.labels.delivery_help;
             if (this.state.delayed) return this.labels.delayed_help;
             return this.state.status === 'queued' ? this.labels.queued_help : '';
         }

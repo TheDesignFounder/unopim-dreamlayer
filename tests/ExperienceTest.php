@@ -38,7 +38,7 @@ final class ExperienceTest extends TestCase
         $this->admin = Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type' => 'all'])->id]);
         $this->actingAs($this->admin, 'admin');
         Settings::current()->update(['enabled' => true, 'credential' => 'dl_test_'.str_repeat('x', 40), 'credential_version' => (string) Str::uuid(), 'managed_chat' => false]);
-        Http::fake(['*/capabilities' => Http::response(['api_version' => '1', 'operations' => ['text_to_image'], 'image_batches' => true, 'image_batch_versions' => [1]])]);
+        Http::fake(['*/capabilities' => Http::response(['api_version' => '1', 'operations' => ['text_to_image'], 'image_workflows' => true, 'image_workflow_versions' => [1]])]);
     }
 
     private function gallery(): array
@@ -228,6 +228,7 @@ final class ExperienceTest extends TestCase
     {
         [,, $selected] = $this->gallery();
         $b = app(Batches::class)->start($this->context($selected), $this->input());
+        $b->update(['dispatch_mode' => 'upstream']);
         Http::fake();
         (new RunWorkflow($b->children[0]))->handle();
         Http::assertNothingSent();
