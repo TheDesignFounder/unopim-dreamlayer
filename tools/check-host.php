@@ -14,6 +14,7 @@ $requirements = [
     'tool decoration' => method_exists('Webkul\\AiAgent\\Chat\\ToolRegistry', 'decorate'),
     'follow-up image context' => property_exists('Webkul\\AiAgent\\Chat\\ChatContext', 'hasNewImages'),
     'saved result presentation' => class_exists('Webkul\\AiAgent\\Chat\\MessageDisplay'),
+    'platform-aware embedding ranking' => method_exists('Webkul\\AiAgent\\Services\\EmbeddingSimilarityService', 'rankOrFail'),
 ];
 foreach ($requirements as $name => $available) {
     echo ($available ? 'PASS: ' : 'MISSING: ').$name.PHP_EOL;
