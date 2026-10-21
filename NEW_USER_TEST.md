@@ -2,7 +2,7 @@
 
 Use a fresh UnoPIM checkout with a separate database and storage. Follow the
 [README](README.md#install), or [Windows/WSL guide](docs/WINDOWS_INSTALL.md), using
-the public repository and tag `0.2.15`. Record both Git commits and the environment.
+the public repository and tag `0.2.16`. Record both Git commits and the environment.
 
 Complete [the installation, connection and picker checklist](docs/FRESH_INSTALL_TEST.md).
 The optional image edit/Apply section spends image credits; record separately

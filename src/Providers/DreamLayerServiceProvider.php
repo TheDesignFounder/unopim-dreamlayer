@@ -59,8 +59,12 @@ class DreamLayerServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (! defined(ExtensionRegistry::class.'::COMPOSER_REFERENCES') || ExtensionRegistry::COMPOSER_REFERENCES < 2 || ! class_exists(ExtensionRegistry::class) || ! class_exists(ResultRendererRegistry::class) || ! property_exists(ChatContext::class, 'hasNewImages') || ! class_exists(MessageDisplay::class)) {
-            throw new \RuntimeException('DreamLayer requires the UnoPIM 3.x generic chat hooks patch. See patches/ and installation instructions.');
+        if (config('dreamlayer.persist_chat_history')) {
+            config(['ai-agent.history.enabled' => true]);
+        }
+
+        if (! defined(ExtensionRegistry::class.'::COMPOSER_REFERENCES') || ExtensionRegistry::COMPOSER_REFERENCES < 2 || ! class_exists(ExtensionRegistry::class) || ! class_exists(ResultRendererRegistry::class) || ! property_exists(ChatContext::class, 'hasNewImages') || ! class_exists(MessageDisplay::class) || ! method_exists(EmbeddingSimilarityService::class, 'rankOrFail')) {
+            throw new \RuntimeException('DreamLayer requires UnoPIM with the merged chat extension hooks. See docs/CORE_PATCH.md for supported versions and upgrade instructions.');
         }
         $this->app->afterResolving(ExtensionRegistry::class, function ($r) {
             if (! Settings::current()->enabled) {

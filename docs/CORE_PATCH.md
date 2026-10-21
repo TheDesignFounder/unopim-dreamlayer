@@ -1,73 +1,64 @@
-# Generic UnoPIM chat hooks: current review candidate
+# UnoPIM compatibility and upgrades
 
-The full `patches/unopim-3x-chat-hooks.patch` contains only changes under
-`packages/Webkul/AiAgent`. It adds provider/composer/renderer integration hooks,
-request identity and additive history; DreamLayer-specific code stays in this
-Composer package.
+## Supported installation
 
-| Source | Revision |
-| --- | --- |
-| Upstream UnoPIM 3.x base | `d29ffdcd7b26527dd6a06d24c90d3e787cbb9b00` |
-| Generic core candidate | `c3fefa34ea96fefded6a880b523108dfe49540b8` (PR #770 head; based on 3.x above) |
-| Included hook capability | `COMPOSER_REFERENCES = 2` |
+DreamLayer 0.2.16 targets UnoPIM `3.x` commit
+`1abbb5bfa393f62b7d3d8496a3afea2a93df4084` (October 19, 2026).
+Apply the [two documented host dependency updates](HOST_PREREQUISITE.md) as well.
+The registries, tool decorators, composer controls, result cards and optional
+saved history are included natively through upstream PRs #775 and #776. PR #770's
+changes were included through #775.
 
+This is a source revision, not a minimum tagged UnoPIM release. Do not infer
+compatibility from the `3.x` name alone. Pin the documented revision for a pilot;
+validate later revisions before upgrading.
 
-Start review at **`packages/Webkul/AiAgent/CHAT_EXTENSIONS.md`** in the patched
-host. It maps each hook to its implementation, explains conversation/request/
-message identities and compatibility, and gives the test commands. For the
-package's complete account-to-Apply flow, read [REVIEWING.md](REVIEWING.md).
+**No core patch is needed on this baseline. Do not apply any bundled patch.**
+Install the host's locked Composer dependencies, run `php
+/path/to/extension/tools/check-host.php` from its project root, then install the
+extension and run `php artisan migrate --no-interaction`. See the [README](../README.md).
 
-## Fresh host
+The capability check reads classes only. It does not verify migrations, database
+permissions, provider availability, or compatibility with arbitrary local changes.
+The normal Laravel migration command applies all outstanding core and extension
+migrations; do not manually mark them completed.
 
-Apply the full patch before Composer installs this extension:
+## Upgrading a previously patched installation
 
-```sh
-git apply --check /path/to/extension/patches/unopim-3x-chat-hooks.patch
-git apply /path/to/extension/patches/unopim-3x-chat-hooks.patch
-```
+Published 0.2.14 and 0.2.15 bundled older core hooks based on `c3fefa34`.
+The October 16 review branch instead targeted `b406c71d`. Neither is the final
+merged source baseline used by 0.2.16.
 
-Other downloaded revisions require normal compatibility review. The patch applies cleanly to
-[unopim/unopim 3.x](https://github.com/unopim/unopim/tree/3.x) at upstream commit
-`d29ffdcd7b26527dd6a06d24c90d3e787cbb9b00`, the submission base. Later revisions
-still require `git apply --check`; compatibility with every 3.x revision is not assumed.
+Back up the database and application files, record the exact installed core
+revision, and reconcile customizations with the supported upstream source in a
+staging installation. Keep the migration ledger and saved data. Run outstanding
+migrations normally, install this extension, clear caches and restart workers.
+Test existing conversations, product images and connection settings before
+switching the live installation.
 
-Run the four additive `2026_10_08_00000*` core migrations before serving requests.
-They add message identity/presentation, per-admin client conversation identity,
-request identity and bounded native display data. Existing rows remain readable.
-No provider enum, native credential schema, vendor file or product persistence
-implementation is patched.
+Files under `patches/` and [the archived guide](LEGACY_CORE_PATCH.md) are historical
+migration references. Their successful application to an old revision does not
+establish compatibility with the merged core. Do not apply the full patch twice
+or apply the October 16 incremental patch to the October 19 merged source.
 
-## Host already using the hooks
+An automated upgrade from a customized, older patched host is outside this
+release's fresh-install validation. Older tags retain their original instructions.
 
-Do not apply the full patch again. Compare the installed hooks with the bundled
-patch and reconcile changes against the exact installed version. For an unmodified 0.2.13 bundled patch (`5cbfd1f7`), this candidate includes
-an incremental update:
+## Optional saved history
 
-```sh
-git apply --check /path/to/extension/patches/unopim-3x-chat-hooks-0.2.13-to-0.2.14.patch
-git apply /path/to/extension/patches/unopim-3x-chat-hooks-0.2.13-to-0.2.14.patch
-php artisan optimize:clear
-```
+UnoPIM's database chat history is off by default. DreamLayer enables it during
+provider boot unless `DREAMLAYER_PERSIST_CHAT_HISTORY=false`. The setting affects
+all chat providers on the host, not just DreamLayer. Opting out leaves
+`AI_AGENT_HISTORY_ENABLED` unchanged. Clear Laravel's configuration cache after
+changing environment settings.
 
-Back up the installed files first. If the check fails because changes are already
-applied or the host has custom edits, reconcile against `c3fefa34`; do not force it.
-Restart PHP workers when OPcache does not check timestamps. The incremental patch
-adds no migrations beyond the four already installed with 0.2.13. The generic core
-change is a separate upstream proposal. This release still requires the bundled
-patch until compatible hooks are included in your installed UnoPIM version.
+Disabling persistence keeps existing database conversations; it does not delete
+them. Browser-local history can still be available. Migration rollbacks remove
+added metadata, so a backup is required if downgrade recovery must preserve it.
 
-The package checks required classes and `COMPOSER_REFERENCES >= 2` at boot and
-reports missing hooks. This is a capability check, not proof of compatibility
-with an arbitrary modified host.
+## Verification
 
-## Validation and limits
-
-The annotation pass compares PHP executable tokens and parsed JavaScript against
-the working pre-annotation source. Its native regression and composer suites are
-listed in the review handoff, together with the clean-baseline patch check.
-Older independent review at `3dd2e0b` remains historical evidence; it is not a new
-independent review of this annotated candidate. The owner confirmed successful fresh installation, connection and image
-generation on 2026-10-13. The 0.2.12 navigation-style regression passes 18 browser
-scenarios; 0.2.13 adds Windows instructions without changing application behavior.
-
-Version 0.2.15 changes only the extension's default console address; the bundled patch, hook capability and migrations are unchanged. Version 0.2.14 includes both the completion-listener history fix and its PHP/JavaScript regressions from `c3fefa34`. The paid acceptance run on this patch passed on 2026-10-14 (one image edit, 476.4 to 475.4 credits, submit to visible result 220 s); the free picker and history checks are separate evidence.
+See [0.2.16 verification](VERIFICATION_0_2_16.md) for the exact tested source,
+commands, outcomes, and live-provider limits. The repository workflow installs
+this package on the pinned upstream source and checks installation, migrations,
+extension regressions, core chat compatibility and JavaScript behavior.

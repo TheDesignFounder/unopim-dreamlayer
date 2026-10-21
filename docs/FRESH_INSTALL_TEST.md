@@ -2,27 +2,25 @@
 
 Use a new UnoPIM checkout and a separate database/storage location. Keep the
 currently working installation available until this test passes. This guide is
-for the **0.2.15 source release**; it supersedes older rehearsal instructions
-for 0.2.3–0.2.12. The owner completed the installation, connection and generation flow on macOS/Docker using runtime 0.2.12. This checklist remains available for reviewers; Windows execution is not yet verified. See [Windows setup](WINDOWS_INSTALL.md).
+for the **0.2.16 source release**. Windows instructions are provided, but Windows execution remains unverified. See [Windows setup](WINDOWS_INSTALL.md).
 
 ## Record the starting point
 
-Record the downloaded UnoPIM revision, package version and archive checksum. The
-full generic patch targets the upstream 3.x revision `d29ffdcd7b26527dd6a06d24c90d3e787cbb9b00`.
-A newly downloaded revision may differ: `git apply --check` must pass before
-application. If it does not, keep the error and reconcile the source revision;
-do not force a partial patch or apply the full patch twice.
+Record UnoPIM's exact source revision, package version and archive checksum.
+The supported source is `1abbb5bfa393f62b7d3d8496a3afea2a93df4084`; its hooks are
+already included. Run the capability check from the README. Do not apply a
+bundled core patch to this source. See [compatibility](CORE_PATCH.md).
 
 First establish that UnoPIM itself installs, accepts an admin login and displays
 a product with an image. Use the host's supported PHP/database requirements.
 This distinguishes a host installation problem from an extension problem.
 
-Follow the package [README installation steps](../README.md#install) to apply
-the core patch, install the package with Composer, migrate, clear caches and
+Follow the package [README installation steps](../README.md#install) to check
+the native hooks, install the package with Composer, migrate, clear caches and
 start the supervised worker and scheduler. Laravel discovers the provider;
 manual registration is unnecessary. Confirm:
 
-- Composer reports `dreamlayer/unopim-dreamlayer` version `0.2.15`.
+- Composer reports `dreamlayer/unopim-dreamlayer` version `0.2.16`.
 - Migrations finish successfully, including the nullable workflow `error_code`.
 - `php artisan schedule:list` includes `dreamlayer:recover` every minute.
 - The worker consumes connection/queue `dreamlayer`, with automatic restart after
@@ -73,7 +71,7 @@ balance must agree with that account's DreamLayer API balance.
 2. Send one clear, single-step edit with one selected image. Record the request
    and result IDs. Expect queued/running state and expanded detailed steps when
    supported. Closing/reopening chat must preserve the same work.
-3. Wait for a completed preview. Inspect and download it. The catalog image must
+3. Wait for a completed preview. Send a follow-up edit without reselecting the original, and confirm it uses the previous result. Inspect and download it. The catalog image must
    remain unchanged up to this point.
 4. Press **Apply to product** once. Verify the intended product, attribute and
    locale/channel changed, and another product did not. Repeating Apply should

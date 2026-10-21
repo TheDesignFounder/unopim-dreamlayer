@@ -89,30 +89,26 @@ mounted checkout. Web, worker and scheduler must all see this directory:
 ```sh
 cd ~/dreamlayer-review/unopim
 mkdir -p packages/DreamLayer
-git clone --branch 0.2.15 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
+git clone --branch 0.2.16 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
 ```
 
 For reproducibility, record `git -C packages/DreamLayer/unopim-dreamlayer rev-parse HEAD`
 and compare it with the published tag's commit. No package registry is needed.
 
-If you checked out the generic chat-hooks PR, its hooks are already present:
-skip the next block. Otherwise apply the package's full patch once, only if its
-compatibility check succeeds:
+Use the exact supported UnoPIM source revision in [CORE_PATCH.md](CORE_PATCH.md).
+Its chat hooks are already included; **do not apply a bundled patch**. After the
+host's Composer install, check them inside PHP:
 
 ```sh
-git apply --check packages/DreamLayer/unopim-dreamlayer/patches/unopim-3x-chat-hooks.patch
-git apply packages/DreamLayer/unopim-dreamlayer/patches/unopim-3x-chat-hooks.patch
+docker compose -f compose.dev.yaml exec -T unopim-fpm php packages/DreamLayer/unopim-dreamlayer/tools/check-host.php
 ```
-
-If the check fails, stop and compare your UnoPIM revision with
-[CORE_PATCH.md](CORE_PATCH.md). Do not force a partial patch or apply it twice.
 
 Run Composer **inside `unopim-fpm`**. `/var/www/html` is the container's path to
 the mounted UnoPIM checkout, so the package is visible to web and worker services:
 
 ```sh
 docker compose -f compose.dev.yaml exec -T unopim-fpm composer config repositories.dreamlayer path /var/www/html/packages/DreamLayer/unopim-dreamlayer
-docker compose -f compose.dev.yaml exec -T unopim-fpm composer require dreamlayer/unopim-dreamlayer:0.2.15 --minimal-changes
+docker compose -f compose.dev.yaml exec -T unopim-fpm composer require dreamlayer/unopim-dreamlayer:0.2.16 --minimal-changes
 docker compose -f compose.dev.yaml exec -T unopim-fpm php artisan migrate --no-interaction
 docker compose -f compose.dev.yaml exec -T unopim-fpm php artisan optimize:clear
 ```

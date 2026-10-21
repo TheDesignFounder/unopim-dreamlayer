@@ -41,6 +41,7 @@ const html = '<html lang="en"><head><meta charset="UTF-8"></head><body><div id="
             return route.abort();
         });
         const page = await context.newPage();
+        await page.clock.install();
         page.on('pageerror', e => errors.push(e.stack));
         await page.goto('https://unopim.test/');
         await page.getByText('DreamLayer – Images only', {exact: true}).waitFor({timeout: 5000}).catch(async error => { throw Error(error.message + '\n' + JSON.stringify({errors, unexpected, body: await page.locator('body').innerText()})); });
@@ -50,10 +51,12 @@ const html = '<html lang="en"><head><meta charset="UTF-8"></head><body><div id="
             [true, false, 'DreamLayer – Images only'],
         ]) {
             state = {...state, image_tools_enabled: images, chat_enabled: chat};
+            await page.clock.fastForward(5100);
             await page.evaluate(() => window.dispatchEvent(new Event('focus')));
             await page.getByText(label, {exact: true}).waitFor();
         }
         state = {...state, status: 'unauthorized'};
+        await page.clock.fastForward(5100);
         await page.evaluate(() => window.dispatchEvent(new Event('focus')));
         await page.getByRole('alert').waitFor();
         assert.equal(await page.getByText('DreamLayer – Images only', {exact: true}).count(), 0);

@@ -11,7 +11,7 @@ def git(*args):
 manifest = json.loads(git('show', 'HEAD:composer.json'))
 files = git('ls-tree', '-r', '--name-only', 'HEAD').decode().splitlines()
 prefixes = ('src/', 'config/', 'routes/', 'resources/', 'database/', 'patches/')
-standalone = {'composer.json', 'README.md', 'NOTICE', 'LICENSE', 'NEW_USER_TEST.md', 'docs/EXPERIENCE_0_2.md', 'docs/CORE_PATCH.md', 'docs/REVIEWING.md', 'docs/FRESH_INSTALL_TEST.md', 'docs/WINDOWS_INSTALL.md', 'docs/HOST_PREREQUISITE.md', 'docs/API_CONTRACT_V1.md', 'docs/BACKEND_SETUP.md', 'docs/OPERATIONS.md', 'docs/workflow-v1.schema.json'}
+standalone = {'composer.json', 'README.md', 'NOTICE', 'LICENSE', 'NEW_USER_TEST.md', 'docs/EXPERIENCE_0_2.md', 'docs/CORE_PATCH.md', 'docs/LEGACY_CORE_PATCH.md', 'docs/REVIEWING.md', 'docs/FRESH_INSTALL_TEST.md', 'docs/WINDOWS_INSTALL.md', 'docs/HOST_PREREQUISITE.md', 'docs/API_CONTRACT_V1.md', 'docs/BACKEND_SETUP.md', 'docs/OPERATIONS.md', 'docs/workflow-v1.schema.json', 'docs/VERIFICATION_0_2_16.md', 'tools/check-host.php'}
 selected = sorted(p for p in files if p.startswith(prefixes) or p in standalone)
 output = root / 'dist' / ('unopim-dreamlayer-' + manifest['version'] + '.zip')
 output.parent.mkdir(exist_ok=True)
