@@ -39,7 +39,7 @@ return [
     'load-more' => 'Indlæs mere',
     'new-conversation' => 'Ny samtale',
     'refining-result' => 'Din næste redigering vil bruge den valgte forhåndsvisning.',
-    'selected-count' => ':count billeder er valgt',
+    'selected-count' => ' :count billeder er valgt',
     'select-image' => 'Vælg et billede eller generer et nyt.',
     'refine-this' => 'Forfin dette billede',
     'operation' => 'Billedopgave',

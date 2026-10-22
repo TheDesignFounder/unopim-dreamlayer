@@ -39,7 +39,7 @@ return [
     'load-more' => 'Last inn mer',
     'new-conversation' => 'Ny samtale',
     'refining-result' => 'Din neste redigering vil bruke den valgte forhåndsvisningen.',
-    'selected-count' => ':count-bilder er valgt',
+    'selected-count' => ' :count-bilder er valgt',
     'select-image' => 'Velg et bilde eller generer et nytt.',
     'refine-this' => 'Avgrens dette bildet',
     'operation' => 'Bildeoppgave',

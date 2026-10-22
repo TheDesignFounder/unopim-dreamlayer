@@ -39,7 +39,7 @@ return [
     'load-more' => 'Lataa lisää',
     'new-conversation' => 'Uusi keskustelu',
     'refining-result' => 'Seuraava muokkaus käyttää valittua esikatselua.',
-    'selected-count' => ':count kuvaa valittu',
+    'selected-count' => ' :count kuvaa valittu',
     'select-image' => 'Valitse kuva tai luo uusi.',
     'refine-this' => 'Tarkenna tätä kuvaa',
     'operation' => 'Kuvatehtävä',

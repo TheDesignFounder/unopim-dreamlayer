@@ -39,7 +39,7 @@ return [
     'load-more' => 'Load more',
     'new-conversation' => 'New conversation',
     'refining-result' => 'Your next edit will use the selected preview.',
-    'selected-count' => ':count images selected',
+    'selected-count' => ' :count images selected',
     'select-image' => 'Select an image or generate a new one.',
     'refine-this' => 'Refine this image',
     'operation' => 'Image task',

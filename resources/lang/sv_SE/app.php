@@ -39,7 +39,7 @@ return [
     'load-more' => 'Ladda mer',
     'new-conversation' => 'Ny konversation',
     'refining-result' => 'Din nästa redigering kommer att använda den valda förhandsgranskningen.',
-    'selected-count' => ':count-bilder har valts',
+    'selected-count' => ' :count-bilder har valts',
     'select-image' => 'Välj en bild eller generera en ny.',
     'refine-this' => 'Förfina denna bild',
     'operation' => 'Bilduppgift',

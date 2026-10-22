@@ -16,7 +16,7 @@ foreach ($files as $file) {
         preg_match_all('/:(?:count|name|time|status)\b/', $map[$key], $b);
         sort($a[0]);
         sort($b[0]);
-        if ($a[0] !== $b[0] || ! is_string($map[$key]) || trim($map[$key]) === '' || preg_match('/DLITEM|ZZPH/i', $map[$key])) {
+        if ($a[0] !== $b[0] || ! is_string($map[$key]) || trim($map[$key]) === '' || preg_match('/DLITEM|ZZPH/i', $map[$key]) || (! str_contains($source, "\n") && str_contains($map[$key], "\n"))) {
             throw new RuntimeException('Invalid translation: '.$file.' '.$key);
         }
     }

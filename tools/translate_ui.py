@@ -14,25 +14,18 @@ def translate(target, source):
     cache=ROOT/'tools/translation-cache'/f'{target}.json';cache.parent.mkdir(exist_ok=True)
     saved=json.loads(cache.read_text()) if cache.exists() else {}
     missing=[v for v in dict.fromkeys(source.values()) if v not in saved]
-    for start in range(0,len(missing),8):
-        batch=missing[start:start+8];protected=[];tokens={}
-        for value in batch:
-            def hide(m):
-                token=f'ZZPH{len(tokens)}ZZ';tokens[token]=m[0];return token
-            protected.append(re.sub(r':[a-z_]+|DreamLayer|UnoPim|SKU|PNG|API',hide,value))
-        q='\n'.join(f'DLITEM{i:03d} '+v for i,v in enumerate(protected))
-        url='https://translate.googleapis.com/translate_a/single?'+urllib.parse.urlencode({'client':'gtx','sl':'en','tl':target,'dt':'t','q':q})
+    # Translate one label per request. Batch markers can cross sentence boundaries.
+    for value in missing:
+        tokens={}
+        def hide(m):
+            token=f'ZZPH{len(tokens)}ZZ';tokens[token]=m[0];return token
+        protected=re.sub(r':[a-z_]+|DreamLayer|UnoPim|SKU|PNG|API',hide,value)
+        url='https://translate.googleapis.com/translate_a/single?'+urllib.parse.urlencode({'client':'gtx','sl':'en','tl':target,'dt':'t','q':protected})
         for attempt in range(5):
             try:
                 with urllib.request.urlopen(url,timeout=30) as r:data=json.load(r)
-                result=''.join(x[0] for x in data[0] if x[0]);parts=re.split(r'DLITEM\s*\d{3}\s*',result)[1:]
-                if len(parts)!=len(batch):
-                    # Some languages translate marker labels. Retry those few strings individually.
-                    parts=[]
-                    for single in protected:
-                        single_url='https://translate.googleapis.com/translate_a/single?'+urllib.parse.urlencode({'client':'gtx','sl':'en','tl':target,'dt':'t','q':single})
-                        with urllib.request.urlopen(single_url,timeout=30) as rr: item=json.load(rr)
-                        parts.append(''.join(x[0] for x in item[0] if x[0]))
+                result=''.join(x[0] for x in data[0] if x[0])
+                batch=[value];parts=[result]
                 for old,new in zip(batch,parts):
                     for token,original in tokens.items():
                         pattern=r'\s*'.join(re.escape(c) for c in token)

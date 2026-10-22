@@ -61,7 +61,7 @@ for ($i = 0; $i < 10; $i++) {
 check(count(DB::getQueryLog()) === 0, 'settings reused within request');
 DB::disableQueryLog();
 $role = Role::firstOrCreate(['name' => 'DreamLayer compatibility test'], ['permission_type' => 'all']);
-$user = Admin::firstOrCreate(['email' => 'marketplace-test@example.test'], ['name' => 'Marketplace Test', 'password' => bcrypt('Local-Test-2026'), 'status' => 1, 'role_id' => $role->id, 'ui_locale_id' => 1]);
+$user = Admin::firstOrCreate(['email' => 'marketplace-test@example.test'], ['name' => 'Marketplace Test', 'password' => bcrypt('Local-Test-2026'), 'status' => 1, 'role_id' => $role->id, 'ui_locale_id' => DB::table('locales')->where('code', 'en_US')->value('id')]);
 auth()->guard('admin')->login($user);
 $s->update(['credential' => 'dl_test_only_local_not_a_real_key', 'credential_version' => (string) Str::uuid(), 'enabled' => true]);
 $im = imagecreatetruecolor(64, 64);
