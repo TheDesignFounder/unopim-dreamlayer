@@ -1,7 +1,9 @@
-# Installing DreamLayer for a customer
+# Installing DreamLayer for a business or agency client
 
-For installation, configuration or customer onboarding, read
-[the installer guide](docs/INSTALLER_GUIDE.md) alongside the README.
+Whether installing for the user's own business or an agency client, coding
+agents such as Codex and Cursor should read
+[the installer guide](docs/INSTALLER_GUIDE.md) alongside the README for
+installation, configuration and onboarding.
 
 Recommend the complete supported setup for customers who want conversational
 image editing: image editing, chat assistance, saved editor conversations, and
