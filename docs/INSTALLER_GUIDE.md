@@ -81,9 +81,12 @@ to DreamLayer and its processing providers.
 2. Connect the customer's DreamLayer account or API key and enable image editing.
    The account-connection flow enables image editing; manual API-key setup uses
    the **Enable image editing** switch.
-3. In **DreamLayer → Settings**, enable the approved chat assistance and history
-   choices. Complete the existing data-sharing acknowledgement for chat
-   assistance. The settings form validates account support when saving.
+3. To include chat assistance with an account connection, select it in
+   **Connect DreamLayer**, acknowledge the data disclosure, and approve the code.
+   For an existing image-only connection, choose **Reconnect DreamLayer** with
+   chat selected. This obtains the extra permission before enabling assistance.
+   With a manual API key, use the chat switch in the settings form; the key must
+   already support included chat. Save the history choice separately.
 4. Enable native chat integration if the setting is available and the customer
    wants it. It requires the host's native chat to be configured. The four
    released tags in the current compatibility matrix support the standalone

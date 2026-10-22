@@ -1,9 +1,12 @@
 <?php
 
+use DreamLayer\UnoPIM\Jobs\RunWorkflow;
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Models\Workflow;
 use DreamLayer\UnoPIM\Services\CatalogImages;
+use DreamLayer\UnoPIM\Services\PendingConnection;
 use DreamLayer\UnoPIM\Services\ProductImages;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -101,6 +104,51 @@ final class PortableEditorTest extends TestCase
         Http::assertSentCount(1);
         Http::assertSent(fn ($r) => $r['model'] === 'dreamlayer-chat' && ! str_contains($r->body(), $this->product->sku));
         $this->assertSame(0, DB::table('dreamlayer_editor_history')->where('user_id', $this->admin->id)->count());
+    }
+
+    public function test_account_chat_grant_is_used_by_editor_without_enabling_history(): void
+    {
+        config(['dreamlayer.connections_enabled' => true]);
+        Settings::current()->update(['credential' => null, 'enabled' => false]);
+        $this->startSession();
+        $this->withCredentials()->withCookie(config('session.cookie'), app('session.store')->getId());
+        Http::fake(function ($request) {
+            if (str_ends_with($request->url(), '/device-authorization')) {
+                $this->assertTrue($request['included_chat']);
+
+                return Http::response(['device_code' => 'fixture-private', 'user_code' => 'TEST-1234', 'verification_uri' => config('dreamlayer.platform_url').'/console/connect', 'expires_in' => 600, 'interval' => 5]);
+            }
+            if (str_ends_with($request->url(), '/token')) {
+                return Http::response(['access_token' => 'fixture-chat-scope', 'connection_id' => 'fixture-connection', 'scope' => 'images:execute chat:use']);
+            }
+            $this->assertTrue($request->hasHeader('Authorization', 'Bearer fixture-chat-scope'));
+            if (str_ends_with($request->url(), '/chat/limits')) {
+                return Http::response(['contract_version' => 1, 'included' => true, 'image_credits_charged' => false]);
+            }
+            if (str_ends_with($request->url(), '/chat/completions')) {
+                return Http::response(['choices' => [['message' => ['content' => 'Use a plain blue background and keep the product unchanged.']]]]);
+            }
+            throw new RuntimeException('Unexpected request in onboarding/editor journey');
+        });
+        $attempt = $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])->assertOk()->json('attempt_id');
+        $request = Request::create('/');
+        $request->setLaravelSession(app('session.store'));
+        $pending = PendingConnection::get($request);
+        $pending['next_poll'] = 0;
+        $pending['approved'] = true;
+        PendingConnection::put($request, $pending);
+        $this->postJson(route('dreamlayer.connect.poll'), ['attempt_id' => $attempt])->assertOk();
+        $first = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $workflow = Workflow::findOrFail($first['workflow_ids'][0]);
+        $this->assertSame('Use a plain blue background and keep the product unchanged.', $workflow->steps[0]['instruction']);
+        $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->assertExactJson($first);
+        $this->assertTrue(Settings::current()->managed_chat);
+        $this->assertFalse(Settings::current()->save_chat_history);
+        $this->assertFalse(Settings::current()->native_chat_enabled);
+        $this->assertSame(0, DB::table('dreamlayer_editor_history')->count());
+        $this->assertSame('editor-test.png', $this->product->fresh()->values['common']['image']);
+        Http::assertSentCount(4);
+        Queue::assertPushed(RunWorkflow::class);
     }
 
     public function test_tampered_or_another_owners_selection_cannot_start_paid_work(): void

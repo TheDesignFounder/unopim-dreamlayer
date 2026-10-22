@@ -12,6 +12,18 @@ foreach ($files as $file) {
         throw new RuntimeException('Key mismatch: '.$file);
     }
     foreach ($english as $key => $source) {
+        // Shared brand names and a few naturally identical labels are valid.
+        $sameAllowed = ['settings', 'ui-df37e16ca0', 'ui-953da4c231'];
+        $locale = basename(dirname($file));
+        $sameAllowed = array_merge($sameAllowed, match ($locale) {
+            'fr_FR' => ['image'], 'da_DK' => ['download'], 'nl_NL' => ['ui-a020541168'], default => [],
+        });
+        if (! str_starts_with($locale, 'en_') && $map[$key] === $source && ! in_array($key, $sameAllowed, true)) {
+            throw new RuntimeException('Untranslated English label: '.$file.' '.$key);
+        }
+        if (! str_starts_with($locale, 'en_') && str_contains($map[$key], 'Your key is stored encrypted.')) {
+            throw new RuntimeException('Untranslated English sentence: '.$file.' '.$key);
+        }
         preg_match_all('/:(?:count|name|time|status)\b/', $source, $a);
         preg_match_all('/:(?:count|name|time|status)\b/', $map[$key], $b);
         sort($a[0]);

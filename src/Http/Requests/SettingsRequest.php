@@ -3,6 +3,7 @@
 namespace DreamLayer\UnoPIM\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SettingsRequest extends FormRequest
 {
@@ -38,7 +39,7 @@ class SettingsRequest extends FormRequest
         return [
             'enabled' => ['nullable', 'boolean'], 'managed_chat' => ['nullable', 'boolean'],
             'save_chat_history' => ['nullable', 'boolean'], 'native_chat_enabled' => ['nullable', 'boolean'],
-            'privacy_consent' => ['exclude_unless:managed_chat,1', 'required', 'accepted'],
+            'privacy_consent' => [Rule::excludeIf(fn () => ! $this->boolean('managed_chat')), 'required', 'accepted'],
             'api_key' => ['nullable', 'string', 'max:512'],
         ];
     }

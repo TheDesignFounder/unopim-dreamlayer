@@ -13,7 +13,7 @@ Status: prepared for review of the unpublished 0.3.0 candidate. Do not publish t
 | Integration page | https://dreamlayer.io/integrations/unopim |
 | User guide | https://github.com/TheDesignFounder/unopim-dreamlayer#use-it |
 | Installation guide | https://github.com/TheDesignFounder/unopim-dreamlayer#install |
-| Video demo | https://youtu.be/2o93d3I5F_o — existing native-chat demo; replace with the portable editor demo for this candidate |
+| Video demo | Attached `DreamLayer-UnoPim-0.3.0-editor-demo.mp4` — current standalone editor workflow demonstration; see media disclosure |
 | Support label | DreamLayer Support |
 | Support link | https://github.com/TheDesignFounder/unopim-dreamlayer/issues |
 | Developer email | mackenzie@dreamlayer.io |
@@ -41,4 +41,4 @@ The extension does not upload the whole catalog, switch the host's default AI pr
 
 ## Listing assets and review notes
 
-Reuse the approved DreamLayer logo. Replace screenshots showing only native Agentic PIM chat with current editor screenshots from this candidate. The linked guides still describe the public release until this branch is published; submit the candidate ZIP and current README to reviewers together. Do not claim an untested compatibility version or represent an unpublished tag as available.
+Use the approved DreamLayer logo and current editor screenshots supplied in the review bundle. The attached MP4 shows the new editor using replayed image results; see [media details](REVIEW_MEDIA.md). The final acceptance recording can replace it before public publication. The linked guides still describe the public release until this branch is published; submit the candidate ZIP and current README to reviewers together. Do not claim an untested compatibility version or represent an unpublished tag as available.

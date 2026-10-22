@@ -13,3 +13,17 @@ No worker writes a product image. Apply takes a product lock, checks the destina
 The catalog picker uses indexed SKU-prefix search and batches image-attribute lookups. Settings are scoped to a request/job and invalidated after saves. The application receipt index covers batch, product and destination.
 
 Optional conversation saving stores encrypted messages in `dreamlayer_editor_history`. Turning saving off stops future inserts; existing history and backups remain under the host administrator's retention policy. Workflow instructions and product destinations are operational records even when conversation saving is off. Preserve active jobs and their source files until completion. The extension does not change UnoPim's global history setting.
+
+Account connection stores pending codes in an encrypted cache entry. Use a
+persistent cache driver (`file`, `database` or `redis`) with atomic-lock support;
+`array` is for single-process tests and loses the code between web requests.
+Multiple web replicas must use the same shared cache. After changing connection,
+cache or endpoint configuration, clear configuration caches and restart workers.
+
+To add included chat permission to an image-only account connection, use the
+connection section in Settings, select chat assistance, acknowledge the data
+notice and approve a new code. The extension validates both the returned
+`chat:use` scope and the non-billable chat contract before enabling assistance.
+If the server rejects chat authorization, the existing installation remains
+connected. If it returns only image access, the new connection can edit images
+and shows a notice that chat was not enabled. History is configured separately.

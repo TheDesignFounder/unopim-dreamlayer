@@ -44,7 +44,7 @@ class SettingsController extends Controller
 
     private function connectionState(Settings $settings): array
     {
-        $state = ['status' => 'disconnected', 'method' => $settings->connection_id ? trans('dreamlayer::app.message-e5bd2426af') : trans('dreamlayer::app.message-a7cca24c92'), 'balances' => null, 'account_label' => null, 'chat_available' => HostSupport::nativeChat() && (bool) core()->getConfigData('general.magic_ai.agentic_pim.enabled'), 'can_enable_chat' => $this->canEnableChat(), 'chat_enabled' => (bool) $settings->managed_chat, 'image_tools_enabled' => (bool) $settings->enabled];
+        $state = ['status' => 'disconnected', 'method' => $settings->connection_id ? trans('dreamlayer::app.message-e5bd2426af') : trans('dreamlayer::app.message-a7cca24c92'), 'balances' => null, 'account_label' => null, 'chat_available' => HostSupport::nativeChat() && (bool) core()->getConfigData('general.magic_ai.agentic_pim.enabled'), 'can_enable_chat' => filled($settings->credential), 'chat_enabled' => (bool) $settings->managed_chat, 'image_tools_enabled' => (bool) $settings->enabled];
         if ($settings->credential) {
             try {
                 $balances = (new Client($settings->credential))->balances();
@@ -61,11 +61,6 @@ class SettingsController extends Controller
         }
 
         return $state;
-    }
-
-    private function canEnableChat(): bool
-    {
-        return HostSupport::nativeChat();
     }
 
     public function openChat()
@@ -148,11 +143,12 @@ class SettingsController extends Controller
         $this->authorizeSettings();
         abort_unless(config('dreamlayer.connections_enabled'), 404);
         $current = Settings::current();
+        $includedChat = $request->boolean('included_chat');
         if ($request->boolean('automatic') && $current->credential) {
             return response()->json(['status' => 'already_configured'], 409);
         }
         $pending = PendingConnection::get($request);
-        if (! $request->boolean('regenerate') && $pending && ($pending['generation'] ?? null) === $current->authorization_generation && ($pending['expires_at'] ?? 0) > time() && isset($pending['user_code'], $pending['verification_uri'])) {
+        if (! $request->boolean('regenerate') && $pending && (bool) ($pending['included_chat'] ?? false) === $includedChat && ($pending['generation'] ?? null) === $current->authorization_generation && ($pending['expires_at'] ?? 0) > time() && isset($pending['user_code'], $pending['verification_uri'])) {
             return response()->json($this->publicAttempt($pending))->header('Cache-Control', 'no-store');
         }
         $s = DB::transaction(function () {
@@ -162,18 +158,19 @@ class SettingsController extends Controller
             return $s;
         });
         $payload = ['installation_id' => $s->installation_id, 'installation_name' => config('app.name').' — UnoPim', 'installation_url' => rtrim(config('app.url'), '/').'/'.trim(config('app.admin_url'), '/').'/dreamlayer/settings'];
-        if ($request->boolean('included_chat', false)) {
+        if ($includedChat) {
             $payload['included_chat'] = true;
         }
         $response = $this->deviceRequest('device-authorization', $payload);
         if ($response->status() === 422 && isset($payload['included_chat'])) {
-            unset($payload['included_chat']);
-            $response = $this->deviceRequest('device-authorization', $payload);
+            // An image-only credential cannot fulfil an explicit chat choice.
+            PendingConnection::forget($request);
+            abort(422, trans('dreamlayer::app.message-b0786bce19'));
         }
         abort_unless($response->successful(), 502, trans('dreamlayer::app.message-f1bff2ebd3'));
         $d = $response->json();
         abort_unless(is_string($d['device_code'] ?? null) && preg_match('/^[A-Z0-9-]{6,12}$/', $d['user_code'] ?? '') && ($d['verification_uri'] ?? '') === Endpoints::platform().'/console/connect', 502);
-        $pending = ['generation' => $s->authorization_generation, 'device_code' => $d['device_code'], 'user_code' => $d['user_code'], 'verification_uri' => $d['verification_uri'], 'expires_at' => time() + max(1, min(600, (int) $d['expires_in'])), 'interval' => max(5, (int) $d['interval']), 'next_poll' => time() + max(5, (int) $d['interval'])];
+        $pending = ['generation' => $s->authorization_generation, 'included_chat' => $includedChat, 'device_code' => $d['device_code'], 'user_code' => $d['user_code'], 'verification_uri' => $d['verification_uri'], 'expires_at' => time() + max(1, min(600, (int) $d['expires_in'])), 'interval' => max(5, (int) $d['interval']), 'next_poll' => time() + max(5, (int) $d['interval'])];
         PendingConnection::put($request, $pending);
 
         return response()->json($this->publicAttempt($pending))->header('Cache-Control', 'no-store');
@@ -185,7 +182,7 @@ class SettingsController extends Controller
         // server-side pending state because it can exchange approval for a credential.
         // Reopening the settings page must not restart the poll interval. A code
         // that is already due can be checked immediately in the returning tab.
-        return ['attempt_id' => $pending['generation'], 'user_code' => $pending['user_code'], 'verification_uri' => $pending['verification_uri'], 'interval' => $pending['interval'], 'poll_after' => max(0, $pending['next_poll'] - time()), 'expires_in' => max(0, $pending['expires_at'] - time()), 'approved' => (bool) ($pending['approved'] ?? false)];
+        return ['attempt_id' => $pending['generation'], 'included_chat' => (bool) ($pending['included_chat'] ?? false), 'user_code' => $pending['user_code'], 'verification_uri' => $pending['verification_uri'], 'interval' => $pending['interval'], 'poll_after' => max(0, $pending['next_poll'] - time()), 'expires_in' => max(0, $pending['expires_at'] - time()), 'approved' => (bool) ($pending['approved'] ?? false)];
     }
 
     public function poll(Request $request)
@@ -243,10 +240,19 @@ class SettingsController extends Controller
             return response()->json(['status' => 'approved', 'interval' => 0], 202)->header('Cache-Control', 'no-store');
         }
         abort_unless(is_string($data['access_token'] ?? null), 502);
+        $chatEnabled = false;
+        if (! empty($d['included_chat']) && is_string($data['scope'] ?? null) && in_array('chat:use', preg_split('/\s+/', trim($data['scope'])), true)) {
+            try {
+                (new Client($data['access_token']))->chatLimits();
+                $chatEnabled = true;
+            } catch (\Throwable) {
+                // Keep image access usable and explain that chat needs attention.
+            }
+        }
         // Capture the replaced installation under the same lock that verifies the generation,
         // so only the credential this exchange actually superseded is ever revoked.
         $superseded = null;
-        $stored = DB::transaction(function () use ($data, $d, &$superseded) {
+        $stored = DB::transaction(function () use ($data, $d, $chatEnabled, &$superseded) {
             $s = Settings::whereKey(1)->lockForUpdate()->firstOrFail();
             if ($s->authorization_generation !== $d['generation']) {
                 return false;
@@ -256,7 +262,7 @@ class SettingsController extends Controller
             if ($s->connection_id && filled($s->credential) && $s->credential !== $data['access_token']) {
                 $superseded = $s->credential;
             }
-            $s->update(['authorization_generation' => (string) Str::uuid(), 'credential' => $data['access_token'], 'credential_version' => (string) Str::uuid(), 'connection_id' => $data['connection_id'], 'enabled' => true, 'managed_chat' => false]);
+            $s->update(['authorization_generation' => (string) Str::uuid(), 'credential' => $data['access_token'], 'credential_version' => (string) Str::uuid(), 'connection_id' => $data['connection_id'], 'enabled' => true, 'managed_chat' => $chatEnabled, 'privacy_consent_version' => ! empty($d['included_chat']) ? 1 : 0]);
 
             return true;
         });
@@ -281,6 +287,9 @@ class SettingsController extends Controller
         // The new connection is committed. Revoking the previous installation is best effort
         // and never undoes the new connection; failures are reported to the administrator.
         $notice = $superseded !== null ? $this->revokeSupersededInstallation($superseded) : null;
+        if (! empty($d['included_chat']) && ! $chatEnabled) {
+            $notice = trim(($notice ? $notice.' ' : '').trans('dreamlayer::app.message-b0786bce19'));
+        }
         if ($notice !== null) {
             // The settings page reloads after a successful poll. Keep the notice until that page
             // renders it; a flash could be consumed by a concurrent status refresh first.
@@ -339,6 +348,6 @@ class SettingsController extends Controller
         });
         PendingConnection::forget($request);
 
-        return redirect()->route('dreamlayer.settings')->with('connection_notice', $forgotten ? trans('dreamlayer::app.message-dd7b628df1') : 'Disconnected.');
+        return redirect()->route('dreamlayer.settings')->with('connection_notice', $forgotten ? trans('dreamlayer::app.message-dd7b628df1') : trans('dreamlayer::app.connection-disconnected'));
     }
 }

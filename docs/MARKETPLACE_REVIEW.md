@@ -15,7 +15,7 @@ been made. Marketplace approval remains UnoPim's decision.
 | Data disclosure | Settings, README and listing explain image/instruction transfer, optional messages, account metadata, credentials, local storage and processing providers. | Browser rendering and regression checks cover the settings controls and disclosure. |
 | No core patches | Removed `patches/`, `LEGACY_CORE_PATCH.md`, patch attribution and dependency-change installation instructions. | Released hosts use their original packages and locks; ZIP exclusions are enforced by the builder. |
 | Product update events | Apply fires `catalog.product.update.before` and `.after` around the normal repository write, with explicit ownership/permission/conflict checks. | Both events fire once; repeated Apply is idempotent; a preview alone leaves the catalog unchanged. |
-| Translations | UI/controller messages and ACL labels use translation keys; all 33 locales are supplied. | 227 matching keys and preserved placeholders per locale. Non-English translations are drafts awaiting native-speaker review. |
+| Translations | UI/controller messages and ACL labels use translation keys; all 33 locales are supplied. | 230 matching keys and preserved placeholders per locale. AI-assisted review corrected untranslated labels and misleading Apply/background-removal wording; native-speaker certification is not claimed. |
 | Packaging | `.gitattributes` and Composer archive rules exclude tests, tools, CI, patches and `NEW_USER_TEST.md`. Installation uses a distribution ZIP plus Composer. | Deterministic ZIP builder checks excluded paths; the extracted package is tested independently. |
 
 ## Recommended changes
@@ -41,23 +41,39 @@ DreamLayer credits**. Extension versions are no longer used as host compatibilit
 versions. The public description does not use “prerelease for pilots” or
 “development baseline.”
 
-The existing video demonstrates the older native-chat experience. New editor
-screenshots in the validation evidence use synthetic test images and must not
-be presented as AI image-quality examples. Public links and the release tag
-should be updated only as part of a separately authorized publication.
+The attached current-editor screenshots and MP4 replace the old native-chat
+demo for this candidate. They use clearly disclosed replays of previously
+generated images and are not live AI or billing evidence. The final real-account
+acceptance test should supply its own results and optional recording. Public
+links and the release tag should be updated only during authorized publication.
 
 ## Test results
 
 - Four released hosts: 22 workflow checks each, plus editor/results/settings rendering.
 - UnoPim 3.1.3 regression run: 136 tests, 751 assertions, no failures/errors; 15 expected skips (14 require native hooks, one requires PostgreSQL).
-- Upstream development commit `1abbb5bfa393f62b7d3d8496a3afea2a93df4084`: 136 tests, 813 assertions, no failures/errors; only the PostgreSQL-specific test skipped. Its 209 locked dependencies also remain unchanged.
+- Upstream development commit `1abbb5bfa393f62b7d3d8496a3afea2a93df4084`: 144 tests, 883 assertions, no failures/errors; only the PostgreSQL-specific test skipped. Its 209 locked dependencies also remain unchanged.
 - PostgreSQL concurrency: one test, eight assertions, passed.
 - PostgreSQL migration runner: fresh install/repeat/rollback/reinstall, historical migration preservation, missing-column repair, and 0.2.16 upgrade passed.
 - Browser: loaded preview, explicit Apply, follow-up refinement, mobile width and light/dark pages passed; no JavaScript page errors.
-- All 33 locale files pass key/placeholder checks; safe-disable bootstrap and Composer validation pass. Composer emits only the advisory about an explicit version field used for this local ZIP candidate.
+- Account connection tests: 19 tests and 165 assertions each on 0.1.0, 1.0.1 and 2.1.6; connection-to-editor integration is also covered on 3.1.3.
+- All 33 locale files pass key/placeholder and untranslated-label checks; safe-disable bootstrap and Composer validation pass. Composer emits only the advisory about an explicit version field used for this local ZIP candidate.
 
 Provider calls use simulated API responses and synthetic PNG files. These checks
 validate integration behavior, not paid-provider availability or generated image
-quality. Native-language translation review and UnoPim's marketplace re-review
+quality. Native-speaker translation certification and UnoPim's marketplace re-review
 are still external review steps. Do not advertise “all UnoPim versions”; use the
 four tested release tags and the tested PHP versions in `COMPATIBILITY.md`.
+
+## Account connection follow-up
+
+The candidate now asks for chat during account connection and supports adding
+it through reconnect. Chat remains off until the administrator accepts the
+notice, the returned credential contains `chat:use`, and the server confirms
+included chat with no image-credit charge. A server rejection does not silently
+fall back to a different request. An image-only grant is reported explicitly.
+History remains a separate choice. Consent validation covers JSON booleans as
+well as form checkbox values.
+
+Use `ACCEPTANCE_TEST.md` for the final real-account run against the exact ZIP.
+The review bundle includes `SUBMISSION_REPLY.txt` as an unsent draft. No merge,
+deployment, release-tag publication or marketplace submission has been performed.

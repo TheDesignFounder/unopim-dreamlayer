@@ -3,7 +3,9 @@
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Services\PendingConnection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 use Webkul\User\Models\Admin;
 use Webkul\User\Models\Role;
@@ -15,8 +17,8 @@ final class OnboardingTest extends TestCase
         parent::setUp();
         Http::preventStrayRequests();
         config(['dreamlayer.connections_enabled' => true]);
-        $this->actingAs(Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type' => 'all'])->id]), 'admin');
-        Settings::current()->update(['credential' => null, 'enabled' => false, 'managed_chat' => false]);
+        $this->actingAs(Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type' => 'all'])->id, 'ui_locale_id' => DB::table('locales')->where('code', 'en_US')->value('id')]), 'admin');
+        Settings::current()->update(['credential' => null, 'connection_id' => null, 'enabled' => false, 'managed_chat' => false, 'save_chat_history' => false, 'native_chat_enabled' => false, 'privacy_consent_version' => 0]);
         $this->startSession();
         $this->withCredentials()->withCookie(config('session.cookie'), app('session.store')->getId());
     }
@@ -114,6 +116,114 @@ final class OnboardingTest extends TestCase
         }
         $this->postJson(route('dreamlayer.connect.poll'), ['attempt_id' => $attempt])->assertStatus(429);
         $this->postJson(route('dreamlayer.connect'), ['automatic' => true])->assertOk()->assertJsonPath('attempt_id', $attempt);
+    }
+
+    private function finishConnection(string $attempt): TestResponse
+    {
+        $pending = PendingConnection::get($this->request());
+        $pending['next_poll'] = 0;
+        $pending['approved'] = true;
+        PendingConnection::put($this->request(), $pending);
+
+        return $this->postJson(route('dreamlayer.connect.poll'), ['attempt_id' => $attempt]);
+    }
+
+    public function test_chat_connection_requires_explicit_consent_before_contacting_backend(): void
+    {
+        foreach ([true, 1, '1'] as $choice) {
+            $this->postJson(route('dreamlayer.connect'), ['included_chat' => $choice])->assertUnprocessable();
+            $this->postJson(route('dreamlayer.settings.save'), ['managed_chat' => $choice])->assertUnprocessable();
+        }
+        Http::assertNothingSent();
+        $this->assertNull(PendingConnection::get($this->request()));
+        $this->assertFalse((bool) Settings::current()->managed_chat);
+    }
+
+    public function test_changing_chat_choice_replaces_pending_authorization(): void
+    {
+        $this->device();
+        $first = $this->postJson(route('dreamlayer.connect'))->assertOk()->json('attempt_id');
+        $second = $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])
+            ->assertOk()->assertJsonPath('included_chat', true)->json('attempt_id');
+        $this->assertNotSame($first, $second);
+        $this->postJson(route('dreamlayer.connect.poll'), ['attempt_id' => $first])->assertStatus(409);
+        $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])
+            ->assertOk()->assertJsonPath('attempt_id', $second);
+        Http::assertSentCount(2);
+        Http::assertSent(fn ($r) => ($r['included_chat'] ?? false) === true);
+    }
+
+    public function test_granted_chat_connection_enables_only_the_requested_assistance(): void
+    {
+        $this->device();
+        Http::fake([
+            '*/token' => Http::response(['access_token' => 'chat-granted-key', 'connection_id' => 'connection-chat', 'scope' => 'images:execute chat:use']),
+            '*/chat/limits' => Http::response(['contract_version' => 1, 'included' => true, 'image_credits_charged' => false]),
+        ]);
+        $attempt = $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])->assertOk()->json('attempt_id');
+        $this->assertFalse((bool) Settings::current()->managed_chat);
+        $this->finishConnection($attempt)->assertOk()->assertJsonPath('status', 'connected')->assertDontSee('chat-granted-key');
+        $settings = Settings::current()->fresh();
+        $this->assertTrue($settings->enabled);
+        $this->assertTrue($settings->managed_chat);
+        $this->assertSame(1, (int) $settings->privacy_consent_version);
+        $this->assertFalse($settings->save_chat_history);
+        $this->assertFalse($settings->native_chat_enabled);
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/chat/limits') && $r->hasHeader('Authorization', 'Bearer chat-granted-key'));
+    }
+
+    public function test_missing_chat_grant_connects_images_and_reports_chat_is_not_enabled(): void
+    {
+        $this->device();
+        Http::fake(['*/token' => Http::response(['access_token' => 'images-only-key', 'connection_id' => 'images-only', 'scope' => 'images:execute'])]);
+        $attempt = $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])->assertOk()->json('attempt_id');
+        $this->finishConnection($attempt)->assertOk()->assertJsonPath('notice', trans('dreamlayer::app.message-b0786bce19'));
+        $this->assertTrue(Settings::current()->enabled);
+        $this->assertFalse(Settings::current()->managed_chat);
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/chat/limits'));
+    }
+
+    public function test_chat_server_rejection_never_silently_downgrades_the_requested_connection(): void
+    {
+        Settings::current()->update(['credential' => 'existing-key', 'connection_id' => 'existing', 'enabled' => true]);
+        Http::fake(['*/device-authorization' => Http::response(['detail' => 'Unsupported chat'], 422)]);
+        $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])->assertUnprocessable();
+        Http::assertSentCount(1);
+        $this->assertSame('existing-key', Settings::current()->credential);
+        $this->assertTrue(Settings::current()->enabled);
+        $this->assertNull(PendingConnection::get($this->request()));
+    }
+
+    public function test_reconnect_adds_chat_permission_and_revokes_only_the_old_connection(): void
+    {
+        Settings::current()->update(['credential' => 'old-image-key', 'connection_id' => 'old-connection', 'enabled' => true]);
+        $this->device();
+        Http::fake([
+            '*/token' => Http::response(['access_token' => 'new-chat-key', 'connection_id' => 'new-connection', 'scope' => 'images:execute chat:use']),
+            '*/chat/limits' => Http::response(['contract_version' => 1, 'included' => true, 'image_credits_charged' => false]),
+            '*/connections/current' => Http::response([], 204),
+        ]);
+        $attempt = $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])->assertOk()->json('attempt_id');
+        $this->assertSame('old-image-key', Settings::current()->credential);
+        $this->finishConnection($attempt)->assertOk();
+        $this->assertSame('new-chat-key', Settings::current()->credential);
+        $this->assertTrue(Settings::current()->managed_chat);
+        Http::assertSent(fn ($r) => $r->method() === 'DELETE' && $r->hasHeader('Authorization', 'Bearer old-image-key'));
+        Http::assertNotSent(fn ($r) => $r->method() === 'DELETE' && $r->hasHeader('Authorization', 'Bearer new-chat-key'));
+    }
+
+    public function test_billed_chat_contract_is_rejected_for_manual_key_and_account_connection(): void
+    {
+        Settings::current()->update(['credential' => 'manual-key', 'enabled' => true]);
+        Http::fake(['*/chat/limits' => Http::response(['contract_version' => 1, 'included' => true, 'image_credits_charged' => true])]);
+        $this->post(route('dreamlayer.settings.save'), ['enabled' => 1, 'managed_chat' => 1, 'privacy_consent' => 1])
+            ->assertSessionHasErrors('managed_chat');
+        $this->assertFalse(Settings::current()->managed_chat);
+        $this->device();
+        Http::fake(['*/token' => Http::response(['access_token' => 'new-key', 'connection_id' => 'new-connection', 'scope' => 'images:execute chat:use'])]);
+        $attempt = $this->postJson(route('dreamlayer.connect'), ['included_chat' => true, 'privacy_consent' => true])->assertOk()->json('attempt_id');
+        $this->finishConnection($attempt)->assertOk()->assertJsonPath('notice', trans('dreamlayer::app.message-b0786bce19'));
+        $this->assertFalse(Settings::current()->managed_chat);
     }
 
     public function test_reopening_an_existing_code_preserves_its_poll_deadline(): void

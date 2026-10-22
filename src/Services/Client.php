@@ -79,7 +79,7 @@ class Client
     public function chatLimits(): array
     {
         $data = $this->checked($this->request()->get(Endpoints::api().'/chat/limits'))->json();
-        if (($data['contract_version'] ?? null) !== 1 || ($data['included'] ?? false) !== true) {
+        if (($data['contract_version'] ?? null) !== 1 || ($data['included'] ?? false) !== true || ($data['image_credits_charged'] ?? null) !== false) {
             throw new ApiException(400);
         }
 

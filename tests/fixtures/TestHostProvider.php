@@ -82,7 +82,7 @@ class TestHostProvider extends ServiceProvider
                 return Http::response(['operations' => ['text_to_image', 'image_to_image', 'background_remove'], 'key_mode' => 'test', 'api_version' => '1', 'live_charge_credits_per_image' => 1, 'image_batches' => true, 'image_batch_versions' => [1], 'image_workflows' => ! Storage::disk('local')->exists('fixture-legacy-mode'), 'image_workflow_versions' => [1]]);
             }
             if (str_ends_with($url, '/chat/limits')) {
-                return Http::response(['contract_version' => 1, 'included' => true]);
+                return Http::response(['contract_version' => 1, 'included' => true, 'image_credits_charged' => false]);
             }
             if (str_ends_with($url, '/chat/completions')) {
                 $messages = $request['messages'];

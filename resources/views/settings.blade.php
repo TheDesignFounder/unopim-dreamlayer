@@ -8,7 +8,7 @@
         <p>@lang('dreamlayer::app.settings-help')</p>
         <p><strong>@lang('dreamlayer::app.connection-status'):</strong> {{ trans('dreamlayer::app.connection-'.$connectionState['status']) }}</p>
         @if($connectionState['balances'])<p>@lang('dreamlayer::app.available-credits'): {{ $connectionState['balances']['available'] ?? '—' }}</p>@endif
-        @if(config('dreamlayer.connections_enabled'))<section class="dl-section"><h2>@lang('dreamlayer::app.connect')</h2><v-dreamlayer-connect></v-dreamlayer-connect></section>@endif
+        @if(config('dreamlayer.connections_enabled'))<section class="dl-section"><h2>@lang('dreamlayer::app.connect')</h2><v-dreamlayer-connect :connected="@json((bool) $settings->credential)"></v-dreamlayer-connect></section>@endif
         <x-admin::form :action="route('dreamlayer.settings.save')" method="POST">
             <div class="dl-stack">
                 <x-admin::form.control-group>
@@ -31,7 +31,7 @@
                         <p class="dl-muted">@lang('dreamlayer::app.setting-native_chat_enabled-help')</p>
                     </x-admin::form.control-group>
                 @endif
-                <section class="dl-section"><h2>@lang('dreamlayer::app.privacy')</h2>
+                <section class="dl-section" id="dreamlayer-data-sharing"><h2>@lang('dreamlayer::app.privacy')</h2>
                     @foreach(['images','chat','connection','storage','providers'] as $topic)<p>{{ trans('dreamlayer::app.privacy-'.$topic) }}</p>@endforeach
                     <x-admin::form.control-group>
                         <x-admin::form.control-group.label>@lang('dreamlayer::app.privacy-consent')</x-admin::form.control-group.label>
@@ -52,8 +52,24 @@
     @pushOnce('scripts')
 <script type="text/x-template" id="dreamlayer-connect-template">
         <div class="dl-stack">
+            <div v-if="!code" class="dl-stack">
+                <p v-text="labels['connection-setup-help']"></p>
+                <x-admin::form.control-group>
+                    <x-admin::form.control-group.label for="dl-connect-chat">@lang('dreamlayer::app.setting-managed_chat')</x-admin::form.control-group.label>
+                    <x-admin::form.control-group.control type="switch" name="connection_chat" id="dl-connect-chat" value="1" @change="includeChat = $event.target.checked; chatConsent = false" ::disabled="busy" :label="trans('dreamlayer::app.setting-managed_chat')" />
+                    <p class="dl-muted">@lang('dreamlayer::app.setting-managed_chat-help')</p>
+                </x-admin::form.control-group>
+                <div v-if="includeChat" class="dl-stack">
+                    <p class="dl-muted">@lang('dreamlayer::app.privacy-chat')</p>
+                    <a class="dl-link" href="#dreamlayer-data-sharing">@lang('dreamlayer::app.privacy')</a>
+                    <x-admin::form.control-group>
+                        <x-admin::form.control-group.label for="dl-connect-consent">@lang('dreamlayer::app.privacy-consent')</x-admin::form.control-group.label>
+                        <x-admin::form.control-group.control type="switch" name="connection_consent" id="dl-connect-consent" value="1" @change="chatConsent = $event.target.checked" ::disabled="busy" :label="trans('dreamlayer::app.privacy-consent')" />
+                    </x-admin::form.control-group>
+                </div>
+            </div>
             <div v-if="code" class="dl-code-box"><strong>@lang('dreamlayer::app.ui-22bf90a2e2')</strong><div class="dl-actions"><code class="dl-code" v-text="code"></code><button type="button" class="secondary-button" @click="copyCode" :disabled="copying || !remaining" aria-live="polite" v-text="copied ? labels['ui-8d525e5f15'] : labels['ui-e21f935f11']"></button><button type="button" class="secondary-button" @click="connect(true)" :disabled="busy">@lang('dreamlayer::app.ui-c7730178f4')</button></div><p v-if="copyError" class="dl-error" role="alert" v-text="copyError"></p><p class="dl-muted" v-text="remaining > 0 ? labels['expires-in'].replace(':time', Math.floor(remaining / 60) + ':' + String(remaining % 60).padStart(2, '0')) : labels['ui-b9bb9b3937']"></p></div>
-            <div class="dl-actions"><a v-if="code && remaining > 0" class="primary-button" :href="uri" target="_blank" rel="noopener noreferrer">@lang('dreamlayer::app.ui-a020541168')</a><button v-if="!code" type="button" class="secondary-button" @click="connect(false)" :disabled="busy" v-text="busy ? labels['ui-76e286b20d'] : labels['ui-67f1079f27']"></button></div>
+            <div class="dl-actions"><a v-if="code && remaining > 0" class="primary-button" :href="uri" target="_blank" rel="noopener noreferrer">@lang('dreamlayer::app.ui-a020541168')</a><button v-if="!code" type="button" class="secondary-button" @click="connect(false)" :disabled="busy || (includeChat && !chatConsent)" v-text="busy ? labels['ui-76e286b20d'] : connected ? labels['connection-reconnect'] : labels['ui-67f1079f27']"></button><button v-if="code" type="button" class="secondary-button" @click="changeOptions" :disabled="busy" v-text="labels['connection-change-options']"></button></div>
             <p v-if="code" class="dl-muted">@lang('dreamlayer::app.ui-b0dba24f61')</p>
             <p v-if="error" role="alert" class="dl-error" v-text="error"></p>
         </div>
@@ -61,10 +77,12 @@
 <script type="module">
 app.component('v-dreamlayer-connect', {
     template: '#dreamlayer-connect-template',
-    props: { automatic: { type: Boolean, default: false } },
+    props: { automatic: { type: Boolean, default: false }, connected: { type: Boolean, default: false } },
     emits: ['pending-change'],
     data: () => ({
         labels: @json(trans('dreamlayer::app')),
+        includeChat: false,
+        chatConsent: false,
         code: null,
         uri: null,
         attempt: null,
@@ -103,6 +121,15 @@ app.component('v-dreamlayer-connect', {
         window.removeEventListener('focus', this.visible);
     },
     methods: {
+        changeOptions() {
+            clearTimeout(this.timer);
+            this.code = null;
+            this.attempt = null;
+            this.deadline = 0;
+            this.includeChat = false;
+            this.chatConsent = false;
+            this.error = null;
+        },
         resetCopy() {
             clearTimeout(this.copyTimer);
             this.copied = false;
@@ -162,13 +189,14 @@ app.component('v-dreamlayer-connect', {
             if (!this.stopped && this.code) this.timer = setTimeout(() => this.poll(), seconds * 1000);
         },
         async connect(regenerate = false) {
-            if (this.busy || this.stopped) return;
+            if (this.busy || this.stopped || (this.includeChat && !this.chatConsent)) return;
             clearTimeout(this.timer);
             this.busy = true;
             this.error = null;
             try {
                 const r = await this.$axios.post(@json(route('dreamlayer.connect')), {
-                    included_chat: false,
+                    included_chat: this.includeChat,
+                    privacy_consent: this.includeChat && this.chatConsent,
                     automatic: this.automatic,
                     regenerate
                 });
@@ -188,7 +216,7 @@ app.component('v-dreamlayer-connect', {
                         return;
                     }
                     const keepCode = e.response?.status === 429 && this.code && Date.now() < this.deadline;
-                    this.error = keepCode
+                    this.error = e.response?.status === 422 ? this.labels['message-b0786bce19'] : keepCode
                         ? this.labels['ui-0897795b07']
                         : this.labels['ui-6e882e97ad'];
                     if (keepCode)

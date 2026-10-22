@@ -127,7 +127,7 @@ return [
     'message-f2ef9bc89f' => 'This request already owns an image workflow.',
     'message-511e151a36' => 'Select each image once.',
     'message-af468241b1' => 'Chat request identity is required.',
-    'message-17de964579' => 'Provide executable instructions; removal is promptless.',
+    'message-17de964579' => 'Describe the change you want. Removing the background does not need an instruction.',
     'message-4b4cbad0d7' => 'This request already owns a batch. Open its saved results.',
     'message-3775ea16c0' => 'Attach or select an image.',
     'message-268f960b4a' => 'Choose the referenced images from the @ picker again before submitting.',
@@ -229,4 +229,7 @@ return [
     'acl-workflow' => 'View preview progress',
     'acl-image' => 'Download previews',
     'acl-apply' => 'Apply images to products',
+    'connection-setup-help' => 'Choose chat assistance now, or reconnect here later to add it.',
+    'connection-reconnect' => 'Reconnect DreamLayer',
+    'connection-change-options' => 'Change connection options',
 ];

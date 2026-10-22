@@ -63,7 +63,9 @@ Optionally schedule `php artisan dreamlayer:recover` through your existing sched
 
 Open **DreamLayer** in the admin menu. Enter an API key and enable image tools. Keys are validated and encrypted in UnoPim; retain your application's `APP_KEY`.
 
-If account connection is available, set `DREAMLAYER_CONNECTIONS_ENABLED=true`, choose **Get connection code**, and approve the installation in DreamLayer. Account connection requests image access by default. It does not select DreamLayer as the host's default AI provider.
+For account connection, set `DREAMLAYER_CONNECTIONS_ENABLED=true` and clear the configuration cache. Use a persistent cache driver such as `file`, `database` or `redis`; the `array` driver cannot retain connection codes between requests. In **Connect DreamLayer**, choose whether to enable chat assistance. Leave it off for image access only, or turn it on and acknowledge the data-sharing information. Then choose **Get connection code** and approve the installation in DreamLayer.
+
+To add chat to an existing account connection, turn on chat assistance in the connection section, acknowledge the disclosure, and choose **Reconnect DreamLayer**. Approve the new code. The old connection remains usable until the new one is saved, then the extension revokes it. Chat turns on only when the approved credential has chat permission and the server confirms that chat uses no image credits. A denied or unavailable chat grant is shown explicitly. History saving stays a separate setting. Account connection does not change UnoPim's default AI provider.
 
 Chat assistance, saving editor conversations, and the optional native chat bridge are separate choices, all **off by default**. Chat assistance requires explicit acknowledgement of the data disclosure. Upgrade from 0.2.x disables the old managed-chat setting until an administrator makes that choice again.
 
@@ -115,6 +117,8 @@ Use a shared cache with atomic-lock support for multiple replicas. Private image
 - [Compatibility and validation](docs/COMPATIBILITY.md)
 - [Marketplace review response](docs/MARKETPLACE_REVIEW.md)
 - [Listing draft](docs/MARKETPLACE_LISTING.md)
-- [Translation status](docs/TRANSLATIONS.md)
+- [Translation review](docs/TRANSLATIONS.md)
+- [Final acceptance checklist](docs/ACCEPTANCE_TEST.md)
+- [Current editor review media](docs/REVIEW_MEDIA.md)
 - [Operations](docs/OPERATIONS.md)
 - [API contract](docs/API_CONTRACT_V1.md)

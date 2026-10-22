@@ -459,7 +459,7 @@ final class ReviewRegressionTest extends TestCase
         config(['dreamlayer.connections_enabled' => false]);
         Settings::current()->update(['connection_id' => null]);
         Http::fake(['*/balance' => Http::response(['available' => 2, 'promotional' => 2, 'internal' => 'must-not-escape']), '*/account' => Http::response([], 404)]);
-        $this->getJson(route('dreamlayer.settings.status'))->assertExactJson(['status' => 'connected', 'method' => 'Manual API key', 'balances' => ['available' => 2, 'promotional' => 2], 'account_label' => null, 'chat_available' => (bool) core()->getConfigData('general.magic_ai.agentic_pim.enabled'), 'can_enable_chat' => HostSupport::nativeChat(), 'chat_enabled' => false, 'image_tools_enabled' => true]);
+        $this->getJson(route('dreamlayer.settings.status'))->assertExactJson(['status' => 'connected', 'method' => 'Manual API key', 'balances' => ['available' => 2, 'promotional' => 2], 'account_label' => null, 'chat_available' => (bool) core()->getConfigData('general.magic_ai.agentic_pim.enabled'), 'can_enable_chat' => true, 'chat_enabled' => false, 'image_tools_enabled' => true]);
         Settings::current()->update(['credential' => null]);
         $this->getJson(route('dreamlayer.settings.status'))->assertOk()->assertJsonPath('status', 'disconnected');
         Http::assertSentCount(2);

@@ -27,3 +27,6 @@
 /docs/CORE_PATCH.md -export-ignore
 
 /docs/MARKETPLACE_REVIEW.md -export-ignore
+
+/docs/ACCEPTANCE_TEST.md -export-ignore
+/docs/REVIEW_MEDIA.md -export-ignore

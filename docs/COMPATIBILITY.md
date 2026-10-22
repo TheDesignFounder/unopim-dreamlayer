@@ -26,6 +26,11 @@ Apply, follow-up source selection, finite polling and configurable queues.
 the host's own components. Browser acceptance on 3.1.3 covers preview loading,
 Apply, follow-up editing, mobile width and light/dark rendering.
 
+Account connection tests also run on the older releases. The 0.1.0, 1.0.1 and
+2.1.6 runs each pass 19 tests and 165 assertions, including chat consent, image-only
+connection, reconnect and missing chat grants. The older hosts use a disposable
+test bootstrap; their application code and dependencies remain unchanged.
+
 The full regression suite runs on 3.1.3. Native-hook-specific tests are skipped
 there because those APIs are absent; the PostgreSQL concurrency scenario runs
 separately. PostgreSQL 16 tests cover fresh migration, rollback/reinstall,
@@ -40,7 +45,7 @@ history. The standalone editor remains available without these hooks.
 
 A separate development-host regression run uses official upstream commit
 `1abbb5bfa393f62b7d3d8496a3afea2a93df4084` with its own locked dependencies.
-Its regression run passed 136 tests with 813 assertions (one PostgreSQL-only
+Its regression run passed 144 tests with 883 assertions (one PostgreSQL-only
 test skipped and run separately). This is a development compatibility check,
 not an additional released version
 in the marketplace compatibility field.
@@ -58,6 +63,6 @@ image-quality assessment was performed. Browser fixtures were installed only
 in the disposable 3.1.3 test host and are excluded from the distribution.
 
 All 33 locales have translation files and validated keys/placeholders. English
-was edited for clarity; other languages still need native-speaker review.
+was edited for clarity; other languages received an AI-assisted review of key workflows and terminology, with native-speaker certification not claimed.
 Compatibility with old dependencies is not a security certification of an old
 UnoPim installation.

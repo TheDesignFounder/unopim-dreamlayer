@@ -84,6 +84,10 @@ jobs:
         if: matrix.tag == 'v3.1.3'
         working-directory: host
         run: UNOPIM_HOST_ROOT="$PWD" vendor/bin/phpunit -c ../extension/tests/phpunit.xml --fail-on-warning --fail-on-risky
+      - name: Account connection on older released hosts
+        if: matrix.tag != 'v3.1.3'
+        working-directory: host
+        run: UNOPIM_HOST_ROOT="$PWD" vendor/bin/phpunit -c ../extension/tests/phpunit.xml --filter OnboardingTest --fail-on-warning --fail-on-risky
       - name: Distribution
         working-directory: extension
         run: |
