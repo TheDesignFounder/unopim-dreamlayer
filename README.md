@@ -69,11 +69,13 @@ Chat assistance, saving editor conversations, and the optional native chat bridg
 
 For the complete supported experience, recommend enabling these options during customer setup:
 
-- **Chat assistance:** make follow-up edits easier to describe by using recent editor messages to clarify the next instruction.
+- **Chat assistance, included at no extra charge:** make follow-up edits easier to describe by using recent editor messages to clarify the next instruction. It uses no image credits and is subject to your account's usage limits.
 - **Saved editor conversations:** keep an encrypted message record in UnoPim for administrator review and troubleshooting.
 - **Native chat integration:** access DreamLayer image tools from UnoPim's existing chat on compatible hosts.
 
 The [installer guide](docs/INSTALLER_GUIDE.md) maps these benefits to customer requirements and explains how to configure the approved choices through Settings.
+
+Generating and editing images use paid DreamLayer credits; see [current pricing](https://dreamlayer.io/pricing). If you use UnoPim's native chat, its existing conversation provider retains its own billing.
 
 Give users the appropriate **My image results** permissions, including the editor, image browsing, previews and Apply. Product-edit permission is also required. Restrict connection and settings permissions to administrators.
 

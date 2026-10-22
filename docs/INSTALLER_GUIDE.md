@@ -46,17 +46,25 @@ there is no need to ask for them again.
 | Setting in DreamLayer | Benefit for the customer | Recommend enabling when… |
 | --- | --- | --- |
 | **Enable image editing** | Create product images, change backgrounds, refine previews and choose exactly what is saved to each product. DreamLayer handles image model selection. | The customer is installing DreamLayer to work on product images. |
-| **Enable DreamLayer chat assistance** | Make follow-up instructions easier to express. DreamLayer uses recent messages from the editor to clarify references such as “use the lighting I described earlier.” | The customer wants conversation-aware image refinement and has approved sharing the editor conversation with DreamLayer. |
+| **Enable DreamLayer chat assistance** | Included at no extra charge, within your account's usage limits. Make follow-up instructions easier to express: DreamLayer uses recent messages from the editor to clarify references such as “use the lighting I described earlier.” | The customer wants conversation-aware image refinement and has approved sharing the editor conversation with DreamLayer. |
 | **Save this editor's conversation history** | Keep an encrypted record of editor messages in the customer's UnoPim database for administrator review and troubleshooting. | The customer wants a retained message record and has approved that storage. |
 | **Use DreamLayer image tools in UnoPim chat** | Work with DreamLayer images from the UnoPim chat interface the team already uses, with its existing conversation provider. | The customer wants this interface and the installed UnoPim host exposes the required chat hooks. |
 
+**Chat assistance is included.** It uses no image credits, and the editor needs
+no separate text-AI provider setup. Your account's usage limits apply, and the
+settings form checks that included chat assistance is available for your account.
+Generating and editing images use paid DreamLayer credits; see
+[current pricing](https://dreamlayer.io/pricing). UnoPim's native chat continues
+to use its existing conversation provider, with that provider's own billing.
+
 Suggested onboarding copy:
 
-> Enable chat assistance to make follow-up image edits easier to describe. Save
+> Enable DreamLayer chat assistance to make follow-up image edits easier to
+> describe—included at no extra charge within your account's usage limits. Save
 > editor conversations to keep an encrypted record for your team. Where your
 > UnoPim version supports it, enable the chat integration to use DreamLayer image
 > tools from your existing UnoPim chat. You keep control of which preview is saved
-> to each product.
+> to each product. Image generation and editing use paid DreamLayer credits.
 
 Use the existing [data-sharing information](../README.md#privacy-and-data-handling)
 with this recommendation. Chat assistance shares the current message and recent
