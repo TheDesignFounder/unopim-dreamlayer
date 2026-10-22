@@ -1,17 +1,17 @@
 {
   "name": "dreamlayer/unopim-dreamlayer",
-  "description": "DreamLayer preview and apply image workflows for UnoPIM 3.x",
+  "description": "Product image editing, refinement and review inside UnoPim",
   "type": "library",
   "license": "MIT",
-  "version": "0.2.16",
+  "version": "0.3.0",
   "require": {
-    "php": "^8.4.1",
-    "illuminate/support": "^13.0",
-    "illuminate/database": "^13.0",
-    "illuminate/queue": "^13.0",
-    "illuminate/http": "^13.0",
-    "laravel/ai": "^1.1",
-    "ext-gd": "*"
+    "php": "^8.2",
+    "illuminate/support": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+    "illuminate/database": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+    "illuminate/queue": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+    "illuminate/http": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+    "ext-gd": "*",
+    "unopim/unopim": ">=0.1.0 <4.0.0"
   },
   "autoload": {
     "psr-4": {
@@ -34,12 +34,17 @@
       "/docs/*.png",
       "/docs/*.log",
       "/docs/IMPLEMENTATION_PLAN.md",
-      "/docs/VERIFICATION.md"
+      "/docs/VERIFICATION.md",
+      "/patches",
+      "/NEW_USER_TEST.md"
     ]
   },
   "homepage": "https://github.com/TheDesignFounder/unopim-dreamlayer",
   "support": {
     "source": "https://github.com/TheDesignFounder/unopim-dreamlayer",
     "issues": "https://github.com/TheDesignFounder/unopim-dreamlayer/issues"
+  },
+  "suggest": {
+    "laravel/ai": "Only needed for the optional native UnoPim chat bridge; use the version supplied by your UnoPim release."
   }
 }

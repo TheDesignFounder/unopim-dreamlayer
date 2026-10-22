@@ -1,5 +1,7 @@
 <?php
 
+use DreamLayer\UnoPIM\Compatibility\HostSupport;
+use DreamLayer\UnoPIM\Compatibility\ImageContext as ChatContext;
 use DreamLayer\UnoPIM\Jobs\RunWorkflow;
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Models\Workflow;
@@ -10,7 +12,6 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
-use Webkul\AiAgent\Chat\ChatContext;
 use Webkul\MagicAI\Models\MagicAIPlatform;
 use Webkul\User\Models\Admin;
 use Webkul\User\Models\Role;
@@ -26,9 +27,9 @@ final class DeliveryHistoryTest extends TestCase
         Http::preventStrayRequests();
         Storage::fake('local');
         Storage::fake('public');
-        $this->admin = Admin::factory()->create(['role_id'=>Role::factory()->create(['permission_type'=>'all'])->id]);
+        $this->admin = Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type' => 'all'])->id]);
         $this->actingAs($this->admin, 'admin');
-        Settings::current()->update(['enabled'=>true, 'credential'=>'synthetic-delivery-only', 'credential_version'=>(string) Str::uuid()]);
+        Settings::current()->update(['enabled' => true, 'credential' => 'synthetic-delivery-only', 'credential_version' => (string) Str::uuid()]);
     }
 
     private function png(): string
@@ -49,13 +50,13 @@ final class DeliveryHistoryTest extends TestCase
     {
         $source = 'ai-agent/images/'.$this->admin->id.'/'.sha1('delivery_review').'/source.png';
         Storage::disk('public')->put($source, $this->png());
-        $context = new ChatContext(message: 'Preview', history: [], productId: null, productSku: null, productName: null, locale: 'en_US', channel: 'default', platform: new MagicAIPlatform(['provider'=>'openai']), user: $this->admin, conversationId: 'delivery_review', requestId: (string) Str::uuid(), uploadedImagePaths: [Storage::disk('public')->path($source)], hasNewImages: true);
-        $w = app(Workflows::class)->start($context, ['steps'=>[['operation'=>'image_to_image', 'instruction'=>'Pink background'], ['operation'=>'background_remove']]], false);
+        $context = new ChatContext(message: 'Preview', history: [], productId: null, productSku: null, productName: null, locale: 'en_US', channel: 'default', platform: new MagicAIPlatform(['provider' => 'openai']), user: $this->admin, conversationId: 'delivery_review', requestId: (string) Str::uuid(), uploadedImagePaths: [Storage::disk('public')->path($source)], hasNewImages: true);
+        $w = app(Workflows::class)->start($context, ['steps' => [['operation' => 'image_to_image', 'instruction' => 'Pink background'], ['operation' => 'background_remove']]], false);
         $remote = (string) Str::uuid();
-        $w->update(['execution_path'=>'workflow_v1', 'input_asset_id'=>(string) Str::uuid(), 'upstream_workflow_id'=>$remote]);
-        Http::fake(['*/image-workflows/*'=> fn ($request) => Http::response(['workflow_id'=> basename($request->url()), 'contract_version'=>1, 'status'=>'failed', 'steps'=>[
-            ['description'=>'Pink background', 'status'=>'completed', 'image'=>['download_url'=>'https://api.dreamlayer.io/v1/image-jobs/'.basename($request->url()).'/asset']],
-            ['description'=> 'Remove background', 'status'=>'failed', 'image'=>null]], 'image'=>null]), '*/asset'=>Http::response($this->png(), 200, ['Content-Type'=>'image/png'])]);
+        $w->update(['execution_path' => 'workflow_v1', 'input_asset_id' => (string) Str::uuid(), 'upstream_workflow_id' => $remote]);
+        Http::fake(['*/image-workflows/*' => fn ($request) => Http::response(['workflow_id' => basename($request->url()), 'contract_version' => 1, 'status' => 'failed', 'steps' => [
+            ['description' => 'Pink background', 'status' => 'completed', 'image' => ['download_url' => 'https://api.dreamlayer.io/v1/image-jobs/'.basename($request->url()).'/asset']],
+            ['description' => 'Remove background', 'status' => 'failed', 'image' => null]], 'image' => null]), '*/asset' => Http::response($this->png(), 200, ['Content-Type' => 'image/png'])]);
 
         return $w;
     }
@@ -74,7 +75,7 @@ final class DeliveryHistoryTest extends TestCase
             (new RunWorkflow($w->id))->handle();
             $this->assertSame($w->upstream_workflow_id, $w->fresh()->upstream_workflow_id);
         }
-        Http::assertNotSent(fn ($r) =>$r->method() !== 'GET');
+        Http::assertNotSent(fn ($r) => $r->method() !== 'GET');
     }
 
     public function test_old_terminal_corruption_is_not_served_and_can_be_recovered(): void
@@ -82,15 +83,15 @@ final class DeliveryHistoryTest extends TestCase
         $w = $this->partial();
         $path = 'dreamlayer/'.$w->id.'/step-0.png';
         Storage::disk('local')->put($path, 'broken');
-        $w->update(['status'=>'failed', 'progress'=>[['description'=>'Pink background', 'status'=>'completed', 'result_path'=>$path], ['description'=>'Remove background', 'status'=>'failed']]]);
+        $w->update(['status' => 'failed', 'progress' => [['description' => 'Pink background', 'status' => 'completed', 'result_path' => $path], ['description' => 'Remove background', 'status' => 'failed']]]);
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('steps.0.image_url', null)->assertJsonPath('delivery_unavailable', true);
-        $this->getJson(route('dreamlayer.image', ['id'=>$w->id, 'step'=>0]))->assertStatus(503);
-        $this->artisan('dreamlayer:recover', ['--verify-deliveries'=>true])->assertSuccessful();
-        Queue::assertPushed(RunWorkflow::class, fn ($job) =>$job->workflowId === $w->id);
+        $this->getJson(route('dreamlayer.image', ['id' => $w->id, 'step' => 0]))->assertStatus(503);
+        $this->artisan('dreamlayer:recover', ['--verify-deliveries' => true])->assertSuccessful();
+        Queue::assertPushed(RunWorkflow::class, fn ($job) => $job->workflowId === $w->id);
         (new RunWorkflow($w->id))->handle();
         (new RunWorkflow($w->id))->handle();
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('partial_success', true)->assertJsonPath('delivery_unavailable', false);
-        Http::assertNotSent(fn ($r) =>$r->method() !== 'GET');
+        Http::assertNotSent(fn ($r) => $r->method() !== 'GET');
     }
 
     public function test_valid_cache_is_reused_and_alpha_bytes_are_unchanged(): void
@@ -99,7 +100,7 @@ final class DeliveryHistoryTest extends TestCase
         $path = 'dreamlayer/'.$w->id.'/step-0.png';
         app(ImageStore::class)->put($path, $this->png());
         (new RunWorkflow($w->id))->handle();
-        Http::assertNotSent(fn ($r) =>str_ends_with($r->url(), '/asset'));
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/asset'));
         $this->assertSame($this->png(), app(ImageStore::class)->read($path));
     }
 
@@ -147,54 +148,75 @@ final class DeliveryHistoryTest extends TestCase
         app()->instance(ImageStore::class, $real);
         (new RunWorkflow($w->id))->handle();
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('partial_success', true);
-        Http::assertNotSent(fn ($r) =>$r->method() !== 'GET');
+        Http::assertNotSent(fn ($r) => $r->method() !== 'GET');
     }
 
     private function native(): array
     {
-        return ['role'=>'assistant', 'message_id'=>'native_result', 'content'=>'Export ready. Shall I proceed?', 'result'=>['rows'=>10, 'nested'=>['literal'=>'<script>no execution</script>']], 'product_url'=>'/admin/catalog/products/edit/1', 'download_url'=>'https://storage.example.invalid/exports/my%20file.csv', '_confirmed'=>false, 'action'=>'agent_response'];
+        return ['role' => 'assistant', 'message_id' => 'native_result', 'content' => 'Export ready. Shall I proceed?', 'result' => ['rows' => 10, 'nested' => ['literal' => '<script>no execution</script>']], 'product_url' => '/admin/catalog/products/edit/1', 'download_url' => 'https://storage.example.invalid/exports/my%20file.csv', '_confirmed' => false, 'action' => 'agent_response'];
     }
 
     public function test_native_display_roundtrip_and_confirmation_is_monotonic(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+        // The administrator explicitly enables the host's own history for this test.
+        config(['ai-agent.history.enabled' => true]);
+
         $native = $this->native();
         $url = route('ai-agent.conversations.store');
-        $r = $this->postJson($url, ['conversation_id'=>'native_contract', 'messages'=>[$native]])->assertOk();
+        $r = $this->postJson($url, ['conversation_id' => 'native_contract', 'messages' => [$native]])->assertOk();
         $id = $r->json('id');
         $native['_confirmed'] = true;
-        $this->postJson($url, ['conversation_id'=>'native_contract', 'messages'=>[$native]])->assertOk();
-        $this->postJson($url, ['conversation_id'=>'native_contract', 'messages'=>[$this->native()]])->assertOk();
+        $this->postJson($url, ['conversation_id' => 'native_contract', 'messages' => [$native]])->assertOk();
+        $this->postJson($url, ['conversation_id' => 'native_contract', 'messages' => [$this->native()]])->assertOk();
         $saved = $this->getJson(route('ai-agent.conversations.show', $id))->assertOk();
         foreach (['result', 'product_url', 'download_url', '_confirmed', 'action'] as $field) {
             $saved->assertJsonPath('messages.0.'.$field, $native[$field]);
         }
-        $this->actingAs(Admin::factory()->create(['role_id'=>$this->admin->role_id]), 'admin')->getJson(route('ai-agent.conversations.show', $id))->assertNotFound();
+        $this->actingAs(Admin::factory()->create(['role_id' => $this->admin->role_id]), 'admin')->getJson(route('ai-agent.conversations.show', $id))->assertNotFound();
     }
 
     public function test_pre_upgrade_native_message_can_be_enriched_without_replacing_content(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+        // The administrator explicitly enables the host's own history for this test.
+        config(['ai-agent.history.enabled' => true]);
+
         $native = $this->native();
         $old = array_intersect_key($native, array_flip(['role', 'content', 'message_id']));
-        $r = $this->postJson(route('ai-agent.conversations.store'), ['conversation_id'=>'native_upgrade', 'messages'=>[$old]])->assertOk();
-        $this->postJson(route('ai-agent.conversations.store'), ['conversation_id'=>'native_upgrade', 'messages'=>[$native]])->assertOk();
+        $r = $this->postJson(route('ai-agent.conversations.store'), ['conversation_id' => 'native_upgrade', 'messages' => [$old]])->assertOk();
+        $this->postJson(route('ai-agent.conversations.store'), ['conversation_id' => 'native_upgrade', 'messages' => [$native]])->assertOk();
         $this->getJson(route('ai-agent.conversations.show', $r->json('id')))->assertJsonPath('messages.0.result.rows', 10);
     }
 
     public function test_unsafe_links_and_oversized_nested_result_are_rejected(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+        // The administrator explicitly enables the host's own history for this test.
+        config(['ai-agent.history.enabled' => true]);
+
         foreach (['javascript:alert(1)', 'data:text/html,bad', '//evil.invalid', '/%5cevil.invalid', 'https://user:pass@example.invalid/file'] as $url) {
             $native = $this->native();
             $native['download_url'] = $url;
-            $this->postJson(route('ai-agent.conversations.store'), ['messages'=>[$native]])->assertUnprocessable();
+            $this->postJson(route('ai-agent.conversations.store'), ['messages' => [$native]])->assertUnprocessable();
         }
         $native = $this->native();
-        $native['result'] = ['large'=>str_repeat('x', 65537)];
-        $this->postJson(route('ai-agent.conversations.store'), ['messages'=>[$native]])->assertUnprocessable();
+        $native['result'] = ['large' => str_repeat('x', 65537)];
+        $this->postJson(route('ai-agent.conversations.store'), ['messages' => [$native]])->assertUnprocessable();
         $native = $this->native();
-        $native['result'] = ['__proto__'=>['admin'=>true]];
-        $this->postJson(route('ai-agent.conversations.store'), ['messages'=>[$native]])->assertUnprocessable();
+        $native['result'] = ['__proto__' => ['admin' => true]];
+        $this->postJson(route('ai-agent.conversations.store'), ['messages' => [$native]])->assertUnprocessable();
         $native = $this->native();
         $native['product_url'] = 'https://evil.invalid/product';
-        $this->postJson(route('ai-agent.conversations.store'), ['messages'=>[$native]])->assertUnprocessable();
+        $this->postJson(route('ai-agent.conversations.store'), ['messages' => [$native]])->assertUnprocessable();
     }
 }

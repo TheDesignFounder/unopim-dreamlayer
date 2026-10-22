@@ -26,7 +26,9 @@ final class ReconnectConcurrencyTest extends TestCase
         $database = getenv('DREAMLAYER_CONCURRENCY_TEST_DATABASE') ?: 'unopim_release_catalog_test';
         $this->assertTrue(app()->environment('testing'));
         $this->assertStringEndsWith('_test', $database);
-        $this->assertSame('pgsql', DB::connection()->getDriverName());
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('Run this PostgreSQL locking regression on the PostgreSQL fixture.');
+        }
         $this->assertSame($database, DB::connection()->getDatabaseName());
         $original = Settings::current()->getRawOriginal();
         $role = Role::factory()->create(['permission_type' => 'all']);

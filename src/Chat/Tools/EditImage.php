@@ -20,7 +20,7 @@ class EditImage implements PimTool
     public function register(ChatContext $context): Tool
     {
         // Disabling changes new requests only; a transport replay still owns its admitted job.
-        if (! Settings::current()->enabled && (! $context->hasPermission('catalog.products.edit') || ! app(Workflows::class)->recover($context))) {
+        if ((! Settings::current()->enabled || ! Settings::current()->native_chat_enabled) && (! $context->hasPermission('catalog.products.edit') || ! app(Workflows::class)->recover($context))) {
             return app(\Webkul\AiAgent\Chat\Tools\EditImage::class)->register($context);
         }
 
@@ -40,11 +40,11 @@ class EditImage implements PimTool
             {
                 return [
                     'steps' => $s->array()->items($s->object([
-                        'operation'   => $s->string()->enum(['image_to_image', 'background_remove'])->required(),
+                        'operation' => $s->string()->enum(['image_to_image', 'background_remove'])->required(),
                         'instruction' => $s->string()->description('Executable instruction; blank for pure background removal'),
                     ])->withoutAdditionalProperties())->min(1)->max(2)->required(),
-                    'sku'          => $s->string(), 'attribute' => $s->string(),
-                    'image_index'  => $s->integer()->min(0), 'selected_result' => $s->string(),
+                    'sku' => $s->string(), 'attribute' => $s->string(),
+                    'image_index' => $s->integer()->min(0), 'selected_result' => $s->string(),
                     'aspect_ratio' => $s->string()->enum(['1:1', '3:4', '4:3']),
                 ];
             }
@@ -53,20 +53,21 @@ class EditImage implements PimTool
             {
                 try {
                     abort_unless($this->context->hasPermission('catalog.products.edit'), 403);
+                    abort_unless(Settings::current()->native_chat_enabled || app(Workflows::class)->recover($this->context), 403);
                     if (($batch = app(Batches::class)->recover($this->context)) || count(CatalogImages::selected($this->context)) > 1) {
                         $batch ??= app(Batches::class)->start($this->context, $request->all());
 
-                        return json_encode(['mutated' => false, 'presentation' => ['type' => 'dreamlayer.batch', 'id' => $batch->id], 'result' => ['status' => $batch->fresh()->status, 'message' => 'Separate previews are queued for the selected images. Each has its own Apply action.']]);
+                        return json_encode(['mutated' => false, 'presentation' => ['type' => 'dreamlayer.batch', 'id' => $batch->id], 'result' => ['status' => $batch->fresh()->status, 'message' => trans('dreamlayer::app.batch-queued')]]);
                     }
                     $workflow = app(Workflows::class)->recover($this->context) ?? app(Workflows::class)->start($this->context, $request->all(), false);
                     $workflow->refresh(); // Hydrate database defaults on newly admitted work.
 
                     return json_encode(['mutated' => false, 'presentation' => ['type' => 'dreamlayer.workflow', 'id' => $workflow->id],
-                        'result'                  => ['status' => $workflow->status, 'message' => 'Preview status: '.$workflow->status.'. The card shows progress. Do not claim completion while queued or running. Apply is a separate user action.']]);
+                        'result' => ['status' => $workflow->status, 'message' => trans('dreamlayer::app.preview-status', ['status' => trans('dreamlayer::app.status-'.$workflow->status)])]]);
                 } catch (ValidationException $e) {
-                    return json_encode(['error' => 'Invalid image workflow.', 'fields' => $e->errors()]);
+                    return json_encode(['error' => trans('dreamlayer::app.invalid-workflow'), 'fields' => $e->errors()]);
                 } catch (HttpExceptionInterface $e) {
-                    return json_encode(['error' => $e->getStatusCode() === 409 ? 'Request input conflicts with existing work. Use its preview card.' : 'Image workflow is unavailable or access was denied.']);
+                    return json_encode(['error' => $e->getStatusCode() === 409 ? trans('dreamlayer::app.workflow-conflict') : trans('dreamlayer::app.workflow-unavailable')]);
                 }
             }
         };

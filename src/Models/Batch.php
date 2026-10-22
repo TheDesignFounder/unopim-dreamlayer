@@ -16,8 +16,5 @@ class Batch extends Model
 
     protected $hidden = ['credential_version', 'fingerprint'];
 
-    protected function casts(): array
-    {
-        return ['children' => 'array', 'concurrency' => 'integer'];
-    }
+    protected $casts = ['lease_expires_at' => 'datetime', 'poll_deadline' => 'datetime', 'children' => 'array', 'concurrency' => 'integer'];
 }

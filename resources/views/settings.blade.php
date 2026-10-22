@@ -1,172 +1,70 @@
 <x-admin::layouts>
-    <x-slot:title>DreamLayer</x-slot>
+    <x-slot:title>@lang('dreamlayer::app.ui-df37e16ca0')</x-slot>
     @include('dreamlayer::styles')
-    <div class="dl-page text-gray-800 dark:text-gray-200">
+    <div class="dl-page dl-stack text-gray-800 dark:text-gray-200">
+        <div class="dl-heading"><h1>@lang('dreamlayer::app.ui-df37e16ca0')</h1><a class="secondary-button" href="{{ route('dreamlayer.choose') }}">@lang('dreamlayer::app.editor')</a></div>
         @foreach($errors->all() as $error)<p class="dl-error" role="alert">{{ $error }}</p>@endforeach
-        @if(session('connection_notice'))<p class="dl-notice" role="status">{{ session('connection_notice') }}</p>@endif
-        <v-dreamlayer-connection-status :initial='@json($connectionState)'></v-dreamlayer-connection-status>
-        <section class="dl-section">
-            <details><summary>{{ $settings->credential ? 'Account settings' : 'Advanced settings' }}</summary>
-                <div class="dl-stack">
-                    <form method="POST" action="{{ route('dreamlayer.settings.save') }}" class="dl-stack">@csrf
-                        <label class="dl-field"><strong>How you use DreamLayer</strong>
-                            <select name="mode">
-                                <option value="chat_images" @selected(!$settings->credential || ($settings->enabled && $settings->managed_chat))>Chat &amp; Images (recommended)</option>
-                                <option value="images" @selected($settings->credential && $settings->enabled && !$settings->managed_chat)>Images only — use another chat provider</option>
-                                <option value="disabled" @selected($settings->credential && !$settings->enabled)>Pause DreamLayer tools</option>
-                            </select>
-                            <span class="dl-muted">Chat &amp; Images uses DreamLayer for conversations and image tools. Images only keeps your selected chat provider.</span>
-                        </label>
-                        <details><summary>Advanced: manual API key</summary><div class="dl-stack">
-                            <p class="dl-muted">Connecting your account handles this for you. Use a manual key only if you need to manage the connection yourself.</p>
-                            <label class="dl-field"><span>{{ $settings->credential ? 'Replace API key' : 'API key' }}</span><input type="password" name="api_key" autocomplete="new-password" value=""><span class="dl-muted">Leave this blank to keep your current connection.</span></label>
-                        </div></details>
-                        <div class="dl-actions"><button class="primary-button" type="submit">Save settings</button></div>
-                    </form>
-                    @if($settings->credential)
-                        <div class="dl-section"><h2>Connection</h2><p class="dl-muted">Manage the account connected to this installation. Your saved image results stay in UnoPIM when you disconnect or switch accounts.</p>
-                            <div class="dl-actions"><a class="dl-link" href="{{ config('dreamlayer.billing_url') }}" target="_blank" rel="noopener noreferrer">Manage credits and billing</a></div>
-                            <form method="POST" action="{{ route('dreamlayer.disconnect') }}" onsubmit="return window.confirm('Disconnect DreamLayer from this UnoPIM installation?');">@csrf<div class="dl-actions"><button class="secondary-button" type="submit">Disconnect DreamLayer</button></div></form>
-                            @if(config('dreamlayer.connections_enabled'))
-                                <details><summary>Connect another account</summary><div class="dl-stack"><p class="dl-muted">Get a code and approve it with the account you want to use. Your current connection stays in place until you approve the new one.</p><v-dreamlayer-connect></v-dreamlayer-connect></div></details>
-                            @endif
-                            <details><summary>Troubleshooting</summary><div class="dl-stack"><p class="dl-muted">If disconnecting fails, you can remove the saved connection from UnoPIM. You will still need to revoke the installation in your DreamLayer Console.</p><form method="POST" action="{{ route('dreamlayer.disconnect') }}" onsubmit="return window.confirm('Remove the local connection? You will still need to revoke it in DreamLayer.');">@csrf<button class="dl-button-link dl-danger" type="submit" name="forget_local" value="1">Remove local connection</button></form></div></details>
-                        </div>
-                    @endif
-                </div>
-            </details>
-        </section>
+        @if($connectionNotice)<p class="dl-notice" role="status">{{ $connectionNotice }}</p>@endif
+        <p>@lang('dreamlayer::app.settings-help')</p>
+        <p><strong>@lang('dreamlayer::app.connection-status'):</strong> {{ trans('dreamlayer::app.connection-'.$connectionState['status']) }}</p>
+        @if($connectionState['balances'])<p>@lang('dreamlayer::app.available-credits'): {{ $connectionState['balances']['available'] ?? '—' }}</p>@endif
+        @if(config('dreamlayer.connections_enabled'))<section class="dl-section"><h2>@lang('dreamlayer::app.connect')</h2><v-dreamlayer-connect></v-dreamlayer-connect></section>@endif
+        <x-admin::form :action="route('dreamlayer.settings.save')" method="POST">
+            <div class="dl-stack">
+                <x-admin::form.control-group>
+                    <x-admin::form.control-group.label>@lang('dreamlayer::app.key')</x-admin::form.control-group.label>
+                    <x-admin::form.control-group.control type="password" name="api_key" value="" autocomplete="new-password" />
+                    <x-admin::form.control-group.error control-name="api_key" />
+                    <p class="dl-muted">@lang('dreamlayer::app.key-help')</p>
+                </x-admin::form.control-group>
+                @foreach(['enabled','managed_chat','save_chat_history'] as $field)
+                    <x-admin::form.control-group>
+                        <x-admin::form.control-group.label>{{ trans('dreamlayer::app.setting-'.$field) }}</x-admin::form.control-group.label>
+                        <x-admin::form.control-group.control type="switch" :name="$field" value="1" :checked="(bool) $settings->$field" :label="trans('dreamlayer::app.setting-'.$field)" />
+                        <p class="dl-muted">{{ trans('dreamlayer::app.setting-'.$field.'-help') }}</p>
+                    </x-admin::form.control-group>
+                @endforeach
+                @if(\DreamLayer\UnoPIM\Compatibility\HostSupport::nativeChat())
+                    <x-admin::form.control-group>
+                        <x-admin::form.control-group.label>@lang('dreamlayer::app.setting-native_chat_enabled')</x-admin::form.control-group.label>
+                        <x-admin::form.control-group.control type="switch" name="native_chat_enabled" value="1" :checked="(bool) $settings->native_chat_enabled" />
+                        <p class="dl-muted">@lang('dreamlayer::app.setting-native_chat_enabled-help')</p>
+                    </x-admin::form.control-group>
+                @endif
+                <section class="dl-section"><h2>@lang('dreamlayer::app.privacy')</h2>
+                    @foreach(['images','chat','connection','storage','providers'] as $topic)<p>{{ trans('dreamlayer::app.privacy-'.$topic) }}</p>@endforeach
+                    <x-admin::form.control-group>
+                        <x-admin::form.control-group.label>@lang('dreamlayer::app.privacy-consent')</x-admin::form.control-group.label>
+                        <x-admin::form.control-group.control type="checkbox" name="privacy_consent" value="1" :checked="$settings->privacy_consent_version >= 1" />
+                        <x-admin::form.control-group.error control-name="privacy_consent" />
+                    </x-admin::form.control-group>
+                </section>
+                <button class="primary-button" type="submit">@lang('dreamlayer::app.save')</button>
+            </div>
+        </x-admin::form>
+        @if($settings->credential)
+            <section class="dl-section"><a class="dl-link" href="{{ config('dreamlayer.billing_url') }}" target="_blank" rel="noopener noreferrer">@lang('dreamlayer::app.billing')</a>
+                <form method="POST" action="{{ route('dreamlayer.disconnect') }}">@csrf<button type="submit" class="secondary-button">@lang('dreamlayer::app.disconnect')</button></form>
+                <details><summary>@lang('dreamlayer::app.troubleshooting')</summary><p>@lang('dreamlayer::app.forget-help')</p><form method="POST" action="{{ route('dreamlayer.disconnect') }}">@csrf<button type="submit" name="forget_local" value="1" class="secondary-button">@lang('dreamlayer::app.forget')</button></form></details>
+            </section>
+        @endif
     </div>
     @pushOnce('scripts')
-    <script type="text/x-template" id="dreamlayer-connection-status-template">
-        <div>
-            <div class="dl-heading"><h1>DreamLayer</h1><span class="dl-status-chip" :class="{'is-connected': state.status === 'connected', 'is-pending': waitingForConnection && state.status !== 'connected'}" role="status" v-text="state.status === 'connected' ? 'Connected' : waitingForConnection ? 'Waiting for connection' : state.status === 'unavailable' ? 'Unable to check connection' : state.status === 'unauthorized' ? 'Reconnect needed' : 'Not Connected'"></span></div>
-            <p v-if="refreshError" class="dl-muted" role="status" v-text="refreshError"></p>
-            <section class="dl-section"><h2>About</h2><p>Choose the product images you want to edit and describe the changes you’d like to make. DreamLayer uses the selected images, catalog information, and chat context to process your request and show you a preview first.</p><p>Your catalog is only updated when you click <strong>Apply to product</strong>.</p></section>
-            <section v-if="state.status === 'connected'" class="dl-section">
-                <dl class="dl-account"><div><dt>Connected account</dt><dd v-text="state.account_label || state.method"></dd><dd class="dl-muted" v-text="connectionLabel"></dd></div><div v-if="state.balances"><dt>Available API credits</dt><dd class="dl-balance" v-text="state.balances.available ?? '—'"></dd><dd class="dl-muted">Includes @{{ state.balances.promotional ?? '—' }} promotional credits</dd></div></dl>
-            </section>
-            <section v-else class="dl-section"><h2>Step 1: Connect your account</h2>
-                <template v-if="state.status === 'disconnected'">
-                    <p>Open DreamLayer, sign in or create an account, and enter the code below. Review the installation details and approve the connection.</p>
-                    @if(config('dreamlayer.connections_enabled'))<v-dreamlayer-connect :automatic="true" @pending-change="waitingForConnection = $event"></v-dreamlayer-connect>@else<p>Use a manual API key in Advanced settings to connect.</p>@endif
-                </template>
-                <template v-else-if="state.status === 'unauthorized'"><p class="dl-error" role="alert">Your connection is no longer authorized. Connect your account again to continue.</p><v-dreamlayer-connect @pending-change="waitingForConnection = $event"></v-dreamlayer-connect></template>
-                <template v-else><p>We couldn’t check your saved connection. Try again in a moment.</p><div class="dl-actions"><button class="secondary-button" @click="refresh" :disabled="reading">Check connection</button></div></template>
-            </section>
-            <section class="dl-section"><h2 v-text="state.status === 'connected' ? 'Start using DreamLayer' : 'Step 2: Open the chat'"></h2>
-                <template v-if="state.status === 'connected' && state.image_tools_enabled">
-                    <p>Open the chat, choose your product images, and describe what you’d like to change. You can review and apply your results from the conversation.</p>
-                    <div class="dl-actions"><button v-if="state.chat_available" type="button" class="primary-button" @click="openChat">Open chat</button>
-                    <form v-else-if="state.can_enable_chat" method="POST" action="{{ route('dreamlayer.chat.open') }}">@csrf<button class="primary-button" type="submit">Enable and open chat</button></form>
-                    <a class="secondary-button" href="{{ route('dreamlayer.results') }}">My image results</a></div>
-                    <p v-if="!state.chat_available" class="dl-muted" v-text="state.can_enable_chat ? 'This enables chat for your UnoPIM installation. Opening it does not send a message.' : 'Ask an administrator with configuration access to enable UnoPIM chat.'"></p>
-                </template>
-                <p v-else-if="state.status === 'connected'">Your DreamLayer tools are paused. Choose Chat &amp; Images or Images only in Account settings to continue.</p>
-                <p v-else class="dl-muted">Once you approve the connection, this page will update and you can open the chat here.</p>
-            </section>
-        </div>
-    </script>
-    <script type="text/x-template" id="dreamlayer-connect-template">
+<script type="text/x-template" id="dreamlayer-connect-template">
         <div class="dl-stack">
-            <div v-if="code" class="dl-code-box"><strong>Your connection code</strong><div class="dl-actions"><code class="dl-code" v-text="code"></code><button type="button" class="secondary-button" @click="copyCode" :disabled="copying || !remaining" aria-live="polite" v-text="copied ? 'Copied' : 'Copy'"></button><button type="button" class="secondary-button" @click="connect(true)" :disabled="busy">Generate new code</button></div><p v-if="copyError" class="dl-error" role="alert" v-text="copyError"></p><p class="dl-muted" v-text="remaining > 0 ? 'Expires in ' + Math.floor(remaining / 60) + ':' + String(remaining % 60).padStart(2, '0') + '. A new code appears when this one expires.' : 'Getting a new code…'"></p></div>
-            <div class="dl-actions"><a v-if="code && remaining > 0" class="primary-button" :href="uri" target="_blank" rel="noopener noreferrer">Open DreamLayer</a><button v-if="!code" type="button" class="secondary-button" @click="connect(false)" :disabled="busy" v-text="busy ? 'Getting your code…' : 'Get connection code'"></button></div>
-            <p v-if="code" class="dl-muted">After approving in DreamLayer, return here. Connecting can take a few seconds. This page will update automatically when it’s ready.</p>
+            <div v-if="code" class="dl-code-box"><strong>@lang('dreamlayer::app.ui-22bf90a2e2')</strong><div class="dl-actions"><code class="dl-code" v-text="code"></code><button type="button" class="secondary-button" @click="copyCode" :disabled="copying || !remaining" aria-live="polite" v-text="copied ? labels['ui-8d525e5f15'] : labels['ui-e21f935f11']"></button><button type="button" class="secondary-button" @click="connect(true)" :disabled="busy">@lang('dreamlayer::app.ui-c7730178f4')</button></div><p v-if="copyError" class="dl-error" role="alert" v-text="copyError"></p><p class="dl-muted" v-text="remaining > 0 ? labels['expires-in'].replace(':time', Math.floor(remaining / 60) + ':' + String(remaining % 60).padStart(2, '0')) : labels['ui-b9bb9b3937']"></p></div>
+            <div class="dl-actions"><a v-if="code && remaining > 0" class="primary-button" :href="uri" target="_blank" rel="noopener noreferrer">@lang('dreamlayer::app.ui-a020541168')</a><button v-if="!code" type="button" class="secondary-button" @click="connect(false)" :disabled="busy" v-text="busy ? labels['ui-76e286b20d'] : labels['ui-67f1079f27']"></button></div>
+            <p v-if="code" class="dl-muted">@lang('dreamlayer::app.ui-b0dba24f61')</p>
             <p v-if="error" role="alert" class="dl-error" v-text="error"></p>
         </div>
     </script>
-    <script type="module">
-app.component('v-dreamlayer-connection-status', {
-    template: '#dreamlayer-connection-status-template',
-    props: ['initial'],
-    data() {
-        return {
-            state: this.initial,
-            waitingForConnection: false,
-            timer: null,
-            reading: false,
-            stopped: false,
-            refreshError: null,
-            nextRefreshAt: 0
-        };
-    },
-    computed: {
-        connectionLabel() {
-            return this.state.image_tools_enabled
-                ? this.state.chat_enabled
-                    ? 'DreamLayer – Chat & Images'
-                    : 'DreamLayer – Images only'
-                : 'DreamLayer – Tools disabled';
-        }
-    },
-    mounted() {
-        this.timer = setTimeout(() => this.refresh(), 30000);
-        document.addEventListener('visibilitychange', this.visible);
-        window.addEventListener('focus', this.visible);
-        if (
-            new URLSearchParams(window.location.search).get('open_chat') === '1' &&
-            this.state.status === 'connected' &&
-            this.state.chat_available
-        )
-            this.$nextTick(() => {
-                this.openChat();
-                const url = new URL(window.location.href);
-                url.searchParams.delete('open_chat');
-                window.history.replaceState(null, '', url);
-            });
-    },
-    beforeUnmount() {
-        this.stopped = true;
-        clearTimeout(this.timer);
-        document.removeEventListener('visibilitychange', this.visible);
-        window.removeEventListener('focus', this.visible);
-    },
-    methods: {
-        openChat() {
-            window.dispatchEvent(new CustomEvent('ai-agent:compose'));
-        },
-        visible() {
-            if (!document.hidden && Date.now() >= this.nextRefreshAt) this.refresh();
-        },
-        async refresh() {
-            if (this.stopped || this.reading || Date.now() < this.nextRefreshAt) return;
-            clearTimeout(this.timer);
-            let delay = 30000;
-            if (!document.hidden) {
-                this.reading = true;
-                this.nextRefreshAt = Date.now() + 5000;
-                try {
-                    const r = await this.$axios.get(@json(route('dreamlayer.settings.status')));
-                    if (!this.stopped) {
-                        this.refreshError = null;
-                        if (r.data.status === 'connected' && this.state.status === 'disconnected') {
-                            window.location.reload();
-                            return;
-                        }
-                        this.state = r.data;
-                    }
-                } catch (e) {
-                    // A failed read does not change the saved connection or invalidate its code.
-                    if (!this.stopped) {
-                        if (e.response?.status !== 429)
-                            this.refreshError =
-                                'We couldn’t refresh the connection status. We’ll try again shortly.';
-                        delay = Math.max(5000, (Number(e.response?.headers?.['retry-after']) || 30) * 1000);
-                        this.nextRefreshAt = Date.now() + delay;
-                    }
-                } finally {
-                    this.reading = false;
-                }
-            }
-            if (!this.stopped) this.timer = setTimeout(() => this.refresh(), delay);
-        }
-    }
-});
+<script type="module">
 app.component('v-dreamlayer-connect', {
     template: '#dreamlayer-connect-template',
     props: { automatic: { type: Boolean, default: false } },
     emits: ['pending-change'],
     data: () => ({
+        labels: @json(trans('dreamlayer::app')),
         code: null,
         uri: null,
         attempt: null,
@@ -228,7 +126,7 @@ app.component('v-dreamlayer-connect', {
                     document.body.appendChild(field);
                     try {
                         field.select();
-                        if (!document.execCommand('copy')) throw Error('Copy unavailable');
+                        if (!document.execCommand('copy')) throw Error(this.labels['ui-77203498d5']);
                     } finally {
                         field.remove();
                         focused?.focus();
@@ -240,7 +138,7 @@ app.component('v-dreamlayer-connect', {
                 }
             } catch {
                 if (!this.stopped && this.code === code)
-                    this.copyError = 'Could not copy automatically. Select the code and copy it manually.';
+                    this.copyError = this.labels['ui-f5490ffc6c'];
             } finally {
                 this.copying = false;
             }
@@ -270,7 +168,7 @@ app.component('v-dreamlayer-connect', {
             this.error = null;
             try {
                 const r = await this.$axios.post(@json(route('dreamlayer.connect')), {
-                    included_chat: true,
+                    included_chat: false,
                     automatic: this.automatic,
                     regenerate
                 });
@@ -291,8 +189,8 @@ app.component('v-dreamlayer-connect', {
                     }
                     const keepCode = e.response?.status === 429 && this.code && Date.now() < this.deadline;
                     this.error = keepCode
-                        ? 'Please wait a moment before getting a new code. Your current code still works.'
-                        : 'Could not get a code. Try again in a moment.';
+                        ? this.labels['ui-0897795b07']
+                        : this.labels['ui-6e882e97ad'];
                     if (keepCode)
                         this.schedule(
                             Math.max(this.interval, Number(e.response?.headers?.['retry-after']) || 0)
@@ -360,12 +258,12 @@ app.component('v-dreamlayer-connect', {
                     this.$emit('pending-change', false);
                     this.error =
                         s === 'access_denied'
-                            ? 'Connection denied. Get a new code when you’re ready.'
-                            : 'Connection settings changed. Refresh this page to continue.';
+                            ? this.labels['ui-e1d2cda809']
+                            : this.labels['ui-cc589395a4'];
                     return;
                 }
                 if (s !== 'slow_down' && e.response?.status !== 429)
-                    this.error = 'Connection check interrupted. We’ll try again shortly.';
+                    this.error = this.labels['ui-819dfb9601'];
                 this.schedule(
                     Math.max(
                         e.response?.data?.interval || this.interval,
@@ -378,6 +276,7 @@ app.component('v-dreamlayer-connect', {
         }
     }
 });
+
 </script>
     @endPushOnce
 </x-admin::layouts>

@@ -35,11 +35,11 @@ final class DeliveryRecoveryTest extends TestCase
     private function workflow(): Workflow
     {
         return Workflow::create(['id' => (string) Str::uuid(), 'user_id' => $this->admin->id,
-            'conversation_id'         => 'delivery-recovery', 'request_id' => (string) Str::uuid(),
-            'fingerprint'             => str_repeat('a', 64), 'credential_version' => Settings::current()->credential_version,
-            'api_url'                 => Client::BASE_URL, 'execution_path' => 'workflow_v1',
-            'upstream_workflow_id'    => (string) Str::uuid(), 'status' => 'running',
-            'steps'                   => [['operation' => 'image_to_image', 'instruction' => 'Private fixture prompt']]]);
+            'conversation_id' => 'delivery-recovery', 'request_id' => (string) Str::uuid(),
+            'fingerprint' => str_repeat('a', 64), 'credential_version' => Settings::current()->credential_version,
+            'api_url' => Client::BASE_URL, 'execution_path' => 'workflow_v1',
+            'upstream_workflow_id' => (string) Str::uuid(), 'status' => 'running',
+            'steps' => [['operation' => 'image_to_image', 'instruction' => 'Private fixture prompt']]]);
     }
 
     private function png(): string
@@ -57,11 +57,11 @@ final class DeliveryRecoveryTest extends TestCase
         $steps = [];
         for ($i = 0; $i < $count; $i++) {
             $steps[] = ['description' => 'Edit '.($i + 1), 'status' => 'completed',
-                'image'               => ['download_url' => Client::BASE_URL.'/image-jobs/'.$w->id.'/asset-'.$i]];
+                'image' => ['download_url' => Client::BASE_URL.'/image-jobs/'.$w->id.'/asset-'.$i]];
         }
 
         return ['workflow_id' => $w->upstream_workflow_id, 'contract_version' => 1,
-            'status'          => 'completed', 'steps' => $steps, 'image' => $steps[array_key_last($steps)]['image']];
+            'status' => 'completed', 'steps' => $steps, 'image' => $steps[array_key_last($steps)]['image']];
     }
 
     private function tick(Workflow $w): void
@@ -148,12 +148,12 @@ final class DeliveryRecoveryTest extends TestCase
         $first = $this->workflow();
         $first->update(['input_asset_id' => (string) Str::uuid()]);
         $batch = Batch::create(['id' => (string) Str::uuid(), 'user_id' => $this->admin->id,
-            'conversation_id'        => $w->conversation_id, 'request_id' => (string) Str::uuid(),
-            'fingerprint'            => $w->fingerprint, 'credential_version' => $w->credential_version,
-            'api_url'                => Client::BASE_URL, 'upstream_id' => (string) Str::uuid(),
-            'children'               => [$first->id, $w->id], 'status' => 'running']);
+            'conversation_id' => $w->conversation_id, 'request_id' => (string) Str::uuid(),
+            'fingerprint' => $w->fingerprint, 'credential_version' => $w->credential_version,
+            'api_url' => Client::BASE_URL, 'upstream_id' => (string) Str::uuid(),
+            'children' => [$first->id, $w->id], 'status' => 'running']);
         $w->update(['batch_id' => $batch->id, 'upstream_workflow_id' => null, 'input_asset_id' => (string) Str::uuid(),
-            'status'           => 'queued', 'updated_at' => now()->subMinutes(5)]);
+            'status' => 'queued', 'updated_at' => now()->subMinutes(5)]);
         $this->assertFalse($w->delayed());
         $this->assertSame('waiting', $w->phase());
         $this->travel(121)->seconds();
@@ -165,6 +165,45 @@ final class DeliveryRecoveryTest extends TestCase
         $batch->update(['children' => [$w->id, $first->id]]);
         $this->assertSame('queued', $w->fresh()->phase(), 'The first image is waiting to start, not waiting behind another image');
         $this->assertFalse($w->fresh()->delayed());
+    }
+
+    public function test_batch_expiry_stops_waiting_children_and_recovery_respects_admission_limit(): void
+    {
+        config(['dreamlayer.queue_connection' => 'database', 'dreamlayer.batch_concurrency' => 1]);
+        $first = $this->workflow();
+        $second = $this->workflow();
+        $batch = Batch::create(['id' => (string) Str::uuid(), 'user_id' => $this->admin->id,
+            'conversation_id' => $first->conversation_id, 'request_id' => (string) Str::uuid(),
+            'fingerprint' => $first->fingerprint, 'credential_version' => $first->credential_version,
+            'api_url' => Client::BASE_URL, 'children' => [$first->id, $second->id],
+            'status' => 'running', 'dispatch_mode' => 'independent', 'concurrency' => 1, 'poll_deadline' => now()->subSecond()]);
+        foreach ([$first, $second] as $child) {
+            $child->update(['batch_id' => $batch->id, 'status' => 'queued', 'upstream_workflow_id' => null]);
+        }
+        (new RunBatch($batch->id))->handle();
+        $this->assertSame('failed', $batch->fresh()->status);
+        $this->assertSame('failed', $first->fresh()->status);
+        $this->assertSame('failed', $second->fresh()->status);
+        $this->artisan('dreamlayer:recover', ['--resume-expired' => true])->assertExitCode(0);
+        $this->assertSame('queued', $first->fresh()->status);
+        $this->assertSame('queued', $second->fresh()->status);
+        Queue::assertNotPushed(RunWorkflow::class, fn ($job) => in_array($job->workflowId, [$first->id, $second->id], true));
+        (new RunBatch($batch->id))->handle();
+        $this->assertSame('running', $first->fresh()->status);
+        $this->assertSame('queued', $second->fresh()->status);
+        Queue::assertPushed(RunWorkflow::class, fn ($job) => $job->workflowId === $first->id);
+        Queue::assertNotPushed(RunWorkflow::class, fn ($job) => $job->workflowId === $second->id);
+        Http::assertNothingSent();
+    }
+
+    public function test_expired_delivery_cannot_fail_an_explicitly_recovered_attempt(): void
+    {
+        $workflow = $this->workflow();
+        $oldJob = new RunWorkflow($workflow->id);
+        $oldJob->retryDeadline = time() - 30;
+        $workflow->update(['poll_deadline' => now()->addMinutes(30)]);
+        $oldJob->failed(new RuntimeException('Old delivery expired'));
+        $this->assertSame('running', $workflow->fresh()->status);
     }
 
     public function test_storage_redirects_share_one_download_deadline_and_receive_no_api_credential(): void
@@ -193,7 +232,7 @@ final class DeliveryRecoveryTest extends TestCase
     {
         $w = $this->workflow();
         Http::fake(['*/image-workflows/*' => Http::response($this->remote($w)),
-            '*/asset-0'                   => Http::sequence()->push([], 403)->push($this->png())]);
+            '*/asset-0' => Http::sequence()->push([], 403)->push($this->png())]);
         for ($i = 0; $i < 4; $i++) {
             $this->tick($w);
             if ($i === 1) {
@@ -224,7 +263,7 @@ final class DeliveryRecoveryTest extends TestCase
         $this->tick($w);
         $this->tick($w);
         foreach (['workflow_status', 'download_image', 'save_image'] as $operation) {
-            Log::shouldHaveReceived('info')->with('DreamLayer workflow operation finished', Mockery::on(fn ($context) => $context['workflow_id'] === $w->id && $context['operation'] === $operation
+            Log::shouldHaveReceived('debug')->with('DreamLayer workflow operation finished', Mockery::on(fn ($context) => $context['workflow_id'] === $w->id && $context['operation'] === $operation
                 && array_keys($context) === ['workflow_id', 'operation', 'duration_ms']
                 && $context['duration_ms'] >= 0));
         }

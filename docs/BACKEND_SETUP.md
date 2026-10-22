@@ -1,4 +1,4 @@
-# UnoPIM extension backend review
+# UnoPim extension backend review
 
 **0.2.0:** apply through `0078_included_chat_audit` for the new small-batch and included-chat services. See [the current experience contract](EXPERIENCE_0_2.md) for flags, approved credential scopes, model pricing/caps and recovery. The image-workflow details below remain valid; historical acceptance statements identify earlier evidence.
 
@@ -49,7 +49,7 @@ Three promotional **external API** credits are granted once on first eligible ap
 
 ## Review and release dependencies
 
-The extension needs the separate generic UnoPIM patch for inline rendering. Its basic manual-key path works with the existing API before these backend changes are deployed. Workflow capability enables detailed steps and sequential edits. Connection support can remain disabled or unavailable. See the versioned contract and compatibility matrix in `unopim-api-contract-v1.md`. No code in A/B references the optional removal tables.
+The extension needs the separate generic UnoPim patch for inline rendering. Its basic manual-key path works with the existing API before these backend changes are deployed. Workflow capability enables detailed steps and sequential edits. Connection support can remain disabled or unavailable. See the versioned contract and compatibility matrix in `unopim-api-contract-v1.md`. No code in A/B references the optional removal tables.
 
 Real Google signup/login was demonstrated in the isolated local stack with the user-approved development client. Release verification in the selected pilot environment remains required. Real-provider browser evidence now supplements the isolated PostgreSQL/fixture tests. Local purchased-bucket funding is synthetic, and recorded adapter cost estimates are not provider invoice verification. These tests do not establish profitability. Webkul must review the core patch. No production deployment is authorized by this session.
 

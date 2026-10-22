@@ -16,10 +16,7 @@ class Workflow extends Model
 
     protected $hidden = ['source_path', 'result_path', 'credential_version', 'fingerprint', 'delivery'];
 
-    protected function casts(): array
-    {
-        return ['progress' => 'array', 'delivery' => 'array', 'steps' => 'array', 'target' => 'array', 'applied_at' => 'datetime', 'error_code' => 'integer'];
-    }
+    protected $casts = ['lease_expires_at' => 'datetime', 'poll_deadline' => 'datetime', 'progress' => 'array', 'delivery' => 'array', 'steps' => 'array', 'target' => 'array', 'applied_at' => 'datetime', 'error_code' => 'integer'];
 
     public function terminal(): bool
     {

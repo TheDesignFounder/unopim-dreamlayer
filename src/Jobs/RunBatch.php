@@ -8,23 +8,35 @@ use DreamLayer\UnoPIM\Models\Workflow;
 use DreamLayer\UnoPIM\Services\ApiException;
 use DreamLayer\UnoPIM\Services\Client;
 use DreamLayer\UnoPIM\Services\Endpoints;
+use DreamLayer\UnoPIM\Services\JobLease;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class RunBatch implements ShouldQueue
 {
-    use Queueable;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 0;
+    public int $tries = 500;
+
+    public ?int $retryDeadline = null;
+
+    public function retryUntil(): \DateTimeInterface
+    {
+        return (new \DateTimeImmutable)->setTimestamp($this->retryDeadline ?? time());
+    }
 
     public int $timeout = 110;
 
     public function __construct(public string $batchId)
     {
-        $this->onConnection('dreamlayer')->onQueue(config('dreamlayer.queue'));
+        $this->retryDeadline = time() + (int) config('dreamlayer.workflow_timeout', 1800);
+        $this->onConnection(config('dreamlayer.queue_connection') ?: config('queue.default'))->onQueue(config('dreamlayer.queue'));
     }
 
     private function advanceIndependent(Batch $batch): bool
@@ -43,7 +55,7 @@ class RunBatch implements ShouldQueue
                 continue;
             }
             if ($stop) {
-                $child->update(['status' => 'failed', 'error' => 'This image was not started. Check available credits and connection.']);
+                $child->update(['status' => 'failed', 'error' => trans('dreamlayer::app.message-2971396008')]);
             } elseif ($active < $batch->concurrency) {
                 $child->update(['status' => 'running', 'error' => null]);
                 RunWorkflow::dispatch($child->id)->beforeCommit();
@@ -53,7 +65,7 @@ class RunBatch implements ShouldQueue
         $pending = $children->contains(fn ($w) => ! $w->terminal());
         $completed = $children->filter(fn ($w) => $w->status === 'completed')->count();
         $batch->update(['status' => $pending ? 'running' : ($completed === $children->count() ? 'completed' : ($completed ? 'partial' : 'failed')),
-            'error'              => $stop ? 'Remaining images were not started. Check available credits and connection.' : null, 'updated_at' => now()]);
+            'error' => $stop ? trans('dreamlayer::app.message-e9e1cacfac') : null, 'updated_at' => now()]);
 
         return $pending;
     }
@@ -63,30 +75,36 @@ class RunBatch implements ShouldQueue
         $children = Workflow::where('batch_id', $batch->id)->get();
         foreach ($children as $child) {
             if (! $child->upstream_workflow_id) {
-                $child->update(['status' => 'failed', 'error' => 'This image was not started. '.$error]);
+                $child->update(['status' => 'failed', 'error' => trans('dreamlayer::app.message-c86e66e758').$error]);
             }
         }
         $batch->update(['status' => $children->contains(fn ($w) => $w->status === 'completed') ? 'partial' : 'failed', 'error' => $error]);
     }
 
+    public function failed(?\Throwable $exception): void
+    {
+        if ($batch = Batch::find($this->batchId)) {
+            JobLease::expire($batch, $this->retryDeadline);
+        }
+    }
+
     public function handle(): void
     {
-        $pending = DB::transaction(function () {
-            $b = Batch::whereKey($this->batchId)->lockForUpdate()->first();
+        $pending = JobLease::run(Batch::class, $this->batchId, function (Batch $b) {
             if (! $b || in_array($b->status, ['completed', 'partial', 'failed'], true)) {
                 return false;
             }
             if ($b->api_url !== Endpoints::api()) {
-                $b->update(['error' => 'Restore the original API endpoint to resume this batch.']);
+                $b->update(['error' => trans('dreamlayer::app.message-db506fc716')]);
 
                 return true;
             }
             if ($b->dispatch_mode === 'independent') {
-                return $this->advanceIndependent($b);
+                return DB::transaction(fn () => $this->advanceIndependent($b));
             }
             $s = Settings::current();
             if (! $s->credential || $s->credential_version !== $b->credential_version) {
-                $this->fail($b, 'Connection changed. Review the existing batch before starting another.');
+                $this->fail($b, trans('dreamlayer::app.message-2f015e28e6'));
 
                 return false;
             }
@@ -127,7 +145,7 @@ class RunBatch implements ShouldQueue
                 if ($terminal) {
                     foreach ($children as $w) {
                         if (! $w->fresh()->upstream_workflow_id) {
-                            $w->update(['status' => 'failed', 'error' => 'This image was not started. Check available credits and connection.']);
+                            $w->update(['status' => 'failed', 'error' => trans('dreamlayer::app.message-2971396008')]);
                         }
                     }
                 }
@@ -142,13 +160,13 @@ class RunBatch implements ShouldQueue
                     return false;
                 }
             } catch (\Throwable) {
-                $b->update(['error' => 'Connection interrupted. Resuming the same batch.']);
+                $b->update(['error' => trans('dreamlayer::app.message-a25d4ee600')]);
             }
 
             return true;
         });
         if ($pending && $this->job) {
-            $this->release(2);
+            $this->release((int) config('dreamlayer.poll_interval', 5));
         }
     }
 }

@@ -32,6 +32,25 @@ class Client
         return $response;
     }
 
+    public function refineInstruction(string $message, array $history, string $requestId, int $owner): string
+    {
+        $messages = [['role' => 'system', 'content' => 'Rewrite the final user message as a concise, executable product-image editing instruction. Use the supplied conversation only to resolve visual references. The selected source image is the latest result or the image selected by the user. Preserve the product unless the user explicitly changes it. Return only the editing instruction. Never choose a product, call tools, claim an edit succeeded, or apply a change.']];
+        foreach ($history as $turn) {
+            $messages[] = ['role' => $turn['role'], 'content' => $turn['content']];
+        }
+        $messages[] = ['role' => 'user', 'content' => $message];
+        $data = $this->checked($this->request()->withHeaders([
+            'DreamLayer-Turn' => $requestId,
+            'Idempotency-Key' => 'unopim-editor-'.$owner.'-'.$requestId,
+        ])->post(Endpoints::api().'/chat/completions', ['model' => 'dreamlayer-chat', 'messages' => $messages, 'stream' => false]))->json();
+        $instruction = $data['choices'][0]['message']['content'] ?? null;
+        if (! is_string($instruction) || trim($instruction) === '' || mb_strlen($instruction) > 4000) {
+            throw new ApiException(502);
+        }
+
+        return $instruction;
+    }
+
     public function upload(string $bytes): string
     {
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);

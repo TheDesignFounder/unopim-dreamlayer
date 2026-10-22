@@ -6,7 +6,6 @@ namespace DreamLayer\UnoPIM\Tests\Fixtures;
 
 use DreamLayer\UnoPIM\Chat\Tools\EditImage;
 use DreamLayer\UnoPIM\Chat\Tools\GenerateImage;
-use DreamLayer\UnoPIM\Services\ManagedChat;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -31,9 +30,6 @@ class TestHostProvider extends ServiceProvider
         {
             public function run(ChatContext $context): array
             {
-                if ($context->platform->id === ManagedChat::ID) {
-                    return parent::run($context);
-                }
                 if (str_starts_with($context->message, 'Native history fixture')) {
                     $product = Product::where('sku', 'EXTENSION-FIXTURE')->firstOrFail();
 
@@ -63,9 +59,6 @@ class TestHostProvider extends ServiceProvider
 
             public function runStreaming(ChatContext $context): StreamedResponse
             {
-                if ($context->platform->id === ManagedChat::ID) {
-                    return parent::runStreaming($context);
-                }
 
                 return new StreamedResponse(function () use ($context) {
                     $r = $this->run($context);

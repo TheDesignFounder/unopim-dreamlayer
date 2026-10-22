@@ -1,17 +1,17 @@
 # Fresh installation and chat acceptance
 
-Use a new UnoPIM checkout and a separate database/storage location. Keep the
+Use a new UnoPim checkout and a separate database/storage location. Keep the
 currently working installation available until this test passes. This guide is
 for the **0.2.16 source release**. Windows instructions are provided, but Windows execution remains unverified. See [Windows setup](WINDOWS_INSTALL.md).
 
 ## Record the starting point
 
-Record UnoPIM's exact source revision, package version and archive checksum.
+Record UnoPim's exact source revision, package version and archive checksum.
 The supported source is `1abbb5bfa393f62b7d3d8496a3afea2a93df4084`; its hooks are
 already included. Run the capability check from the README. Do not apply a
 bundled core patch to this source. See [compatibility](CORE_PATCH.md).
 
-First establish that UnoPIM itself installs, accepts an admin login and displays
+First establish that UnoPim itself installs, accepts an admin login and displays
 a product with an image. Use the host's supported PHP/database requirements.
 This distinguishes a host installation problem from an extension problem.
 
@@ -30,21 +30,21 @@ manual registration is unnecessary. Confirm:
 Open DreamLayer from the catalog sidebar before refreshing the page. Its spacing,
 status chip and compact buttons must already be styled. Visit My image results,
 its Open chat entry and browser Back; styles must survive each navigation in
-both light and dark themes. A direct URL load alone does not test UnoPIM's AJAX
+both light and dark themes. A direct URL load alone does not test UnoPim's AJAX
 navigation path.
 
 Configure both endpoints for the same DreamLayer environment before connecting.
 For the existing local DreamLayer services, the browser account console is
-`http://localhost:8102`; a Docker-based UnoPIM reaches its API using
+`http://localhost:8102`; a Docker-based UnoPim reaches its API using
 `http://host.docker.internal:8101/v1`. Local HTTP requires
 `DREAMLAYER_ALLOW_LOCAL_HTTP=true` and `APP_ENV=local` or `testing`. Set
 `DREAMLAYER_CONNECTIONS_ENABLED=true` when that API supports account connections.
-Use the new UnoPIM's own `APP_URL` and port for return links; do not hardcode the
+Use the new UnoPim's own `APP_URL` and port for return links; do not hardcode the
 older test installation's address.
 
 ## Connect and reach chat
 
-1. Open `/admin/dreamlayer/settings` on the new UnoPIM (adjust `/admin` if configured
+1. Open `/admin/dreamlayer/settings` on the new UnoPim (adjust `/admin` if configured
    differently). Expect **Not Connected**, an automatic code and its countdown.
 2. Press **Copy**. Expect **Copied**, then the normal label again. Confirm the
    clipboard matches the displayed code. **Generate new code** should replace it;
@@ -52,7 +52,7 @@ older test installation's address.
 3. Choose **Open DreamLayer**, sign in or create an account, and enter the code.
    Typed input must survive the console finishing its initial load.
 4. Review the installation name, URL and requested access. Press **Approve
-   connection** once. Return to UnoPIM. Approval may briefly show **Waiting for
+   connection** once. Return to UnoPim. Approval may briefly show **Waiting for
    connection**, then **Connected**, the correct account and its actual balance.
    A pending, unapproved code must not display the waiting state.
 5. Choose **Open chat**, or **Enable and open chat** if chat is disabled and your

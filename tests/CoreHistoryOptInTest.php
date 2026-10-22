@@ -5,10 +5,10 @@ use Tests\TestCase;
 
 final class CoreHistoryOptInTest extends TestCase
 {
-    public function test_extension_enables_optional_core_history_for_saved_results(): void
+    public function test_extension_leaves_core_history_off_by_default(): void
     {
-        $this->assertTrue((bool) config('dreamlayer.persist_chat_history'));
-        $this->assertTrue((bool) config('ai-agent.history.enabled'));
+        $this->assertNull(config('dreamlayer.persist_chat_history'));
+        $this->assertFalse((bool) config('ai-agent.history.enabled'));
     }
 
     public function test_operator_can_leave_the_core_history_setting_unchanged(): void

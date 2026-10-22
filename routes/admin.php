@@ -1,11 +1,13 @@
 <?php
 
 use DreamLayer\UnoPIM\Http\Controllers\CatalogController;
+use DreamLayer\UnoPIM\Http\Controllers\EditorController;
 use DreamLayer\UnoPIM\Http\Controllers\SettingsController;
 use DreamLayer\UnoPIM\Http\Controllers\WorkflowController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('admin')->prefix(config('app.admin_url').'/dreamlayer')->name('dreamlayer.')->group(function () {
+    Route::post('editor/messages', [EditorController::class, 'send'])->middleware('throttle:20,1,dreamlayer-editor:')->name('editor.send');
     Route::get('choose', [CatalogController::class, 'page'])->name('choose');
     Route::get('catalog/options', [CatalogController::class, 'options'])->name('catalog.options');
     Route::get('catalog', [CatalogController::class, 'index'])->name('catalog');

@@ -3,7 +3,6 @@
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Services\PendingConnection;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 use Webkul\User\Models\Admin;
@@ -87,7 +86,7 @@ final class OnboardingTest extends TestCase
         $this->assertNull(PendingConnection::get($this->request()));
     }
 
-    public function test_automatic_code_is_reused_on_reload_and_chat_is_requested_by_default(): void
+    public function test_automatic_code_is_reused_and_chat_is_not_requested_by_default(): void
     {
         $this->device();
         $first = $this->postJson(route('dreamlayer.connect'), ['automatic' => true])->assertOk()->assertJsonPath('expires_in', 600);
@@ -95,7 +94,7 @@ final class OnboardingTest extends TestCase
         $this->assertSame($first->json('attempt_id'), $second->json('attempt_id'));
         $this->assertStringNotContainsString('private-device-secret', $first->getContent());
         Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => $request['included_chat'] === true && str_ends_with($request['installation_url'], '/dreamlayer/settings'));
+        Http::assertSent(fn ($request) => ! isset($request['included_chat']) && str_ends_with($request['installation_url'], '/dreamlayer/settings'));
     }
 
     public function test_status_checks_code_requests_and_token_polls_have_independent_rate_limits(): void
@@ -167,7 +166,7 @@ final class OnboardingTest extends TestCase
         $this->postJson(route('dreamlayer.connect'), ['automatic' => true])->assertOk()->assertJsonPath('approved', true);
         $this->postJson(route('dreamlayer.connect.poll'), ['attempt_id' => $attempt])->assertOk()->assertJsonPath('status', 'connected')->assertDontSee('private-installed-key');
         $this->assertSame('private-installed-key', Settings::current()->credential);
-        $this->assertTrue((bool) Settings::current()->managed_chat);
+        $this->assertFalse((bool) Settings::current()->managed_chat);
         $this->assertNull(PendingConnection::get($this->request()));
         $polls = Http::recorded(fn ($request) => str_ends_with($request->url(), '/token'))->values();
         $this->assertTrue($polls[0][0]['approval_only']);
@@ -204,34 +203,18 @@ final class OnboardingTest extends TestCase
         Http::assertSentCount(2);
     }
 
-    public function test_enabling_chat_changes_only_the_chat_flag_and_redirects_to_open_it(): void
+    public function test_editor_shortcut_leaves_host_chat_configuration_unchanged(): void
     {
-        Settings::current()->update(['credential' => 'saved-key', 'enabled' => true, 'managed_chat' => true]);
-        $before = DB::table('core_config')->where('code', '!=', 'general.magic_ai.agentic_pim.enabled')->orderBy('id')->get()->toJson();
-        $this->post(route('dreamlayer.chat.open'))->assertRedirect(route('dreamlayer.settings', ['open_chat' => 1]));
-        $this->assertSame('1', DB::table('core_config')->where('code', 'general.magic_ai.agentic_pim.enabled')->value('value'));
-        $this->assertSame($before, DB::table('core_config')->where('code', '!=', 'general.magic_ai.agentic_pim.enabled')->orderBy('id')->get()->toJson());
-        Http::assertNothingSent();
-    }
-
-    public function test_dreamlayer_access_alone_cannot_enable_global_chat(): void
-    {
-        Settings::current()->update(['credential' => 'saved-key', 'enabled' => true]);
-        $this->actingAs(Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type' => 'custom', 'permissions' => ['dreamlayer']])->id]), 'admin');
-        $this->post(route('dreamlayer.chat.open'))->assertForbidden();
-        Http::assertNothingSent();
-    }
-
-    public function test_enabling_chat_requires_a_connection(): void
-    {
-        $this->post(route('dreamlayer.chat.open'))->assertStatus(409);
+        $before = core()->getConfigData('general.magic_ai.agentic_pim.enabled');
+        $this->post(route('dreamlayer.chat.open'))->assertRedirect(route('dreamlayer.choose'));
+        $this->assertSame($before, core()->getConfigData('general.magic_ai.agentic_pim.enabled'));
         Http::assertNothingSent();
     }
 
     public function test_mode_selector_saves_images_only_without_disabling_image_tools(): void
     {
         Settings::current()->update(['credential' => 'saved-key', 'enabled' => true, 'managed_chat' => true]);
-        $this->post(route('dreamlayer.settings.save'), ['mode' => 'images'])->assertRedirect(route('dreamlayer.settings'));
+        $this->post(route('dreamlayer.settings.save'), ['enabled' => 1, 'managed_chat' => 0])->assertRedirect(route('dreamlayer.settings'));
         $this->assertTrue(Settings::current()->enabled);
         $this->assertFalse((bool) Settings::current()->managed_chat);
         $this->assertSame('saved-key', Settings::current()->credential);
@@ -244,7 +227,7 @@ final class OnboardingTest extends TestCase
         foreach ([false, true] as $connected) {
             Settings::current()->update(['credential' => $connected ? 'private-fixture-key' : null, 'enabled' => $connected, 'managed_chat' => $connected]);
             $response = $this->get(route('dreamlayer.settings'))->assertOk();
-            $response->assertSee('Step 1: Connect your account')->assertSee('Step 2: Open the chat')->assertDontSee('private-fixture-key');
+            $response->assertSee('What data is shared')->assertSee('DreamLayer image editor')->assertDontSee('private-fixture-key');
             if ($directory = getenv('ONBOARDING_EVIDENCE')) {
                 file_put_contents($directory.'/unopim-'.($connected ? 'connected' : 'disconnected').'.html', $response->getContent());
             }

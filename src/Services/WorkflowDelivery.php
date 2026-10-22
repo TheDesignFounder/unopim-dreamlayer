@@ -39,10 +39,10 @@ class WorkflowDelivery
         }
         $creditFailure = ($remote['error_code'] ?? null) === 402;
         $plan = ['status' => $status, 'assets' => array_values($assets), 'final_path' => $finalPath,
-            'error_code'  => $creditFailure ? 402 : null,
-            'error'       => $status === 'failed' ? ($creditFailure ? (new ApiException(402))->getMessage() : 'Image workflow failed. Later steps were not started.') : null];
+            'error_code' => $creditFailure ? 402 : null,
+            'error' => $status === 'failed' ? ($creditFailure ? (new ApiException(402))->getMessage() : trans('dreamlayer::app.message-0eb6c14f32')) : null];
         $workflow->update(['progress' => $progress, 'status' => 'running', 'error' => null,
-            'delivery'                => $plan, 'updated_at' => now()]);
+            'delivery' => $plan, 'updated_at' => now()]);
         if ($this->complete($plan)) {
             return $this->publish($workflow, $plan);
         }
@@ -91,8 +91,8 @@ class WorkflowDelivery
     private function publish(Workflow $workflow, array $plan): bool
     {
         $workflow->update(['status' => $plan['status'], 'delivery' => null,
-            'result_path'           => $plan['final_path'], 'error' => $plan['error'],
-            'error_code'            => $plan['error_code'], 'updated_at' => now()]);
+            'result_path' => $plan['final_path'], 'error' => $plan['error'],
+            'error_code' => $plan['error_code'], 'updated_at' => now()]);
 
         return ! $workflow->terminal();
     }

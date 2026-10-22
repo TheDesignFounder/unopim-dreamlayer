@@ -3,24 +3,32 @@
 namespace DreamLayer\UnoPIM\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class Settings extends Model
 {
     protected $table = 'dreamlayer_settings';
 
+    public $incrementing = false;
+
     protected $guarded = [];
 
     protected $hidden = ['credential'];
 
-    protected function casts(): array
+    protected $casts = ['credential' => 'encrypted', 'enabled' => 'boolean', 'managed_chat' => 'boolean', 'save_chat_history' => 'boolean', 'native_chat_enabled' => 'boolean'];
+
+    protected static function booted(): void
     {
-        return ['credential' => 'encrypted', 'enabled' => 'boolean'];
+        static::saved(function () {
+            app()->forgetInstance('dreamlayer.settings.current');
+        });
+        static::deleted(function () {
+            app()->forgetInstance('dreamlayer.settings.current');
+        });
     }
 
     public static function current(): self
     {
-        return static::firstOrCreate(['id' => 1], ['installation_id' => (string) Str::uuid()]);
+        return app('dreamlayer.settings.current');
     }
 
     public function connected(): bool
