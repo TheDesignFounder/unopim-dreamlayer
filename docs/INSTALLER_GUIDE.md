@@ -1,9 +1,20 @@
-# Recommended setup for businesses, agencies and coding agents
+# Recommended DreamLayer setup
 
-Installing for your own business, an agency client, or with a coding agent like
-Codex or Cursor? Use this guide to get the most out of DreamLayer. Complete the
-[installation and connection steps](../README.md#install), then enable the
-features that match your business or client's requirements.
+Whatever your setup process, use this guide to get the most out of DreamLayer.
+It applies whether you are setting it up yourself, working with an internal
+developer or IT team, hiring an agency, consultant or implementation partner,
+using a coding agent such as Codex or Cursor, or automating deployment. These are
+examples; the same setup choices apply to other implementation approaches.
+
+Complete the [installation and connection steps](../README.md#install), then
+enable the features that match your business or client's requirements. Use the
+same guide when finishing an installation, onboarding a customer, or reviewing
+the settings of an existing installation.
+
+For scripted deployments, containers, deployment pipelines or managed hosting,
+apply the approved settings to each customer installation through the normal
+validated settings flow. Keep reusable packages and templates at the shipped
+defaults, and configure each customer's choices during setup.
 
 For teams that want conversational image editing, recommend **image editing,
 chat assistance, saved editor conversations, and native chat integration wherever

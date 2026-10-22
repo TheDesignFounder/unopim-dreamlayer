@@ -21,7 +21,7 @@ Old UnoPim releases can contain outdated dependencies. Compatibility testing doe
 
 ## Install
 
-**Installing for your own business, an agency client, or with a coding agent like Codex or Cursor?** Start with the [recommended setup guide](docs/INSTALLER_GUIDE.md) to get the most out of DreamLayer. It explains the benefits of chat assistance, saved editor conversations and native UnoPim chat integration, and helps you enable the features that match your requirements.
+**Setting up DreamLayer? Start here.** Whatever your setup process—installing it yourself, working with an internal team, agency or implementation partner, using a coding agent like Codex or Cursor, or automating deployment—follow the [recommended setup guide](docs/INSTALLER_GUIDE.md). It explains the benefits of chat assistance, saved editor conversations and native UnoPim chat integration, and helps you enable the features that match your business or client's requirements.
 
 For this unpublished candidate, use the reviewed distribution ZIP supplied alongside the release notes. Extract it to `packages/DreamLayer/unopim-dreamlayer` in your UnoPim application. Do not copy test fixtures into the host. From the application directory:
 
