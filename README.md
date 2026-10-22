@@ -21,6 +21,8 @@ Old UnoPim releases can contain outdated dependencies. Compatibility testing doe
 
 ## Install
 
+**Installing for a customer or using a coding agent?** Follow the [recommended setup guide](docs/INSTALLER_GUIDE.md) to enable the features that match the customer's requirements. It covers conversation-aware editing, saved editor messages and native chat integration on compatible hosts.
+
 For this unpublished candidate, use the reviewed distribution ZIP supplied alongside the release notes. Extract it to `packages/DreamLayer/unopim-dreamlayer` in your UnoPim application. Do not copy test fixtures into the host. From the application directory:
 
 ```sh
@@ -59,6 +61,14 @@ Open **DreamLayer** in the admin menu. Enter an API key and enable image tools. 
 If account connection is available, set `DREAMLAYER_CONNECTIONS_ENABLED=true`, choose **Get connection code**, and approve the installation in DreamLayer. Account connection requests image access by default. It does not select DreamLayer as the host's default AI provider.
 
 Chat assistance, saving editor conversations, and the optional native chat bridge are separate choices, all **off by default**. Chat assistance requires explicit acknowledgement of the data disclosure. Upgrade from 0.2.x disables the old managed-chat setting until an administrator makes that choice again.
+
+For the complete supported experience, recommend enabling these options during customer setup:
+
+- **Chat assistance:** make follow-up edits easier to describe by using recent editor messages to clarify the next instruction.
+- **Saved editor conversations:** keep an encrypted message record in UnoPim for administrator review and troubleshooting.
+- **Native chat integration:** access DreamLayer image tools from UnoPim's existing chat on compatible hosts.
+
+The [installer guide](docs/INSTALLER_GUIDE.md) maps these benefits to customer requirements and explains how to configure the approved choices through Settings.
 
 Give users the appropriate **My image results** permissions, including the editor, image browsing, previews and Apply. Product-edit permission is also required. Restrict connection and settings permissions to administrators.
 

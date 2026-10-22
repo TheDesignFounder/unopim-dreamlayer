@@ -16,6 +16,7 @@
 /docs/*.log export-ignore
 /docs/* export-ignore
 /docs/COMPATIBILITY.md -export-ignore
+/docs/INSTALLER_GUIDE.md -export-ignore
 /docs/HOST_PREREQUISITE.md -export-ignore
 /docs/OPERATIONS.md -export-ignore
 /docs/TRANSLATIONS.md -export-ignore
