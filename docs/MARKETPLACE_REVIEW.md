@@ -50,7 +50,7 @@ links and the release tag should be updated only during authorized publication.
 ## Test results
 
 - Four released hosts: 22 workflow checks each, plus editor/results/settings rendering.
-- UnoPim 3.1.3 regression run: 136 tests, 751 assertions, no failures/errors; 15 expected skips (14 require native hooks, one requires PostgreSQL).
+- UnoPim 3.1.3 regression run: 144 tests, 821 assertions, no failures/errors; 15 expected skips (14 require native hooks, one requires PostgreSQL).
 - Upstream development commit `1abbb5bfa393f62b7d3d8496a3afea2a93df4084`: 144 tests, 883 assertions, no failures/errors; only the PostgreSQL-specific test skipped. Its 209 locked dependencies also remain unchanged.
 - PostgreSQL concurrency: one test, eight assertions, passed.
 - PostgreSQL migration runner: fresh install/repeat/rollback/reinstall, historical migration preservation, missing-column repair, and 0.2.16 upgrade passed.

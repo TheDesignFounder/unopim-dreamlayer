@@ -31,7 +31,7 @@ Account connection tests also run on the older releases. The 0.1.0, 1.0.1 and
 connection, reconnect and missing chat grants. The older hosts use a disposable
 test bootstrap; their application code and dependencies remain unchanged.
 
-The full regression suite runs on 3.1.3. Native-hook-specific tests are skipped
+The full 3.1.3 regression run passes 144 tests and 821 assertions. Native-hook-specific tests are skipped
 there because those APIs are absent; the PostgreSQL concurrency scenario runs
 separately. PostgreSQL 16 tests cover fresh migration, rollback/reinstall,
 historical repair and upgrade from the 0.2.16 schema.
