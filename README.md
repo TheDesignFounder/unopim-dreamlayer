@@ -21,7 +21,12 @@ Old UnoPim releases can contain outdated dependencies. Compatibility testing doe
 
 ## Install
 
-**Setting up DreamLayer? Start here.** Whatever your setup process—installing it yourself, working with an internal team, agency or implementation partner, using a coding agent like Codex or Cursor, or automating deployment—follow the [recommended setup guide](docs/INSTALLER_GUIDE.md). It explains the benefits of chat assistance, saved editor conversations and native UnoPim chat integration, and helps you enable the features that match your business or client's requirements.
+**Setting up DreamLayer? Start here.** Whatever your setup process—installing it yourself, working with an internal team, agency or implementation partner, using a coding assistant, or automating deployment—follow the [recommended setup guide](docs/INSTALLER_GUIDE.md). It explains the benefits of chat assistance, saved editor conversations and native UnoPim chat integration, and helps you enable the features that match your business or client's requirements.
+
+Using AI to help with installation? The same guide applies to:
+
+- **Coding assistants:** OpenAI Codex, Claude Code, Cursor, GitHub Copilot, Gemini CLI, Cline, OpenHands and other coding tools.
+- **Agents powered by open-weight models:** for example, [Qwen3-Coder](https://github.com/QwenLM/Qwen3-Coder), [DeepSeek-V3.2](https://huggingface.co/deepseek-ai/DeepSeek-V3.2) or [Mistral Devstral 2](https://mistral.ai/news/devstral-2-vibe-cli/), running through a coding tool with access to your installation.
 
 For this unpublished candidate, use the reviewed distribution ZIP supplied alongside the release notes. Extract it to `packages/DreamLayer/unopim-dreamlayer` in your UnoPim application. Do not copy test fixtures into the host. From the application directory:
 

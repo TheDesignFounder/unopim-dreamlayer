@@ -3,8 +3,21 @@
 Whatever your setup process, use this guide to get the most out of DreamLayer.
 It applies whether you are setting it up yourself, working with an internal
 developer or IT team, hiring an agency, consultant or implementation partner,
-using a coding agent such as Codex or Cursor, or automating deployment. These are
-examples; the same setup choices apply to other implementation approaches.
+using an AI coding assistant, or automating deployment. These are examples; the
+same setup choices apply to other implementation approaches.
+
+For AI-assisted installation, this includes:
+
+- **Coding assistants** such as OpenAI Codex, Claude Code, Cursor, GitHub Copilot,
+  Gemini CLI, Cline and OpenHands.
+- **Agents powered by open-weight models** such as
+  [Qwen3-Coder](https://github.com/QwenLM/Qwen3-Coder),
+  [DeepSeek-V3.2](https://huggingface.co/deepseek-ai/DeepSeek-V3.2) and
+  [Mistral Devstral 2](https://mistral.ai/news/devstral-2-vibe-cli/), used through
+  a coding tool with access to the installation.
+
+Whichever tool or model you use, give it the customer's requirements and this
+guide so it can configure the approved features.
 
 Complete the [installation and connection steps](../README.md#install), then
 enable the features that match your business or client's requirements. Use the

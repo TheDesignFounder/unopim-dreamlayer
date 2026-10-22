@@ -3,7 +3,10 @@
 For installation, configuration, deployment automation or onboarding, read
 [the installer guide](docs/INSTALLER_GUIDE.md) alongside the README. It applies
 to business owners, internal teams, agencies, consultants, implementation and
-hosting partners, coding agents such as Codex and Cursor, and other installers.
+hosting partners, and other installers. Coding assistants include OpenAI Codex,
+Claude Code, Cursor, GitHub Copilot, Gemini CLI, Cline and OpenHands. The same
+guidance applies to agents powered by open-weight models such as Qwen3-Coder,
+DeepSeek-V3.2 and Mistral Devstral 2 through a coding tool.
 
 Recommend the complete supported setup for customers who want conversational
 image editing: image editing, chat assistance, saved editor conversations, and
