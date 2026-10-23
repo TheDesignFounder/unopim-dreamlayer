@@ -19,7 +19,7 @@ class PendingConnection
         try {
             return Cache::lock(self::key($request).':lock', 40)->block(5, $callback);
         } catch (LockTimeoutException $e) {
-            abort(429, 'Connection request already in progress.');
+            abort(429, trans('dreamlayer::app.connection-in-progress'));
         }
     }
 

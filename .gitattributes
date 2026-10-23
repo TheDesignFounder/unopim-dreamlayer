@@ -1,2 +1,32 @@
-# Unified-diff context lines intentionally contain one space.
-*.patch -whitespace
+/tests export-ignore
+/tools export-ignore
+/.github export-ignore
+/.gitignore export-ignore
+/.gitattributes export-ignore
+/patches export-ignore
+/NEW_USER_TEST.md export-ignore
+/docs/MARKETPLACE_REVIEW.md export-ignore
+/docs/VERIFICATION* export-ignore
+/docs/FRESH_INSTALL_TEST.md export-ignore
+/dist export-ignore
+/docs/EXPERIENCE_0_2.md export-ignore
+/docs/IMPLEMENTATION_PLAN.md export-ignore
+/docs/REVIEWING.md export-ignore
+/docs/*.png export-ignore
+/docs/*.log export-ignore
+/docs/* export-ignore
+/docs/COMPATIBILITY.md -export-ignore
+/docs/INSTALLER_GUIDE.md -export-ignore
+/docs/HOST_PREREQUISITE.md -export-ignore
+/docs/OPERATIONS.md -export-ignore
+/docs/TRANSLATIONS.md -export-ignore
+/docs/MARKETPLACE_LISTING.md -export-ignore
+/docs/API_CONTRACT_V1.md -export-ignore
+/docs/workflow-v1.schema.json -export-ignore
+/docs/WINDOWS_INSTALL.md -export-ignore
+/docs/CORE_PATCH.md -export-ignore
+
+/docs/MARKETPLACE_REVIEW.md -export-ignore
+
+/docs/ACCEPTANCE_TEST.md -export-ignore
+/docs/REVIEW_MEDIA.md -export-ignore

@@ -39,10 +39,10 @@ class WorkflowDelivery
         }
         $creditFailure = ($remote['error_code'] ?? null) === 402;
         $plan = ['status' => $status, 'assets' => array_values($assets), 'final_path' => $finalPath,
-            'error_code'  => $creditFailure ? 402 : null,
-            'error'       => $status === 'failed' ? ($creditFailure ? (new ApiException(402))->getMessage() : 'Image workflow failed. Later steps were not started.') : null];
+            'error_code' => $creditFailure ? 402 : null,
+            'error' => $status === 'failed' ? ($creditFailure ? (new ApiException(402))->getMessage() : trans('dreamlayer::app.message-0eb6c14f32')) : null];
         $workflow->update(['progress' => $progress, 'status' => 'running', 'error' => null,
-            'delivery'                => $plan, 'updated_at' => now()]);
+            'delivery' => $plan, 'updated_at' => now()]);
         if ($this->complete($plan)) {
             return $this->publish($workflow, $plan);
         }
@@ -90,9 +90,22 @@ class WorkflowDelivery
 
     private function publish(Workflow $workflow, array $plan): bool
     {
+        if ($plan['status'] === 'completed' && $workflow->target && $plan['final_path']) {
+            // Fit in the delivery worker, before a completed card can be opened.
+            // The private artifact is content/limit keyed and safe to reuse after
+            // a crash; catalog writes still require a separately reviewed Apply.
+            $workflow->result_path = $plan['final_path'];
+            try {
+                WorkflowDiagnostics::measure($workflow, 'prepare_catalog_preview', fn () => app(CatalogPreview::class)->prepare($workflow));
+            } catch (\Throwable $exception) {
+                // A local preview failure must not lose an otherwise valid paid
+                // result. The result route can retry preparation from its original.
+                \Illuminate\Support\Facades\Log::warning('DreamLayer catalog preview preparation failed', ['workflow_id' => $workflow->id, 'exception' => get_class($exception)]);
+            }
+        }
         $workflow->update(['status' => $plan['status'], 'delivery' => null,
-            'result_path'           => $plan['final_path'], 'error' => $plan['error'],
-            'error_code'            => $plan['error_code'], 'updated_at' => now()]);
+            'result_path' => $plan['final_path'], 'error' => $plan['error'],
+            'error_code' => $plan['error_code'], 'updated_at' => now(), 'completed_at' => $plan['status'] === 'completed' ? ($workflow->completed_at ?: now()) : null]);
 
         return ! $workflow->terminal();
     }

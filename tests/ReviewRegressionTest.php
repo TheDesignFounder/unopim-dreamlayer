@@ -2,6 +2,8 @@
 
 use DreamLayer\UnoPIM\Chat\Tools\EditImage;
 use DreamLayer\UnoPIM\Chat\Tools\GenerateImage;
+use DreamLayer\UnoPIM\Compatibility\HostSupport;
+use DreamLayer\UnoPIM\Compatibility\ImageContext as ChatContext;
 use DreamLayer\UnoPIM\Jobs\RunWorkflow;
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Models\Workflow;
@@ -15,7 +17,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Tools\Request;
 use Tests\TestCase;
-use Webkul\AiAgent\Chat\ChatContext;
 use Webkul\MagicAI\Models\MagicAIPlatform;
 use Webkul\User\Models\Admin;
 use Webkul\User\Models\Role;
@@ -87,7 +88,7 @@ final class ReviewRegressionTest extends TestCase
         $remote = (string) Str::uuid();
         $w->update(['execution_path' => 'workflow_v1', 'upstream_workflow_id' => $remote]);
         Http::fake(['*/asset' => Http::response($this->png(), 200, ['Content-Type' => 'image/png']), '*/image-workflows/*' => Http::response(['workflow_id' => $remote, 'contract_version' => 1, 'status' => 'failed',
-            'steps'                                                                                                                                         => [['description' => 'Change background', 'status' => 'completed', 'image' => ['download_url' => 'https://api.dreamlayer.io/v1/image-jobs/'.Str::uuid().'/asset']], ['description' => 'Remove background', 'status' => 'failed', 'image' => null]], 'image' => null])]);
+            'steps' => [['description' => 'Change background', 'status' => 'completed', 'image' => ['download_url' => 'https://api.dreamlayer.io/v1/image-jobs/'.Str::uuid().'/asset']], ['description' => 'Remove background', 'status' => 'failed', 'image' => null]], 'image' => null])]);
         (new RunWorkflow($w->id))->handle();
         $r = $this->getJson(route('dreamlayer.workflow', $w->id));
         $r->assertOk()->assertJsonPath('phase', 'downloading');
@@ -103,15 +104,31 @@ final class ReviewRegressionTest extends TestCase
 
     public function test_generic_conversation_preserves_native_metadata_and_usage(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+        // The administrator explicitly enables the host's own history for this test.
+        config(['ai-agent.history.enabled' => true]);
+
         $r = $this->postJson(route('ai-agent.conversations.store'), ['conversation_id' => 'review_native', 'metadata' => ['provider' => 'native'],
-            'messages'                                                                 => [['role' => 'assistant', 'content' => 'Native result', 'tool_calls' => [['name' => 'search_products']], 'tokens_used' => 321]]]);
+            'messages' => [['role' => 'assistant', 'content' => 'Native result', 'tool_calls' => [['name' => 'search_products']], 'tokens_used' => 321]]]);
         $r->assertOk();
         $saved = $this->getJson(route('ai-agent.conversations.show', $r->json('id')))->assertOk();
-        $saved->assertJsonPath('conversation.metadata', json_encode(['provider' => 'native']))->assertJsonPath('messages.0.tool_calls', json_encode([['name' => 'search_products']]))->assertJsonPath('messages.0.tokens_used', 321);
+        $this->assertSame(['provider' => 'native'], json_decode($saved->json('conversation.metadata'), true));
+        $this->assertSame([['name' => 'search_products']], json_decode($saved->json('messages.0.tool_calls'), true));
+        $saved->assertJsonPath('messages.0.tokens_used', 321);
     }
 
     public function test_stale_snapshot_preserves_saved_preview_reference(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+        // The administrator explicitly enables the host's own history for this test.
+        config(['ai-agent.history.enabled' => true]);
+
         $url = route('ai-agent.conversations.store');
         $first = ['role' => 'user', 'content' => 'Generate', 'message_id' => 'u1'];
         $second = ['role' => 'assistant', 'content' => 'Preview', 'message_id' => 'a1', 'presentation' => ['type' => 'dreamlayer.workflow', 'id' => (string) Str::uuid()]];
@@ -122,8 +139,13 @@ final class ReviewRegressionTest extends TestCase
 
     public function test_replanned_retry_recovers_existing_preview_card(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+
         $context = $this->context();
-        $tool = app(GenerateImage::class)->register($context);
+        $tool = app(GenerateImage::class)->register(new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($context)));
         $a = json_decode($tool->handle(new Request(['steps' => [['operation' => 'text_to_image', 'instruction' => 'Blue vase']]])), true);
         $b = json_decode($tool->handle(new Request(['steps' => [['operation' => 'text_to_image', 'instruction' => 'A blue vase']]])), true);
         $this->assertArrayHasKey('presentation', $a);
@@ -136,7 +158,7 @@ final class ReviewRegressionTest extends TestCase
     {
         config(['dreamlayer.connections_enabled' => true]);
         Http::fake(['*/capabilities' => Http::response(['operations' => ['text_to_image']]),
-            '*/token'                => Http::response(['access_token' => 'review-old-device-account', 'connection_id' => (string) Str::uuid()])]);
+            '*/token' => Http::response(['access_token' => 'review-old-device-account', 'connection_id' => (string) Str::uuid()])]);
         $device = Crypt::encryptString(json_encode(['generation' => Settings::current()->authorization_generation, 'device_code' => 'review-secret', 'expires_at' => time() + 600, 'next_poll' => time() - 1, 'interval' => 5]));
         $this->pending(json_decode(Crypt::decryptString($device), true));
         $this->post(route('dreamlayer.settings.save'), ['enabled' => 1, 'api_key' => 'review-new-manual-account'])->assertSessionHasNoErrors();
@@ -230,7 +252,7 @@ final class ReviewRegressionTest extends TestCase
         Http::fake(['https://gravatar.com/*' => Http::response('', 404), '*/balance' => Http::response([], 503)]);
         $this->getJson(route('dreamlayer.settings.status'))->assertOk();
         $this->get(route('dreamlayer.settings'))->assertOk()->assertSee('previous DreamLayer installation connection was revoked');
-        $this->get(route('dreamlayer.settings'))->assertOk()->assertDontSee('previous DreamLayer installation connection was revoked');
+        $this->get(route('dreamlayer.settings'))->assertOk()->assertDontSee('<p class="dl-notice" role="status">', false);
     }
 
     public function test_reconnect_keeps_new_connection_and_warns_when_old_revoke_fails(): void
@@ -467,6 +489,13 @@ final class ReviewRegressionTest extends TestCase
 
     public function test_history_survives_more_than_fifty_messages_and_delayed_saves(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+        // The administrator explicitly enables the host's own history for this test.
+        config(['ai-agent.history.enabled' => true]);
+
         $messages = array_map(fn ($i) => ['message_id' => 'message_'.$i, 'role' => 'assistant', 'content' => 'Result '.$i], range(1, 100));
         $r = $this->postJson(route('ai-agent.conversations.store'), ['conversation_id' => 'long_chat', 'messages' => $messages])->assertOk();
         $this->postJson(route('ai-agent.conversations.store'), ['conversation_id' => 'long_chat', 'messages' => array_slice($messages, 50)])->assertOk();
@@ -485,11 +514,14 @@ final class ReviewRegressionTest extends TestCase
 
     public function test_disabling_tools_cannot_reroute_an_admitted_transport_retry(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
         $context = $this->context();
         $original = app(Workflows::class)->start($context, ['steps' => [['operation' => 'text_to_image', 'instruction' => 'Vase']]], true);
         Settings::current()->update(['enabled' => false]);
         foreach ([GenerateImage::class, EditImage::class] as $class) {
-            $tool = app($class)->register($context);
+            $tool = app($class)->register(new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($context)));
             $response = json_decode($tool->handle(new Request(['steps' => [['operation' => 'text_to_image', 'instruction' => 'Replanned vase']]])), true);
             $this->assertSame($original->id, $response['presentation']['id']);
         }

@@ -8,25 +8,43 @@ use DreamLayer\UnoPIM\Services\ApiException;
 use DreamLayer\UnoPIM\Services\Client;
 use DreamLayer\UnoPIM\Services\Endpoints;
 use DreamLayer\UnoPIM\Services\ImageStore;
+use DreamLayer\UnoPIM\Services\JobLease;
 use DreamLayer\UnoPIM\Services\WorkflowDelivery;
 use DreamLayer\UnoPIM\Services\WorkflowDiagnostics;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
 
 /** Local durable delivery bridge. DreamLayer exclusively executes and reports steps. */
 class RunWorkflow implements ShouldQueue
 {
-    use Queueable;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 0;
+    public int $tries = 500;
+
+    public ?int $retryDeadline = null;
+
+    public function retryUntil(): \DateTimeInterface
+    {
+        return (new \DateTimeImmutable)->setTimestamp($this->retryDeadline ?? time());
+    }
 
     public int $timeout = 110;
 
     public function __construct(public string $workflowId)
     {
-        $this->onConnection('dreamlayer')->onQueue(config('dreamlayer.queue'));
+        $this->retryDeadline = time() + (int) config('dreamlayer.workflow_timeout', 1800);
+        $this->onConnection(config('dreamlayer.queue_connection') ?: config('queue.default'))->onQueue(config('dreamlayer.queue'));
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        if ($workflow = Workflow::find($this->workflowId)) {
+            JobLease::expire($workflow, $this->retryDeadline);
+        }
     }
 
     public function handle(): void
@@ -34,19 +52,19 @@ class RunWorkflow implements ShouldQueue
         // One delivery advances the saved state, then releases the same job to poll.
         // Keep the workflow UUID as the upstream idempotency key: a lost response or
         // stopped worker must not admit another paid edit. No catalog write occurs here.
-        $pending = DB::transaction(function () {
-            $w = Workflow::whereKey($this->workflowId)->lockForUpdate()->first();
+        $delay = (int) config('dreamlayer.poll_interval', 5);
+        $pending = JobLease::run(Workflow::class, $this->workflowId, function (Workflow $w) use (&$delay) {
             $images = app(ImageStore::class);
             if (! $w || ($w->terminal() && ! $images->damaged($w))) {
                 return false;
             }
             if ($w->terminal() && ! $w->upstream_workflow_id && ! $w->upstream_execution_id) {
-                $w->update(['error' => 'Saved image is unavailable and its original execution reference is missing.']);
+                $w->update(['error' => trans('dreamlayer::app.message-86c4d1a6e9')]);
 
                 return false;
             }
             if (($w->api_url ?? Client::BASE_URL) !== Endpoints::api()) {
-                $w->update(['error' => 'The DreamLayer endpoint changed. Restore the original endpoint to resume this request.']);
+                $w->update(['error' => trans('dreamlayer::app.message-c4c1743d5e')]);
 
                 return true; // Preserve identity and status; never send an old job to another backend.
             }
@@ -55,7 +73,7 @@ class RunWorkflow implements ShouldQueue
             }
             $settings = Settings::current();
             if (! $settings->credential || $settings->credential_version !== $w->credential_version) {
-                $w->update(['status' => 'failed', 'error' => 'Connection changed. Review upstream work before starting another preview.']);
+                $w->update(['status' => 'failed', 'error' => trans('dreamlayer::app.message-99c493dceb')]);
 
                 return false;
             }
@@ -63,22 +81,28 @@ class RunWorkflow implements ShouldQueue
             $delivering = $w->delivery && empty($w->delivery['refresh']);
             try {
                 if ($delivering) {
-                    return app(WorkflowDelivery::class)->advance($w, $client);
+                    $pending = app(WorkflowDelivery::class)->advance($w, $client);
+                    if ($w->delivery) $delay = 0;
+
+                    return $pending;
                 }
                 if (! $w->execution_path) {
                     // Existing admitted workflows retain their path even if capabilities changed.
-                    $path = $w->upstream_workflow_id ? 'workflow_v1' : WorkflowDiagnostics::measure($w, 'capabilities', fn () => $client->executionPath());
+                    $path = $w->upstream_workflow_id ? 'workflow_v1' : WorkflowDiagnostics::measure($w, 'capabilities', fn () => $client->executionPath(count($w->steps) === 1));
                     $w->update(['execution_path' => $path]);
+                    $delay = 0;
 
                     return true; // Commit the choice before any upstream admission.
                 }
                 if ($w->execution_path === 'execute_v1' && count($w->steps) !== 1) {
-                    $w->update(['status' => 'failed', 'error' => 'This API supports one image operation per request. Sequential edits require the workflow capability.']);
+                    $w->update(['status' => 'failed', 'error' => trans('dreamlayer::app.message-87ed76bc53')]);
 
                     return false;
                 }
                 if ($w->source_path && ! $w->input_asset_id) {
                     $w->update(['input_asset_id' => WorkflowDiagnostics::measure($w, 'upload_source', fn () => $client->upload(Storage::disk('local')->get($w->source_path)))]);
+
+                    $delay = 0;
 
                     return true;
                 }
@@ -94,11 +118,13 @@ class RunWorkflow implements ShouldQueue
                     if (in_array($execution['status'] ?? '', ['failed', 'cancelled', 'needs_input'], true)) {
                         $creditFailure = ($execution['error']['reason'] ?? null) === 'insufficient_credits';
                         $w->update(['status' => 'failed', 'error_code' => $creditFailure ? 402 : null,
-                            'error'          => $creditFailure ? (new ApiException(402))->getMessage() : 'The image operation could not complete.']);
+                            'error' => $creditFailure ? (new ApiException(402))->getMessage() : trans('dreamlayer::app.message-c8b01c869d')]);
 
                         return false;
                     }
                     if (($execution['status'] ?? '') === 'completed') {
+                        $delay = 0;
+
                         return app(WorkflowDelivery::class)->prepare($w, ['status' => 'completed', 'image' => $execution['image_job']['finished_assets'][0] ?? null], null);
                     }
                     // An unchanged healthy poll is still a heartbeat. Eloquent otherwise
@@ -115,7 +141,7 @@ class RunWorkflow implements ShouldQueue
                 }
                 $remote = WorkflowDiagnostics::measure($w, 'workflow_status', fn () => $client->status($w->upstream_workflow_id));
                 if (($remote['contract_version'] ?? 1) !== 1) {
-                    $w->update(['status' => 'failed', 'error' => 'Unsupported workflow response version. The existing upstream job has not been resubmitted.']);
+                    $w->update(['status' => 'failed', 'error' => trans('dreamlayer::app.message-a1b1c47551')]);
 
                     return false;
                 }
@@ -127,7 +153,8 @@ class RunWorkflow implements ShouldQueue
                         throw new \RuntimeException('Invalid progress');
                     }
 
-                    return ['description' => $s['description'], 'status' => $s['status']];
+                    return ['description' => $s['description'], 'status' => $s['status'],
+                        'execution_id' => \Illuminate\Support\Str::isUuid($s['execution_id'] ?? '') ? $s['execution_id'] : null];
                 }, $remote['steps']);
                 if (count($progress) < 1 || count($progress) > 2) {
                     throw new \RuntimeException('Invalid step count');
@@ -136,7 +163,10 @@ class RunWorkflow implements ShouldQueue
                     throw new \RuntimeException('Invalid workflow status');
                 }
 
-                return app(WorkflowDelivery::class)->prepare($w, $remote, $progress);
+                $pending = app(WorkflowDelivery::class)->prepare($w, $remote, $progress);
+                if ($w->delivery) $delay = 0;
+
+                return $pending;
             } catch (ApiException $e) {
                 if ($delivering) {
                     // Refresh expiring/revoked asset references from the SAME upstream
@@ -144,7 +174,7 @@ class RunWorkflow implements ShouldQueue
                     if (in_array($e->status, [403, 404, 410], true)) {
                         $w->delivery = $w->delivery + ['refresh' => true];
                     }
-                    $w->fill(['error' => 'Preview delivery interrupted. Retrying the saved image.', 'updated_at' => now()])->save();
+                    $w->fill(['error' => trans('dreamlayer::app.message-eff400d4c0'), 'updated_at' => now()])->save();
 
                     return true;
                 }
@@ -155,13 +185,13 @@ class RunWorkflow implements ShouldQueue
                 }
                 $w->update(['error' => $e->getMessage(), 'updated_at' => now()]);
             } catch (\Throwable $e) {
-                $w->update(['error' => 'Connection or delivery interrupted. Resuming the same workflow.', 'updated_at' => now()]);
+                $w->update(['error' => trans('dreamlayer::app.message-f76396e34d'), 'updated_at' => now()]);
             }
 
             return true;
         });
         if ($pending && $this->job) {
-            $this->release(2);
+            $this->release($delay);
         }
     }
 }

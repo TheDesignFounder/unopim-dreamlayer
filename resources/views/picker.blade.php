@@ -1,25 +1,25 @@
 @pushOnce('scripts')
 <style>
-.dl-select-image{font-size:12px;font-weight:500;line-height:1.4;padding:4px 8px;border:1px solid #a78bfa;border-radius:6px;color:inherit;background:transparent}.dl-select-image:hover{background:#8b5cf615}.dl-select-image:disabled{opacity:.5}.dl-picker{position:relative;padding:8px 12px;color:#374151}.dark .dl-picker{color:#e5e7eb}.dl-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.dl-chip{display:flex;align-items:center;gap:4px;border:1px solid #a78bfa;border-radius:8px;padding:4px;font-size:12px}.dl-chip img{width:32px;height:32px;object-fit:contain}
-.dl-mentions{position:absolute;bottom:100%;left:10px;right:10px;z-index:30;display:flex;background:#fff;color:#20212b;border:1px solid #b8bac5;border-radius:16px;box-shadow:0 12px 36px #0003;overflow:hidden}.dark .dl-mentions{background:#211b31;color:#eee;border-color:#655875}.dl-mention-list{flex:1;min-width:0;max-height:320px;overflow:auto}.dl-mention-row{display:flex;align-items:center;gap:10px;width:100%;padding:10px;text-align:left}.dl-mention-row[aria-selected=true]{background:#eef2ff}.dark .dl-mention-row[aria-selected=true]{background:#39304d}.dl-mention-row img{width:44px;height:44px;border-radius:7px;object-fit:contain}.dl-mention-label{min-width:0;overflow-wrap:anywhere}.dl-mention-label strong,.dl-mention-label small{display:block}.dl-mention-label small{font-size:11px;opacity:.8}.dl-mention-preview{width:38%;height:260px;box-sizing:border-box;overflow:auto;padding:12px;border-left:1px solid #8884;display:flex;flex-direction:column;justify-content:flex-start;text-align:center;font-size:12px}.dl-mention-preview img{width:100%;height:160px;flex-shrink:0;object-fit:contain;margin-bottom:8px}.dl-mention-hint{padding:8px 10px;font-size:12px;opacity:.85}
+.dl-select-image{font-size:12px;font-weight:500;line-height:1.4;padding:4px 8px;border:1px solid var(--dl-border);border-radius:6px;color:inherit;background:transparent}.dl-select-image:hover{background:Canvas}.dl-select-image:disabled{opacity:.5}.dl-picker{position:relative;padding:8px 12px;color:CanvasText}.dark .dl-picker{color:CanvasText}.dl-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.dl-chip{display:flex;align-items:center;gap:4px;border:1px solid var(--dl-border);border-radius:8px;padding:4px;font-size:12px}.dl-chip img{width:32px;height:32px;object-fit:contain}
+.dl-mentions{position:absolute;bottom:100%;left:10px;right:10px;z-index:30;display:flex;background:Canvas;color:CanvasText;border:1px solid var(--dl-border);border-radius:16px;box-shadow:0 12px 36px color-mix(in srgb,CanvasText 20%,transparent);overflow:hidden}.dark .dl-mentions{background:Canvas;color:CanvasText;border-color:var(--dl-border)}.dl-mention-list{flex:1;min-width:0;max-height:320px;overflow:auto}.dl-mention-row{display:flex;align-items:center;gap:10px;width:100%;padding:10px;text-align:left}.dl-mention-row[aria-selected=true]{background:Canvas}.dark .dl-mention-row[aria-selected=true]{background:Canvas}.dl-mention-row img{width:44px;height:44px;border-radius:7px;object-fit:contain}.dl-mention-label{min-width:0;overflow-wrap:anywhere}.dl-mention-label strong,.dl-mention-label small{display:block}.dl-mention-label small{font-size:11px;opacity:.8}.dl-mention-preview{width:38%;height:260px;box-sizing:border-box;overflow:auto;padding:12px;border-left:1px solid var(--dl-border);display:flex;flex-direction:column;justify-content:flex-start;text-align:center;font-size:12px}.dl-mention-preview img{width:100%;height:160px;flex-shrink:0;object-fit:contain;margin-bottom:8px}.dl-mention-hint{padding:8px 10px;font-size:12px;opacity:.85}
 </style>
 @endPushOnce
 @pushOnce('scripts')
 <script type="text/x-template" id="dl-picker-template">
 <div class="dl-picker">
-<div v-if="mentionOpen && !disabled" class="dl-mentions" aria-label="Choose an image reference">
-<div class="dl-mention-list" role="listbox" aria-label="Catalog image suggestions">
-<p class="dl-mention-hint">Choose an image · ↑ ↓ to browse · Enter to insert</p>
-<p v-if="loading" class="dl-mention-hint" role="status">Searching images…</p><p v-if="error" class="dl-mention-hint" role="alert" v-text="error"></p>
+<div v-if="mentionOpen && !disabled" class="dl-mentions" aria-label="{{ trans('dreamlayer::app.ui-adea9117a9') }}">
+<div class="dl-mention-list" role="listbox" aria-label="{{ trans('dreamlayer::app.ui-8fd0f247e2') }}">
+<p class="dl-mention-hint">@lang('dreamlayer::app.ui-d7e7db5a8a')</p>
+<p v-if="loading" class="dl-mention-hint" role="status">@lang('dreamlayer::app.ui-b336dd3b4d')</p><p v-if="error" class="dl-mention-hint" role="alert" v-text="error"></p>
 <button v-for="(img,i) in suggestions" :key="img.image_url" type="button" class="dl-mention-row" role="option" :aria-selected="active===i" :disabled="!options || loading" @mouseenter="active=i" @mousedown.prevent @click="chooseMention(img)"><img :src="img.image_url" alt=""><span class="dl-mention-label"><strong>@{{img.name}}</strong><small>@{{img.sku}} · @{{img.attribute}} @{{img.index+1}}</small></span></button>
-<p v-if="!loading && !suggestions.length" class="dl-mention-hint">No images found. Search by product name or SKU after @.</p>
-<button v-if="next" type="button" class="dl-mention-row" :disabled="loading" @mousedown.prevent @click="load(next)">Load more images</button>
+<p v-if="!loading && !suggestions.length" class="dl-mention-hint">@lang('dreamlayer::app.no-picker-images')</p>
+<button v-if="next" type="button" class="dl-mention-row" :disabled="loading" @mousedown.prevent @click="load(next)">@lang('dreamlayer::app.ui-acfc940c0c')</button>
 </div>
 {{-- Reserve preview space so hovering images with different aspect ratios cannot move the option under a click. --}}
 <div v-if="suggestions[active]" class="dl-mention-preview"><img :src="suggestions[active].image_url" :alt="suggestions[active].name"><strong>@{{suggestions[active].name}}</strong><span>@{{suggestions[active].channel}} / @{{suggestions[active].locale}} · @{{suggestions[active].attribute}} @{{suggestions[active].index+1}}</span></div>
 </div>
-<button type="button" class="dl-select-image" @mousedown.prevent @click="open()" :disabled="disabled">Select Product Image</button>
-<div class="dl-chips"><div v-for="(image,i) in selected" :key="image.token" class="dl-chip"><img :src="image.image_url" alt=""><span :title="`${image.sku} · ${image.attribute} ${image.index+1} · ${image.channel} / ${image.locale}`">@{{image.name}}</span><button type="button" :disabled="disabled" :aria-label="'Remove '+image.name" @click="remove(i)">×</button></div></div>
+<button type="button" class="dl-select-image" @mousedown.prevent @click="open()" :disabled="disabled">@lang('dreamlayer::app.ui-e8582c293a')</button>
+<div class="dl-chips"><div v-for="(image,i) in selected" :key="image.token" class="dl-chip"><img :src="image.image_url" alt=""><span :title="`${image.sku} · ${image.attribute} ${image.index+1} · ${image.channel} / ${image.locale}`">@{{image.name}}</span><button type="button" :disabled="disabled" :aria-label="labels['remove-image'].replace(':name',image.name)" @click="remove(i)">×</button></div></div>
 
 </div>
 </script>
@@ -30,6 +30,7 @@ app.component('v-dreamlayer-picker', {
     emits: ['change', 'replace-draft'],
     data() {
         return {
+            labels: @json(trans('dreamlayer::app')),
             mentionOpen: false,
             mentionRange: null,
             active: 0,
@@ -152,8 +153,8 @@ app.component('v-dreamlayer-picker', {
             if (existing) return existing;
             if (this.selected.length >= (this.options?.batch_supported ? 5 : 1)) {
                 this.error = this.options?.batch_supported
-                    ? 'Choose at most five images.'
-                    : 'This API supports one selected image. Small batches require the batch capability.';
+                    ? this.labels['ui-164c6b990b']
+                    : this.labels['ui-71e6d3d530'];
                 return null;
             }
             const base = Array.from(
@@ -280,7 +281,7 @@ app.component('v-dreamlayer-picker', {
                 if (!r.ok) throw Error();
                 this.options = await r.json();
             } catch {
-                this.error = 'Could not check image capabilities. Try again before submitting.';
+                this.error = this.labels['ui-b2477635b6'];
             }
         },
         async load(page) {
@@ -295,7 +296,7 @@ app.component('v-dreamlayer-picker', {
                 url.searchParams.set('page', page);
                 if (this.product) url.searchParams.set('product_id', this.product);
                 const r = await fetch(url, { headers: { Accept: 'application/json' } });
-                if (!r.ok) throw Error('Catalog images are unavailable. Check your permissions.');
+                if (!r.ok) throw Error(this.labels['ui-bb020dbe1a']);
                 const d = await r.json();
                 if (serial !== this.serial) return;
                 this.products = page === 1 ? d.products : [...this.products, ...d.products];

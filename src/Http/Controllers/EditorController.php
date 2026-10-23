@@ -1,0 +1,125 @@
+<?php
+
+namespace DreamLayer\UnoPIM\Http\Controllers;
+
+use DreamLayer\UnoPIM\Compatibility\ImageContext;
+use DreamLayer\UnoPIM\Http\Requests\EditorRequest;
+use DreamLayer\UnoPIM\Models\Settings;
+use DreamLayer\UnoPIM\Models\Workflow;
+use DreamLayer\UnoPIM\Services\ApiException;
+use DreamLayer\UnoPIM\Services\Batches;
+use DreamLayer\UnoPIM\Services\CatalogImages;
+use DreamLayer\UnoPIM\Services\Client;
+use DreamLayer\UnoPIM\Services\Endpoints;
+use DreamLayer\UnoPIM\Services\Workflows;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+
+class EditorController extends Controller
+{
+    public function send(EditorRequest $request)
+    {
+        $data = $request->validated();
+        $settings = Settings::current();
+        app(\DreamLayer\UnoPIM\Services\EditorHistory::class)->assertAvailable(auth()->guard('admin')->id(), $data['conversation_id']);
+        abort_unless($settings->connected(), 422, trans('dreamlayer::app.connect-first'));
+        abort_if(count(array_filter([$data['selected_result'] ?? null, $data['retry_result'] ?? null, $data['upload_token'] ?? null, count($data['images'])])) > 1, 422, trans('dreamlayer::app.choose-source'));
+        preg_match_all('/(?<![\p{L}\p{N}_])@(Asset-[\p{L}\p{N}_-]*)/u', $data['message'], $mentions);
+        if (array_filter($mentions[1], fn ($reference) => ! preg_match('/^Asset-[1-9][0-9]{0,12}$/D', $reference))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['images' => trans('dreamlayer::app.message-268f960b4a')]);
+        }
+        $context = new ImageContext(
+            message: $data['message'], history: $data['history'], productId: null, productSku: null, productName: null,
+            locale: $data['locale'], channel: $data['channel'], user: auth()->guard('admin')->user(),
+            conversationId: $data['conversation_id'], requestId: $data['request_id'],
+            extensions: ['dreamlayer' => ['images' => $data['images'],
+                'bound_source' => ! empty($data['selected_result']) || ! empty($data['retry_result']) || ! empty($data['upload_token'])]],
+        );
+        // Resolve references before optional chat or image work. A mention can
+        // narrow the supplied selection, but cannot name an unattached image.
+        $selected = CatalogImages::selected($context);
+        // Pin the browser request before optional model calls. Store a hash,
+        // never the conversation, unless history saving was explicitly enabled.
+        $identity = ['user_id' => $context->user->id, 'request_id' => $data['request_id']];
+        $fingerprint = hash('sha256', json_encode($data));
+        $receipt = DB::transaction(function () use ($identity, $fingerprint, $settings) {
+            Settings::whereKey($settings->id)->lockForUpdate()->firstOrFail();
+            $row = DB::table('dreamlayer_editor_requests')->where($identity)->first();
+            if ($row) {
+                abort_unless(hash_equals($row->fingerprint, $fingerprint), 409, trans('dreamlayer::app.workflow-conflict'));
+
+                return $row;
+            }
+            DB::table('dreamlayer_editor_requests')->insert($identity + [
+                'fingerprint' => $fingerprint, 'credential_version' => $settings->credential_version,
+                'api_url' => Endpoints::api(), 'assistance' => $settings->managed_chat && $settings->privacy_consent_version >= 1,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+
+            return DB::table('dreamlayer_editor_requests')->where($identity)->first();
+        });
+        if ($receipt->result) {
+            return response()->json(json_decode($receipt->result, true))->header('Cache-Control', 'private, no-store');
+        }
+        abort_unless($receipt->credential_version === $settings->credential_version && $receipt->api_url === Endpoints::api(), 409, trans('dreamlayer::app.workflow-conflict'));
+        // Validate sources before sending an optional conversation upstream.
+        foreach ($data['images'] as $image) {
+            app(CatalogImages::class)->resolve($image['token'], $context->user->id);
+        }
+        if (! empty($data['selected_result'])) {
+            abort_unless(Workflow::whereKey($data['selected_result'])->where('user_id', $context->user->id)
+                ->where('conversation_id', $context->conversationId)->where('status', 'completed')->exists(), 422, trans('dreamlayer::app.workflow-unavailable'));
+        }
+        if (! empty($data['upload_token'])) {
+            app(\DreamLayer\UnoPIM\Services\StudioUploads::class)->resolve($data['upload_token'], $context->user->id, $context->conversationId);
+            abort_if($data['operation'] === 'text_to_image', 422, trans('dreamlayer::app.choose-source'));
+        }
+        if (! empty($data['retry_result'])) {
+            $original = Workflow::whereKey($data['retry_result'])->where('user_id', $context->user->id)->where('conversation_id', $context->conversationId)->firstOrFail();
+            abort_unless($original->terminal() && ($data['operation'] === 'text_to_image' || $original->source_path), 422, trans('dreamlayer::app.workflow-unavailable'));
+        }
+        $operation = $data['operation'];
+        $instruction = $operation === 'background_remove' ? '' : $data['message'];
+        // The selected source is resolved by the server. Model output can only
+        // refine an instruction; it cannot choose a product or apply an image.
+        if ($receipt->assistance && $operation === 'image_to_image') {
+            abort_unless($settings->managed_chat && $settings->privacy_consent_version >= 1, 409, trans('dreamlayer::app.workflow-conflict'));
+            try {
+                $instruction = $receipt->instruction ? Crypt::decryptString($receipt->instruction)
+                    : (new Client($settings->credential))->refineInstruction($data['message'], $data['history'], $data['request_id'], $context->user->id,
+                        ! empty($data['selected_result']) || ! empty($data['retry_result']) || ! empty($data['upload_token']) || count($selected) === 1);
+                // Also check a rewrite cached by an earlier admission attempt.
+                $instruction = Client::scopedInstruction($data['message'], $instruction);
+                DB::table('dreamlayer_editor_requests')->where($identity)->update(['instruction' => Crypt::encryptString($instruction), 'updated_at' => now()]);
+            } catch (ConnectionException) {
+                abort(503, trans('dreamlayer::app.request-error'));
+            } catch (ApiException $error) {
+                abort(in_array($error->status, [401, 403, 402, 429], true) ? $error->status : 503, $error->getMessage());
+            }
+        }
+        $input = ['steps' => [['operation' => $operation, 'instruction' => $instruction]]];
+        foreach (['upload_token', 'retry_result'] as $source) if (! empty($data[$source])) $input[$source] = $data[$source];
+        if (! empty($data['selected_result'])) {
+            $input['selected_result'] = $data['selected_result'];
+        }
+        if (count($selected) > 1) {
+            abort_unless($operation !== 'text_to_image', 422, trans('dreamlayer::app.select-one-generation'));
+            $batch = app(Batches::class)->start($context, $input);
+            $result = ['batch_id' => $batch->id, 'workflow_ids' => $batch->children];
+        } else {
+            $workflow = app(Workflows::class)->start($context, $input, $operation === 'text_to_image');
+            $result = ['batch_id' => null, 'workflow_ids' => [$workflow->id]];
+        }
+        $reply = trans('dreamlayer::app.preview-queued');
+        app(\DreamLayer\UnoPIM\Services\EditorHistory::class)->record(
+            $context->user->id, $context->conversationId, $context->requestId, $data['message'], $reply,
+        );
+
+        $response = $result + ['reply' => $reply];
+        DB::table('dreamlayer_editor_requests')->where($identity)->update(['result' => json_encode($response), 'updated_at' => now()]);
+
+        return response()->json($response)->header('Cache-Control', 'private, no-store');
+    }
+}

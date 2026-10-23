@@ -32,6 +32,43 @@ class Client
         return $response;
     }
 
+    public function refineInstruction(string $message, array $history, string $requestId, int $owner, bool $boundSource = false): string
+    {
+        $scope = $boundSource
+            ? 'Exactly one source image is already selected by the application. Refine only that image. Only make the changes requested in the final user message. Do not repeat earlier edits or import another image\'s background, framing, or instructions.'
+            : 'The application selects the source images. Keep each instruction attached to its reference in the final user message.';
+        $messages = [['role' => 'system', 'content' => 'Rewrite only the final user message as a concise, executable product-image editing instruction. '.$scope.' Use conversation history only to resolve a visual detail explicitly requested in the final message, never as additional editing instructions. Preserve only the @Asset-N references that occur in the final user message. Never introduce references from history; if the final message has no references, the rewrite must have none. Preserve the product and all details the user asks to keep unchanged. Return only the editing instruction. Never choose a product, call tools, claim an edit succeeded, or apply a change.']];
+        foreach ($history as $turn) {
+            $messages[] = ['role' => $turn['role'], 'content' => $turn['content']];
+        }
+        $messages[] = ['role' => 'user', 'content' => $message];
+        $data = $this->checked($this->request()->withHeaders([
+            'DreamLayer-Turn' => $requestId,
+            'Idempotency-Key' => 'unopim-editor-'.$owner.'-'.$requestId,
+        ])->post(Endpoints::api().'/chat/completions', ['model' => 'dreamlayer-chat', 'messages' => $messages, 'stream' => false]))->json();
+        $instruction = $data['choices'][0]['message']['content'] ?? null;
+
+        return self::scopedInstruction($message, $instruction);
+    }
+
+    /** An assistant may clarify an edit, but cannot expand or lose its references. */
+    public static function scopedInstruction(string $message, mixed $instruction): string
+    {
+        if (! is_string($instruction) || trim($instruction) === '' || mb_strlen($instruction) > 4000) {
+            throw new ApiException(502);
+        }
+        $references = static function (string $text): array {
+            preg_match_all('/(?<![\p{L}\p{N}_])@(Asset-[\p{L}\p{N}_-]*)/u', $text, $matches);
+            $names = array_values(array_unique($matches[1]));
+            sort($names);
+
+            return $names;
+        };
+        // Keep the user's complete instruction on an invalid rewrite. Stripping
+        // just an alias would leave the unrelated historical instructions behind.
+        return $references($instruction) === $references($message) ? trim($instruction) : $message;
+    }
+
     public function upload(string $bytes): string
     {
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
@@ -60,7 +97,7 @@ class Client
     public function chatLimits(): array
     {
         $data = $this->checked($this->request()->get(Endpoints::api().'/chat/limits'))->json();
-        if (($data['contract_version'] ?? null) !== 1 || ($data['included'] ?? false) !== true) {
+        if (($data['contract_version'] ?? null) !== 1 || ($data['included'] ?? false) !== true || ($data['image_credits_charged'] ?? null) !== false) {
             throw new ApiException(400);
         }
 
@@ -86,9 +123,12 @@ class Client
         return $data;
     }
 
-    public function executionPath(): string
+    public function executionPath(bool $singleStep = false): string
     {
         $caps = $this->capabilities();
+        if ($singleStep && ($caps['managed_execute'] ?? false) === true) {
+            return 'execute_v1'; // Direct admission avoids the scheduled multi-step coordinator.
+        }
 
         return ($caps['image_workflows'] ?? false) === true && in_array(1, $caps['image_workflow_versions'] ?? [], true) ? 'workflow_v1' : 'execute_v1';
     }

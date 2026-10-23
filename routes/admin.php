@@ -1,11 +1,24 @@
 <?php
 
 use DreamLayer\UnoPIM\Http\Controllers\CatalogController;
+use DreamLayer\UnoPIM\Http\Controllers\EditorController;
 use DreamLayer\UnoPIM\Http\Controllers\SettingsController;
 use DreamLayer\UnoPIM\Http\Controllers\WorkflowController;
 use Illuminate\Support\Facades\Route;
+use DreamLayer\UnoPIM\Http\Controllers\StudioController;
 
-Route::middleware('admin')->prefix(config('app.admin_url').'/dreamlayer')->name('dreamlayer.')->group(function () {
+Route::middleware([\DreamLayer\UnoPIM\Http\Middleware\ExtensionResponses::class, 'admin'])->prefix(config('app.admin_url').'/dreamlayer')->name('dreamlayer.')->group(function () {
+    Route::get('studio', [StudioController::class, 'page'])->name('studio');
+    Route::get('studio/config', [StudioController::class, 'config'])->name('studio.config');
+    Route::post('studio/uploads', [StudioController::class, 'upload'])->middleware('throttle:20,1,dreamlayer-upload:')->name('studio.upload');
+    Route::get('studio/uploads/image', [StudioController::class, 'uploadImage'])->name('studio.upload.image');
+    Route::patch('workflows/{id}/feedback', [WorkflowController::class, 'feedback'])->whereUuid('id')->name('feedback');
+    Route::get('studio/threads', [StudioController::class, 'threads'])->name('studio.threads');
+    Route::get('studio/images', [StudioController::class, 'images'])->name('studio.images');
+    Route::get('studio/threads/{id}', [StudioController::class, 'show'])->whereUuid('id')->name('studio.thread');
+    Route::patch('studio/threads/{id}', [StudioController::class, 'update'])->whereUuid('id')->name('studio.update');
+    Route::delete('studio/threads/{id}', [StudioController::class, 'delete'])->whereUuid('id')->name('studio.delete');
+    Route::post('editor/messages', [EditorController::class, 'send'])->middleware('throttle:20,1,dreamlayer-editor:')->name('editor.send');
     Route::get('choose', [CatalogController::class, 'page'])->name('choose');
     Route::get('catalog/options', [CatalogController::class, 'options'])->name('catalog.options');
     Route::get('catalog', [CatalogController::class, 'index'])->name('catalog');

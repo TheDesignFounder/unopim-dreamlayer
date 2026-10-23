@@ -1,6 +1,6 @@
 # Independent image requests and delivery recovery
 
-Multiple selected images are grouped in UnoPIM, with two independent DreamLayer
+Multiple selected images are grouped in UnoPim, with two independent DreamLayer
 `/image-workflows` requests active per group by default. Each result keeps its own
 source, destination, idempotency key and Apply action. New groups do not use the
 remote `/image-batches` scheduler. Existing groups retain that path and their
@@ -30,7 +30,7 @@ caches and restart the DreamLayer queue workers. The two additive migrations add
 the delivery checkpoint and the independent-dispatch fields. Existing batches
 default to `upstream`. Back up the database before an upgrade.
 
-No UnoPIM core patch or composer styling change is required.
+No UnoPim core patch or composer styling change is required.
 
 ## Validation
 

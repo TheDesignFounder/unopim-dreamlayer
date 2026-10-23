@@ -49,7 +49,7 @@ assert.ok(email && password, 'Credentials file must contain email: and password:
             await page.locator('input[name="email"]').fill(email);
             await page.locator('input[name="password"]').fill(password);
             await page.getByRole('button', { name: 'Sign In', exact: true }).click();
-            await page.waitForURL('**' + admin + '/catalog/products', { waitUntil: 'domcontentloaded' });
+            await page.waitForURL(url => url.pathname !== admin + '/login', { waitUntil: 'domcontentloaded' });
 
             async function clickVisit(suffix) {
                 const before = await page.evaluate(() => window.__styleNavVisits);
@@ -73,6 +73,18 @@ assert.ok(email && password, 'Credentials file must contain email: and password:
                 assert.equal(styles.maxWidth, '1040px', label + ': readable content width');
                 assert.equal(styles.heading, '24px', label + ': heading size');
                 assert.ok(styles.buttonWidth < 400, label + ': action must not fill the page');
+                if (await page.locator('.dl-settings').count()) {
+                    // Hidden form inputs must stay inside the scrolling panel.
+                    // Before this fix, focusing consent could scroll the whole
+                    // document and leave a blank area below the admin shell.
+                    const layout = await page.locator('input[name="privacy_consent"]').evaluate(input => {
+                        input.scrollIntoView({ block: 'center' });
+                        return { height: document.documentElement.scrollHeight,
+                            viewport: innerHeight, windowY: scrollY };
+                    });
+                    assert.equal(layout.height, layout.viewport, label + ': no document overflow');
+                    assert.equal(layout.windowY, 0, label + ': header must stay in place');
+                }
                 console.error('PASS ' + label);
             }
 
@@ -87,7 +99,7 @@ assert.ok(email && password, 'Credentials file must contain email: and password:
                 });
                 for (let visit = 0; visit < 2; visit++) {
                     await clickVisit('/dreamlayer/settings');
-                    await page.locator('.dl-code').waitFor();
+                    await page.locator('.dl-settings input[name="enabled"]').waitFor({ state: 'attached' });
                     await checkStyles(theme + ': settings from catalog ' + visit);
                     await clickVisit('/dreamlayer/workflows');
                     await checkStyles(theme + ': saved results ' + visit);
@@ -100,13 +112,16 @@ assert.ok(email && password, 'Credentials file must contain email: and password:
                     await clickVisit('/catalog/products');
                 }
                 await page.goto(origin + admin + '/dreamlayer/settings', { waitUntil: 'domcontentloaded' });
-                await page.locator('.dl-code').waitFor();
+                await page.locator('.dl-settings input[name="enabled"]').waitFor({ state: 'attached' });
                 await checkStyles(theme + ': direct load');
                 if (output) {
                     fs.mkdirSync(output, { recursive: true });
                     await page.screenshot({ path: path.join(output, 'settings-' + theme + '.png') });
                 }
             }
+            // Let the host's delayed initialization callbacks settle after
+            // rapid navigation. They must not access an unmounted settings form.
+            await page.waitForTimeout(800);
             assert.deepEqual(errors, []);
             assert.deepEqual(unexpected, []);
             console.log(JSON.stringify({ passed: true, checks, pageErrors: errors, unexpectedRequests: unexpected }, null, 2));

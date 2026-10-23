@@ -4,3 +4,8 @@
 *.log
 /dist/
 **/.phpunit.result.cache
+
+/tools/translation-cache/
+/tools/__pycache__/
+
+/qa/

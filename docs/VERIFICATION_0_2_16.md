@@ -1,6 +1,6 @@
 # 0.2.16 verification
 
-Validated October 20, 2026 (America/Toronto) against UnoPIM source
+Validated October 20, 2026 (America/Toronto) against UnoPim source
 `1abbb5bfa393f62b7d3d8496a3afea2a93df4084`, with `enshrined/svg-sanitize` 1.1.1
 and `symfony/http-foundation` 8.1.9. See [host prerequisites](HOST_PREREQUISITE.md).
 The supplied source download's Composer lock blob matches this upstream revision.
@@ -29,11 +29,11 @@ run: https://github.com/TheDesignFounder/unopim-dreamlayer/actions/runs/39520419
 ## Actual local application walkthrough
 
 A fresh local host and separate PostgreSQL database were created from the
-supplied UnoPIM source. No existing installation's database or connection was
+supplied UnoPim source. No existing installation's database or connection was
 used. Browser acceptance passed in both **Images only** (another chat provider)
 and **DreamLayer – Chat & Images** modes:
 
-1. Sign in through the real UnoPIM administrator login form.
+1. Sign in through the real UnoPim administrator login form.
 2. Select a catalog image with the native chat's DreamLayer picker.
 3. Submit an edit, process it through the real database queue and display its preview.
 4. Confirm that previewing has not modified the product.
@@ -51,7 +51,7 @@ differ from the original image so source chaining is independently checkable.
 
 ## Compatibility correction found during validation
 
-UnoPIM's merged embedding implementation selects a configured native MagicAI
+UnoPim's merged embedding implementation selects a configured native MagicAI
 platform. The old DreamLayer override could therefore route managed-chat ranking
 through another configured provider and return no matches. A regression test
 failed with that provider present. The corrected implementation explicitly uses
@@ -62,10 +62,10 @@ All three cases are covered by PHP tests.
 ## Limits and release positioning
 
 This is a compatibility release for the pinned development-source baseline.
-The validation does not establish support for every published UnoPIM 3.x tag,
+The validation does not establish support for every published UnoPim 3.x tag,
 Windows execution, MySQL, or automatic upgrades from customized older patched hosts.
 The PostgreSQL migration tests verify the extension's own install/upgrade paths;
-they do not prove a complete older UnoPIM installation upgrade.
+they do not prove a complete older UnoPim installation upgrade.
 
 No paid image calls or new live account authorization/revoke cycle were made in
 this run. Before a production rollout, complete [new-user acceptance](../NEW_USER_TEST.md)

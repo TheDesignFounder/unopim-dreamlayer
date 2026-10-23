@@ -1,6 +1,8 @@
 <?php
 
 use DreamLayer\UnoPIM\Chat\Tools\GenerateImage;
+use DreamLayer\UnoPIM\Compatibility\HostSupport;
+use DreamLayer\UnoPIM\Compatibility\ImageContext as ChatContext;
 use DreamLayer\UnoPIM\Jobs\RunWorkflow;
 use DreamLayer\UnoPIM\Models\Batch;
 use DreamLayer\UnoPIM\Models\Settings;
@@ -22,7 +24,6 @@ use Laravel\Ai\Tools\Request;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
-use Webkul\AiAgent\Chat\ChatContext;
 use Webkul\AiAgent\Chat\ResultRendererRegistry;
 use Webkul\AiAgent\Chat\ToolRegistry;
 use Webkul\AiAgent\Events\AgentSystemPromptBuilding;
@@ -60,15 +61,15 @@ final class WorkflowTest extends TestCase
         Http::preventStrayRequests();
         Storage::fake('local');
         Storage::fake('public');
-        $this->admin = Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type'=>'all'])->id]);
+        $this->admin = Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type' => 'all'])->id]);
         $this->actingAs($this->admin, 'admin');
-        Settings::current()->update(['enabled'=>true, 'credential'=>'dl_test_'.str_repeat('x', 40), 'credential_version'=>(string) Str::uuid()]);
+        Settings::current()->update(['enabled' => true, 'credential' => 'dl_test_'.str_repeat('x', 40), 'credential_version' => (string) Str::uuid()]);
     }
 
     private function context(?string $requestId = null, array $paths = [], bool $new = false, ?int $product = null): ChatContext
     {
         return new ChatContext(message: 'Preview', history: [], productId: $product, productSku: null, productName: null,
-            locale: 'en_US', channel: 'default', platform: new MagicAIPlatform(['provider'=> 'openai']),
+            locale: 'en_US', channel: 'default', platform: new MagicAIPlatform(['provider' => 'openai']),
             uploadedImagePaths: $paths, user: $this->admin, conversationId: 'test_conversation', requestId: $requestId ?? (string) Str::uuid(), hasNewImages: $new);
     }
 
@@ -87,15 +88,20 @@ final class WorkflowTest extends TestCase
 
     private function generate(?ChatContext $c = null): Workflow
     {
-        return app(Workflows::class)->start($c ?? $this->context(), ['steps'=>[['operation'=>'text_to_image', 'instruction'=>'Blue vase']]], true);
+        return app(Workflows::class)->start($c ?? $this->context(), ['steps' => [['operation' => 'text_to_image', 'instruction' => 'Blue vase']]], true);
     }
 
     public function test_new_tool_acknowledgement_reports_the_saved_queued_status(): void
     {
-        $tool = app(GenerateImage::class)->register($this->context());
-        $result = json_decode($tool->handle(new Request(['steps'=>[['operation'=>'text_to_image', 'instruction'=>'A white bowl']]])), true);
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+
+        $tool = app(GenerateImage::class)->register(new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($this->context())));
+        $result = json_decode($tool->handle(new Request(['steps' => [['operation' => 'text_to_image', 'instruction' => 'A white bowl']]])), true);
         $this->assertSame('queued', $result['result']['status']);
-        $this->assertStringContainsString('Preview status: queued', $result['result']['message']);
+        $this->assertStringContainsString('Preview status: Queued', $result['result']['message']);
     }
 
     public function test_status_distinguishes_a_delay_without_changing_or_resubmitting_work(): void
@@ -108,7 +114,7 @@ final class WorkflowTest extends TestCase
         $this->travel(121)->seconds();
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertOk()
             ->assertJsonPath('status', 'queued')->assertJsonPath('delayed', true);
-        $this->get(route('dreamlayer.results'))->assertOk()->assertSee('· Delayed');
+        $this->get(route('dreamlayer.results'))->assertOk()->assertSee('· '.trans('dreamlayer::app.delayed'));
         $w->update(['status' => 'running']);
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertOk()
             ->assertJsonPath('status', 'running')->assertJsonPath('delayed', false);
@@ -128,11 +134,11 @@ final class WorkflowTest extends TestCase
             $upstream = (string) Str::uuid();
             $progress = [['description' => 'Generating image', 'status' => 'running']];
             $w->update(['execution_path' => $path, 'status' => 'running',
-                'upstream_execution_id'  => $path === 'execute_v1' ? $upstream : null,
-                'upstream_workflow_id'   => $path === 'workflow_v1' ? $upstream : null,
-                'progress'               => $path === 'workflow_v1' ? $progress : null]);
+                'upstream_execution_id' => $path === 'execute_v1' ? $upstream : null,
+                'upstream_workflow_id' => $path === 'workflow_v1' ? $upstream : null,
+                'progress' => $path === 'workflow_v1' ? $progress : null]);
             Http::fake([Client::BASE_URL.($path === 'execute_v1' ? '/executions/' : '/image-workflows/').$upstream => Http::response(['contract_version' => 1, 'workflow_id' => $upstream,
-                'execution_id'                                                                                                                           => $upstream, 'status' => 'running', 'steps' => $progress])]);
+                'execution_id' => $upstream, 'status' => 'running', 'steps' => $progress])]);
             // Each identical poll used to leave updated_at unchanged. After two
             // minutes the UI called healthy work delayed and recovery scanned it.
             for ($i = 0; $i < 3; $i++) {
@@ -147,17 +153,11 @@ final class WorkflowTest extends TestCase
         Http::assertNotSent(fn ($request) => $request->method() !== 'GET');
     }
 
-    public function test_recovery_refuses_a_non_database_extension_queue_before_reading_or_dispatching(): void
+    public function test_recovery_refuses_a_synchronous_connection(): void
     {
-        $w = $this->generate();
-        $w->update(['updated_at' => now()->subMinutes(3)]);
-        // An invalid table makes any accidental SQL access fail the test.
-        config(['queue.connections.dreamlayer.driver' => 'redis',
-            'queue.connections.dreamlayer.table'      => 'must_not_be_queried']);
-        $this->artisan('dreamlayer:recover')
-            ->expectsOutputToContain('requires the dreamlayer queue connection to use the database driver')
-            ->assertFailed();
-        Queue::assertPushed(RunWorkflow::class, 1); // Admission only; no recovery delivery.
+        config(['dreamlayer.queue_connection' => 'sync']);
+        $this->artisan('dreamlayer:recover')->expectsOutputToContain(trans('dreamlayer::app.async-queue-required'))->assertFailed();
+        Queue::assertNothingPushed();
         Http::assertNothingSent();
     }
 
@@ -191,10 +191,10 @@ final class WorkflowTest extends TestCase
     {
         $w = $this->generate();
         $batch = Batch::create([
-            'id'              => (string) Str::uuid(), 'user_id' => $this->admin->id,
+            'id' => (string) Str::uuid(), 'user_id' => $this->admin->id,
             'conversation_id' => $w->conversation_id, 'request_id' => (string) Str::uuid(),
-            'fingerprint'     => str_repeat('a', 64), 'credential_version' => $w->credential_version,
-            'api_url'         => $w->api_url, 'children' => [$w->id], 'updated_at' => now()->subMinutes(3),
+            'fingerprint' => str_repeat('a', 64), 'credential_version' => $w->credential_version,
+            'api_url' => $w->api_url, 'children' => [$w->id], 'updated_at' => now()->subMinutes(3),
         ]);
         $w->update(['batch_id' => $batch->id, 'updated_at' => now()->subMinutes(3)]);
         Queue::swap($this->realQueue);
@@ -213,33 +213,38 @@ final class WorkflowTest extends TestCase
 
     public function test_saved_result_context_is_authoritative_and_scoped(): void
     {
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+
         $w = $this->generate();
-        $w->update(['status'=>'completed']);
-        $event = new AgentSystemPromptBuilding('Base', $this->context());
+        $w->update(['status' => 'completed']);
+        $event = new AgentSystemPromptBuilding('Base', new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($this->context())));
         event($event);
         $this->assertStringContainsString('selected_result='.$w->id, $event->prompt);
         $this->assertStringContainsString('Use edit_image', $event->prompt);
-        $w->update(['conversation_id'=>'another_conversation']);
-        $event = new AgentSystemPromptBuilding('Base', $this->context());
+        $w->update(['conversation_id' => 'another_conversation']);
+        $event = new AgentSystemPromptBuilding('Base', new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($this->context())));
         event($event);
         $this->assertStringNotContainsString($w->id, $event->prompt);
-        Settings::current()->update(['enabled'=>false]);
-        $event = new AgentSystemPromptBuilding('Base', $this->context());
+        Settings::current()->update(['enabled' => false]);
+        $event = new AgentSystemPromptBuilding('Base', new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($this->context())));
         event($event);
         $this->assertSame('Base', $event->prompt);
     }
 
     public function test_followup_inherits_product_target_with_a_fresh_snapshot(): void
     {
-        $attribute = Attribute::factory()->create(['type'=>'image', 'code'=>'followup_image', 'value_per_locale'=>false, 'value_per_channel'=>false]);
+        $attribute = Attribute::factory()->create(['type' => 'image', 'code' => 'followup_image', 'value_per_locale' => false, 'value_per_channel' => false]);
         $family = AttributeFamily::factory()->withRequiredAttributes($attribute)->create();
-        $product = Product::factory()->create(['attribute_family_id'=>$family->id, 'values'=>['common'=>['followup_image'=>'original.png']]]);
+        $product = Product::factory()->create(['attribute_family_id' => $family->id, 'values' => ['common' => ['followup_image' => 'original.png']]]);
         $prior = $this->generate($this->context(product: $product->id));
         Storage::disk('local')->put('finished.png', $this->png());
-        $prior->update(['status'=>'completed', 'result_path'=>'finished.png']);
+        $prior->update(['status' => 'completed', 'result_path' => 'finished.png']);
         $oldVersion = $prior->target['version'];
-        $product->forceFill(['values'=>['common'=>['followup_image'=>'changed.png']]])->save();
-        $followup = app(Workflows::class)->start($this->context(), ['selected_result'=>$prior->id, 'steps'=>[['operation'=>'image_to_image', 'instruction'=>'Make the background pink']]], false);
+        $product->forceFill(['values' => ['common' => ['followup_image' => 'changed.png']]])->save();
+        $followup = app(Workflows::class)->start($this->context(), ['selected_result' => $prior->id, 'steps' => [['operation' => 'image_to_image', 'instruction' => 'Make the background pink']]], false);
         $this->assertSame($product->id, $followup->target['product_id']);
         $this->assertSame($attribute->code, $followup->target['attribute']);
         $this->assertNotSame($oldVersion, $followup->target['version']);
@@ -250,7 +255,7 @@ final class WorkflowTest extends TestCase
     {
         $w = $this->generate();
         $this->assertSame(Client::BASE_URL, $w->api_url);
-        config(['dreamlayer.api_url'=>'https://staging.dreamlayer.example/v1']);
+        config(['dreamlayer.api_url' => 'https://staging.dreamlayer.example/v1']);
         (new RunWorkflow($w->id))->handle();
         $w->refresh();
         $this->assertNull($w->upstream_execution_id);
@@ -261,20 +266,20 @@ final class WorkflowTest extends TestCase
 
     public function test_followup_keeps_its_destination_after_navigating_to_another_product(): void
     {
-        $attribute = Attribute::factory()->create(['type'=>'image', 'code'=>'followup_target', 'value_per_locale'=>false, 'value_per_channel'=>false]);
+        $attribute = Attribute::factory()->create(['type' => 'image', 'code' => 'followup_target', 'value_per_locale' => false, 'value_per_channel' => false]);
         $family = AttributeFamily::factory()->withRequiredAttributes($attribute)->create();
-        $original = Product::factory()->create(['attribute_family_id'=>$family->id, 'values'=>['common'=>[$attribute->code=>'original.png']]]);
-        $other = Product::factory()->create(['attribute_family_id'=>$family->id, 'values'=>['common'=>[$attribute->code=>'other.png']]]);
+        $original = Product::factory()->create(['attribute_family_id' => $family->id, 'values' => ['common' => [$attribute->code => 'original.png']]]);
+        $other = Product::factory()->create(['attribute_family_id' => $family->id, 'values' => ['common' => [$attribute->code => 'other.png']]]);
         $prior = $this->generate($this->context(product: $original->id));
         Storage::disk('local')->put('followup.png', $this->png());
-        $prior->update(['status'=>'completed', 'result_path'=>'followup.png']);
-        foreach ([[], ['selected_result'=>$prior->id]] as $selection) {
-            $followup = app(Workflows::class)->start($this->context(product: $other->id), $selection + ['steps'=>[['operation'=>'image_to_image', 'instruction'=>'Pink background']]], false);
+        $prior->update(['status' => 'completed', 'result_path' => 'followup.png']);
+        foreach ([[], ['selected_result' => $prior->id]] as $selection) {
+            $followup = app(Workflows::class)->start($this->context(product: $other->id), $selection + ['steps' => [['operation' => 'image_to_image', 'instruction' => 'Pink background']]], false);
             $this->assertSame($original->id, $followup->target['product_id']);
             $this->assertSame($this->png(), Storage::disk('local')->get($followup->source_path));
         }
         // An explicit destination remains authoritative.
-        $redirected = app(Workflows::class)->start($this->context(product: $other->id), ['sku'=>$other->sku, 'selected_result'=>$prior->id, 'steps'=>[['operation'=>'image_to_image', 'instruction'=>'Pink background']]], false);
+        $redirected = app(Workflows::class)->start($this->context(product: $other->id), ['sku' => $other->sku, 'selected_result' => $prior->id, 'steps' => [['operation' => 'image_to_image', 'instruction' => 'Pink background']]], false);
         $this->assertSame($other->id, $redirected->target['product_id']);
     }
 
@@ -288,13 +293,13 @@ final class WorkflowTest extends TestCase
 
     public function test_followup_honors_an_explicit_gallery_slot_on_its_inherited_destination(): void
     {
-        $attribute = Attribute::factory()->create(['type'=>'gallery', 'code'=>'followup_gallery', 'value_per_locale'=>false, 'value_per_channel'=>false]);
+        $attribute = Attribute::factory()->create(['type' => 'gallery', 'code' => 'followup_gallery', 'value_per_locale' => false, 'value_per_channel' => false]);
         $family = AttributeFamily::factory()->withRequiredAttributes($attribute)->create();
-        $product = Product::factory()->create(['attribute_family_id'=>$family->id, 'values'=>['common'=>[$attribute->code=>['first.png', 'second.png']]]]);
-        $prior = app(Workflows::class)->start($this->context(product: $product->id), ['attribute'=>$attribute->code, 'image_index'=>0, 'steps'=>[['operation'=>'text_to_image', 'instruction'=>'A vase']]], true);
+        $product = Product::factory()->create(['attribute_family_id' => $family->id, 'values' => ['common' => [$attribute->code => ['first.png', 'second.png']]]]);
+        $prior = app(Workflows::class)->start($this->context(product: $product->id), ['attribute' => $attribute->code, 'image_index' => 0, 'steps' => [['operation' => 'text_to_image', 'instruction' => 'A vase']]], true);
         Storage::disk('local')->put('gallery-followup.png', $this->png());
-        $prior->update(['status'=>'completed', 'result_path'=>'gallery-followup.png']);
-        $followup = app(Workflows::class)->start($this->context(product: $product->id), ['selected_result'=>$prior->id, 'image_index'=>1, 'steps'=>[['operation'=>'image_to_image', 'instruction'=>'Pink background']]], false);
+        $prior->update(['status' => 'completed', 'result_path' => 'gallery-followup.png']);
+        $followup = app(Workflows::class)->start($this->context(product: $product->id), ['selected_result' => $prior->id, 'image_index' => 1, 'steps' => [['operation' => 'image_to_image', 'instruction' => 'Pink background']]], false);
         $this->assertSame($product->id, $followup->target['product_id']);
         $this->assertSame(1, $followup->target['index']);
         $this->assertSame($this->png(), Storage::disk('local')->get($followup->source_path));
@@ -302,11 +307,16 @@ final class WorkflowTest extends TestCase
 
     public function test_disabled_tools_delegate_and_names_are_unique(): void
     {
-        Settings::current()->update(['enabled'=>false]);
-        $tools = app(ToolRegistry::class)->build($this->context());
-        $names = array_map(fn ($t) =>$t->name(), $tools);
-        $this->assertSame(1, count(array_filter($names, fn ($n) =>$n === 'generate_image')));
-        $tool = array_values(array_filter($tools, fn ($t) =>$t->name() === 'edit_image'))[0];
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+
+        Settings::current()->update(['enabled' => false]);
+        $tools = app(ToolRegistry::class)->build(new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($this->context())));
+        $names = array_map(fn ($t) => $t->name(), $tools);
+        $this->assertSame(1, count(array_filter($names, fn ($n) => $n === 'generate_image')));
+        $tool = array_values(array_filter($tools, fn ($t) => $t->name() === 'edit_image'))[0];
         $this->assertStringContainsString('saves the edited image back', (string) $tool->description());
     }
 
@@ -317,7 +327,7 @@ final class WorkflowTest extends TestCase
         $this->assertSame($w->id, $this->generate($c)->id);
         $this->assertSame(1, Workflow::where('user_id', $this->admin->id)->count());
         try {
-            app(Workflows::class)->start($c, ['steps'=>[['operation'=>'text_to_image', 'instruction'=>'Other']]], true);
+            app(Workflows::class)->start($c, ['steps' => [['operation' => 'text_to_image', 'instruction' => 'Other']]], true);
             $this->fail('conflict required');
         } catch (HttpException $e) {
             $this->assertSame(409, $e->getStatusCode());
@@ -329,7 +339,7 @@ final class WorkflowTest extends TestCase
         $w = $this->generate();
         $id = (string) Str::uuid();
         $bytes = $this->png();
-        Http::fake(['*/capabilities'=>Http::response(['operations'=>['text_to_image'], 'image_workflows'=>true, 'image_workflow_versions'=>[1]]), '*/image-workflows'=>Http::response(['workflow_id'=>$id], 202), '*/image-workflows/*'=>Http::response(['workflow_id'=>$id, 'status'=>'completed', 'steps'=>[['description'=>'Actual API instruction', 'status'=>'completed']], 'image'=>['download_url'=>'https://api.dreamlayer.io/v1/image-jobs/'.$id.'/asset']]), '*/asset'=>Http::response($bytes, 200, ['Content-Type'=>'image/png'])]);
+        Http::fake(['*/capabilities' => Http::response(['operations' => ['text_to_image'], 'image_workflows' => true, 'image_workflow_versions' => [1]]), '*/image-workflows' => Http::response(['workflow_id' => $id], 202), '*/image-workflows/*' => Http::response(['workflow_id' => $id, 'status' => 'completed', 'steps' => [['description' => 'Actual API instruction', 'status' => 'completed']], 'image' => ['download_url' => 'https://api.dreamlayer.io/v1/image-jobs/'.$id.'/asset']]), '*/asset' => Http::response($bytes, 200, ['Content-Type' => 'image/png'])]);
         (new RunWorkflow($w->id))->handle();
         (new RunWorkflow($w->id))->handle();
         $this->assertSame($id, $w->fresh()->upstream_workflow_id);
@@ -346,16 +356,16 @@ final class WorkflowTest extends TestCase
     {
         $path = 'ai-agent/images/'.$this->admin->id.'/'.sha1('test_conversation').'/new.png';
         Storage::disk('public')->put($path, $this->png());
-        $w = app(Workflows::class)->start($this->context(paths: [Storage::disk('public')->path($path)], new: true), ['steps'=>[['operation'=>'image_to_image', 'instruction'=>'Pink background'], ['operation'=>'background_remove']]], false);
+        $w = app(Workflows::class)->start($this->context(paths: [Storage::disk('public')->path($path)], new: true), ['steps' => [['operation' => 'image_to_image', 'instruction' => 'Pink background'], ['operation' => 'background_remove']]], false);
         Storage::disk('public')->delete($path);
         $id = (string) Str::uuid();
         $asset = (string) Str::uuid();
-        Http::fake(['*/capabilities'=>Http::response(['operations'=>['text_to_image'], 'image_workflows'=>true, 'image_workflow_versions'=>[1]]), '*/input-assets'=>Http::response(['input_asset_id'=>$asset], 201), '*/image-workflows'=>Http::response(['workflow_id'=>$id], 202), '*/image-workflows/*'=>Http::response(['workflow_id'=>$id, 'status'=>'running', 'steps'=>[['description'=>'API first step', 'status'=>'completed'], ['description'=>'API second step', 'status'=>'running']]])]);
+        Http::fake(['*/capabilities' => Http::response(['operations' => ['text_to_image'], 'image_workflows' => true, 'image_workflow_versions' => [1]]), '*/input-assets' => Http::response(['input_asset_id' => $asset], 201), '*/image-workflows' => Http::response(['workflow_id' => $id], 202), '*/image-workflows/*' => Http::response(['workflow_id' => $id, 'status' => 'running', 'steps' => [['description' => 'API first step', 'status' => 'completed'], ['description' => 'API second step', 'status' => 'running']]])]);
         for ($i = 0; $i < 4; $i++) {
             (new RunWorkflow($w->id))->handle();
         }
-        Http::assertSent(fn ($r) =>str_ends_with($r->url(), '/image-workflows') && count($r['steps']) === 2 && $r['input_asset_id'] === $asset);
-        Http::assertNotSent(fn ($r) =>str_contains($r->url(), 'background-removals') || str_ends_with($r->url(), '/execute'));
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/image-workflows') && count($r['steps']) === 2 && $r['input_asset_id'] === $asset);
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'background-removals') || str_ends_with($r->url(), '/execute'));
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertOk()->assertJsonPath('steps.1.label', 'API second step')->assertJsonPath('steps.1.status', 'running');
     }
 
@@ -363,8 +373,8 @@ final class WorkflowTest extends TestCase
     {
         $w = $this->generate();
         $id = (string) Str::uuid();
-        $w->update(['upstream_workflow_id'=>$id]);
-        Http::fake(['*/image-workflows/*'=>Http::response(['workflow_id'=>$id, 'status'=>'failed', 'steps'=>[['description'=>'Actual step', 'status'=>'failed']]])]);
+        $w->update(['upstream_workflow_id' => $id]);
+        Http::fake(['*/image-workflows/*' => Http::response(['workflow_id' => $id, 'status' => 'failed', 'steps' => [['description' => 'Actual step', 'status' => 'failed']]])]);
         (new RunWorkflow($w->id))->handle();
         (new RunWorkflow($w->id))->handle();
         $this->assertSame('failed', $w->fresh()->status);
@@ -390,7 +400,7 @@ final class WorkflowTest extends TestCase
             $w->update(['execution_path' => 'workflow_v1', 'upstream_workflow_id' => $path === 'admission' ? null : $id]);
             Http::fake(['*/image-workflows*' => $path === 'admission' ? Http::response([], 402) : Http::response([
                 'workflow_id' => $id, 'status' => 'failed', 'error_code' => 402, 'error' => 'Untrusted upstream text',
-                'steps'       => [['description' => 'Requested edit', 'status' => 'failed']],
+                'steps' => [['description' => 'Requested edit', 'status' => 'failed']],
             ])]);
         }
         (new RunWorkflow($w->id))->handle();
@@ -406,10 +416,10 @@ final class WorkflowTest extends TestCase
     public function test_workflow_owner_and_permission_are_enforced(): void
     {
         $w = $this->generate();
-        $this->actingAs(Admin::factory()->create(['role_id'=>$this->admin->role_id]), 'admin');
+        $this->actingAs(Admin::factory()->create(['role_id' => $this->admin->role_id]), 'admin');
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertNotFound();
         $this->postJson(route('dreamlayer.apply', $w->id))->assertNotFound();
-        $limited = Admin::factory()->create(['role_id'=>Role::factory()->create(['permission_type'=>'custom', 'permissions'=>['dashboard']])->id]);
+        $limited = Admin::factory()->create(['role_id' => Role::factory()->create(['permission_type' => 'custom', 'permissions' => ['dashboard']])->id]);
         $this->actingAs($limited, 'admin');
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertForbidden();
         $this->getJson(route('dreamlayer.settings'))->assertForbidden();
@@ -419,20 +429,20 @@ final class WorkflowTest extends TestCase
     {
         $old = $this->generate();
         Storage::disk('local')->put('dreamlayer/prior.png', $this->png());
-        $old->update(['status'=>'completed', 'result_path'=>'dreamlayer/prior.png']);
-        $w = app(Workflows::class)->start($this->context(paths: ['/expired/attachment.png']), ['steps'=>[['operation'=>'background_remove']]], false);
+        $old->update(['status' => 'completed', 'result_path' => 'dreamlayer/prior.png']);
+        $w = app(Workflows::class)->start($this->context(paths: ['/expired/attachment.png']), ['steps' => [['operation' => 'background_remove']]], false);
         $this->assertSame($this->png(), Storage::disk('local')->get($w->source_path));
     }
 
     private function productPreview(bool $scoped = false): array
     {
-        $a = Attribute::factory()->create(['code'=>'photo_'.Str::lower(Str::random(6)), 'type'=>'image', 'value_per_locale'=>$scoped, 'value_per_channel'=>$scoped]);
+        $a = Attribute::factory()->create(['code' => 'photo_'.Str::lower(Str::random(6)), 'type' => 'image', 'value_per_locale' => $scoped, 'value_per_channel' => $scoped]);
         $family = AttributeFamily::factory()->withRequiredAttributes($a)->create();
-        $values = $scoped ? ['channel_locale_specific'=>['default'=>['en_US'=>[$a->code=>'original.png']]]] : ['common'=>[$a->code=>'original.png', 'description'=>'Before']];
-        $product = Product::factory()->create(['attribute_family_id'=>$family->id, 'values'=>$values]);
+        $values = $scoped ? ['channel_locale_specific' => ['default' => ['en_US' => [$a->code => 'original.png']]]] : ['common' => [$a->code => 'original.png', 'description' => 'Before']];
+        $product = Product::factory()->create(['attribute_family_id' => $family->id, 'values' => $values]);
         $w = $this->generate($this->context(product: $product->id));
         Storage::disk('local')->put('dreamlayer/'.$w->id.'/0.png', $this->png());
-        $w->update(['status'=>'completed', 'result_path'=>'dreamlayer/'.$w->id.'/0.png']);
+        $w->update(['status' => 'completed', 'result_path' => 'dreamlayer/'.$w->id.'/0.png']);
 
         return [$product, $a, $w];
     }
@@ -453,29 +463,41 @@ final class WorkflowTest extends TestCase
         [$p,$a,$w] = $this->productPreview();
         $values = $p->values;
         $values['common']['description'] = 'Concurrent change';
-        $p->forceFill(['values'=>$values])->save();
+        $p->forceFill(['values' => $values])->save();
         app(ProductImages::class)->apply($w->id, $this->admin->id);
         $this->assertSame('Concurrent change', $p->fresh()->values['common']['description']);
         [$p,$a,$w] = $this->productPreview();
         $values = $p->values;
         $values['common'][$a->code] = 'changed.png';
-        $p->forceFill(['values'=>$values])->save();
+        $p->forceFill(['values' => $values])->save();
         $this->postJson(route('dreamlayer.apply', $w->id))->assertConflict();
         $this->assertNull($w->fresh()->applied_at);
     }
 
     public function test_presentation_history_is_bounded_and_restored(): void
     {
-        $descriptor = ['type'=>'dreamlayer.workflow', 'id'=>(string) Str::uuid()];
-        $r = $this->postJson(route('ai-agent.conversations.store'), ['messages'=>[['role'=>'assistant', 'content'=>'Preview', 'message_id'=>'message_1', 'presentation'=>$descriptor]]]);
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+        // The administrator explicitly enables the host's own history for this test.
+        config(['ai-agent.history.enabled' => true]);
+
+        $descriptor = ['type' => 'dreamlayer.workflow', 'id' => (string) Str::uuid()];
+        $r = $this->postJson(route('ai-agent.conversations.store'), ['messages' => [['role' => 'assistant', 'content' => 'Preview', 'message_id' => 'message_1', 'presentation' => $descriptor]]]);
         $r->assertOk();
         $this->getJson(route('ai-agent.conversations.show', $r->json('id')))->assertOk()->assertJsonPath('messages.0.presentation', $descriptor)->assertJsonPath('messages.0.message_id', 'message_1');
-        $this->postJson(route('ai-agent.conversations.store'), ['messages'=>[['role'=>'assistant', 'content'=>'x', 'presentation'=>['type'=>'x', 'id'=>'x', 'template'=>'evil']]]])->assertUnprocessable();
+        $this->postJson(route('ai-agent.conversations.store'), ['messages' => [['role' => 'assistant', 'content' => 'x', 'presentation' => ['type' => 'x', 'id' => 'x', 'template' => 'evil']]]])->assertUnprocessable();
     }
 
     public function test_settings_and_widget_compile_with_no_dreamlayer_backend(): void
     {
-        Http::fake(['https://gravatar.com/*'=>Http::response('', 404), '*/balance'=>Http::response(['available'=>3, 'promotional'=>3, 'purchased'=>0])]);
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+
+        Http::fake(['https://gravatar.com/*' => Http::response('', 404), '*/balance' => Http::response(['available' => 3, 'promotional' => 3, 'purchased' => 0])]);
         $this->get(route('dreamlayer.settings'))->assertOk()->assertDontSee('dl_test_')->assertDontSee('Paid removals');
         $html = view('ai-agent::components.chat-widget')->render().view()->yieldPushContent('scripts');
         $this->assertSame('v-dreamlayer-workflow', app(ResultRendererRegistry::class)->components()['dreamlayer.workflow']);
@@ -483,14 +505,14 @@ final class WorkflowTest extends TestCase
 
     public function test_device_connection_exchanges_only_on_server_and_encrypts_credential(): void
     {
-        config(['dreamlayer.connections_enabled'=>true]);
+        config(['dreamlayer.connections_enabled' => true]);
         $secret = 'dl_live_inst_'.str_repeat('q', 40);
-        Http::fake(['*/device-authorization'=>Http::response(['device_code'=>'private-device-secret', 'user_code'=>'BCDF-2345', 'verification_uri'=>config('dreamlayer.platform_url').'/console/connect', 'expires_in'=>600, 'interval'=>5]), '*/token'=>Http::response(['access_token'=>$secret, 'connection_id'=>(string) Str::uuid()])]);
+        Http::fake(['*/device-authorization' => Http::response(['device_code' => 'private-device-secret', 'user_code' => 'BCDF-2345', 'verification_uri' => config('dreamlayer.platform_url').'/console/connect', 'expires_in' => 600, 'interval' => 5]), '*/token' => Http::response(['access_token' => $secret, 'connection_id' => (string) Str::uuid()])]);
         $this->postJson(route('dreamlayer.connect'))->assertOk()->assertJsonMissingPath('device_code');
         $d = $this->pending();
         $d['next_poll'] = time() - 1;
         $this->pending($d);
-        $this->postJson(route('dreamlayer.connect.poll'))->assertOk()->assertJson(['status'=>'connected'])->assertDontSee($secret);
+        $this->postJson(route('dreamlayer.connect.poll'))->assertOk()->assertJson(['status' => 'connected'])->assertDontSee($secret);
         $this->assertSame($secret, Settings::current()->credential);
         $this->assertStringNotContainsString($secret, DB::table('dreamlayer_settings')->value('credential'));
     }
@@ -514,9 +536,9 @@ final class WorkflowTest extends TestCase
 
     public function test_manual_key_remains_usable_without_workflows_or_account_connection(): void
     {
-        config(['dreamlayer.connections_enabled'=>false]);
-        Http::fake(['*/capabilities'=>Http::response(['operations'=>['text_to_image']])]);
-        $this->post(route('dreamlayer.settings.save'), ['api_key'=>'unverified-new-key', 'enabled'=>1])->assertSessionHasNoErrors();
+        config(['dreamlayer.connections_enabled' => false]);
+        Http::fake(['*/capabilities' => Http::response(['operations' => ['text_to_image']])]);
+        $this->post(route('dreamlayer.settings.save'), ['api_key' => 'unverified-new-key', 'enabled' => 1])->assertSessionHasNoErrors();
         $this->assertSame('unverified-new-key', Settings::current()->credential);
         $this->postJson(route('dreamlayer.connect'))->assertNotFound();
     }
@@ -524,35 +546,35 @@ final class WorkflowTest extends TestCase
     public function test_private_png_delivery_preserves_alpha_and_strips_storage_credentials(): void
     {
         $bytes = $this->png();
-        Http::fake(['https://api.dreamlayer.io/v1/image-jobs/fixture/asset'=>Http::response('', 302, ['Location'=>'https://storage.googleapis.com/fixture/image.png']), 'https://storage.googleapis.com/*'=>Http::response($bytes)]);
+        Http::fake(['https://api.dreamlayer.io/v1/image-jobs/fixture/asset' => Http::response('', 302, ['Location' => 'https://storage.googleapis.com/fixture/image.png']), 'https://storage.googleapis.com/*' => Http::response($bytes)]);
         $image = (new Client('private-test-key'))->image('https://api.dreamlayer.io/v1/image-jobs/fixture/asset');
         $this->assertSame($bytes, $image);
         $decoded = imagecreatefromstring($image);
         $this->assertSame(127, (imagecolorat($decoded, 0, 0) >> 24) & 0x7F);
         $this->assertSame(0, (imagecolorat($decoded, 16, 16) >> 24) & 0x7F);
-        Http::assertSent(fn ($r) =>str_starts_with($r->url(), 'https://storage.googleapis.com/') && ! $r->hasHeader('Authorization'));
+        Http::assertSent(fn ($r) => str_starts_with($r->url(), 'https://storage.googleapis.com/') && ! $r->hasHeader('Authorization'));
     }
 
     public function test_existing_api_generation_and_edit_use_one_authoritative_execution(): void
     {
-        config(['dreamlayer.connections_enabled'=>false]);
+        config(['dreamlayer.connections_enabled' => false]);
         $id = (string) Str::uuid();
         $asset = (string) Str::uuid();
         $bytes = $this->png();
-        Http::fake(['*/capabilities'=>Http::response(['api_version'=>'1', 'operations'=>['text_to_image', 'image_to_image', 'background_remove']]), '*/input-assets'=>Http::response(['input_asset_id'=>$asset]), '*/execute'=>Http::response(['execution_id'=>$id], 202), '*/executions/*'=>Http::response(['execution_id'=>$id, 'status'=>'completed', 'image_job'=>['finished_assets'=>[['download_url'=>'https://api.dreamlayer.io/v1/image-jobs/'.$id.'/asset']]]]), '*/asset'=>Http::response($bytes)]);
+        Http::fake(['*/capabilities' => Http::response(['api_version' => '1', 'operations' => ['text_to_image', 'image_to_image', 'background_remove']]), '*/input-assets' => Http::response(['input_asset_id' => $asset]), '*/execute' => Http::response(['execution_id' => $id], 202), '*/executions/*' => Http::response(['execution_id' => $id, 'status' => 'completed', 'image_job' => ['finished_assets' => [['download_url' => 'https://api.dreamlayer.io/v1/image-jobs/'.$id.'/asset']]]]), '*/asset' => Http::response($bytes)]);
         $w = $this->generate();
         for ($i = 0; $i < 4; $i++) {
             (new RunWorkflow($w->id))->handle();
         }
         $this->assertSame('completed', $w->fresh()->status);
         $this->getJson(route('dreamlayer.workflow', $w->id))->assertJsonPath('detailed_progress', false)->assertJsonPath('steps', []);
-        $edit = app(Workflows::class)->start($this->context(), ['steps'=>[['operation'=>'background_remove']]], false);
+        $edit = app(Workflows::class)->start($this->context(), ['steps' => [['operation' => 'background_remove']]], false);
         for ($i = 0; $i < 5; $i++) {
             (new RunWorkflow($edit->id))->handle();
         }
         $this->assertSame('completed', $edit->fresh()->status);
-        Http::assertSent(fn ($r) =>str_ends_with($r->url(), '/execute') && $r['operation'] === 'background_remove' && $r['input_asset_id'] === $asset);
-        Http::assertNotSent(fn ($r) =>str_contains($r->url(), 'image-workflows') || str_contains($r->url(), 'connections') || str_contains($r->url(), 'background-removals'));
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/execute') && $r['operation'] === 'background_remove' && $r['input_asset_id'] === $asset);
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'image-workflows') || str_contains($r->url(), 'connections') || str_contains($r->url(), 'background-removals'));
     }
 
     public function test_lost_execution_ack_never_switches_to_new_workflow_path(): void
@@ -560,7 +582,7 @@ final class WorkflowTest extends TestCase
         $calls = [];
         $id = (string) Str::uuid();
         $w = $this->generate();
-        $w->update(['execution_path'=>'execute_v1']);
+        $w->update(['execution_path' => 'execute_v1']);
         Http::fake(function ($r) use (&$calls, $id) {
             if (str_ends_with($r->url(), '/execute')) {
                 $calls[] = $r->header('Idempotency-Key')[0];
@@ -568,7 +590,7 @@ final class WorkflowTest extends TestCase
                     throw new ConnectionException('lost acknowledgement');
                 }
 
-                return Http::response(['execution_id'=>$id], 202);
+                return Http::response(['execution_id' => $id], 202);
             }
             throw new RuntimeException('Execution path changed');
         });
@@ -577,7 +599,7 @@ final class WorkflowTest extends TestCase
         $this->assertSame([$calls[0], $calls[0]], $calls);
         $this->assertSame($id, $w->fresh()->upstream_execution_id);
         $this->assertSame('execute_v1', $w->fresh()->execution_path);
-        Http::assertNotSent(fn ($r) =>str_contains($r->url(), 'image-workflows') || str_contains($r->url(), 'capabilities'));
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'image-workflows') || str_contains($r->url(), 'capabilities'));
     }
 
     public function test_lost_workflow_ack_never_switches_to_existing_execution_path(): void
@@ -585,7 +607,7 @@ final class WorkflowTest extends TestCase
         $calls = [];
         $id = (string) Str::uuid();
         $w = $this->generate();
-        $w->update(['execution_path'=>'workflow_v1']);
+        $w->update(['execution_path' => 'workflow_v1']);
         Http::fake(function ($r) use (&$calls, $id) {
             if (str_ends_with($r->url(), '/image-workflows')) {
                 $calls[] = $r->header('Idempotency-Key')[0];
@@ -593,7 +615,7 @@ final class WorkflowTest extends TestCase
                     throw new ConnectionException('lost acknowledgement');
                 }
 
-                return Http::response(['workflow_id'=>$id], 202);
+                return Http::response(['workflow_id' => $id], 202);
             }
             throw new RuntimeException('Execution path changed');
         });
@@ -601,22 +623,22 @@ final class WorkflowTest extends TestCase
         (new RunWorkflow($w->id))->handle();
         $this->assertSame([$calls[0], $calls[0]], $calls);
         $this->assertSame($id, $w->fresh()->upstream_workflow_id);
-        Http::assertNotSent(fn ($r) =>str_ends_with($r->url(), '/execute') || str_contains($r->url(), 'capabilities'));
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/execute') || str_contains($r->url(), 'capabilities'));
     }
 
     public function test_unknown_workflow_version_uses_existing_api_before_admission(): void
     {
-        Http::fake(['*/capabilities'=>Http::response(['api_version'=>'1', 'operations'=>['text_to_image'], 'image_workflows'=>true, 'image_workflow_versions'=>[2]])]);
+        Http::fake(['*/capabilities' => Http::response(['api_version' => '1', 'operations' => ['text_to_image'], 'image_workflows' => true, 'image_workflow_versions' => [2]])]);
         $this->assertSame('execute_v1', (new Client('test'))->executionPath());
         $this->assertFalse(Schema::hasTable('external_removal_ledger'));
     }
 
     public function test_manual_key_survives_unavailable_onboarding(): void
     {
-        config(['dreamlayer.connections_enabled'=>true]);
-        Http::fake(['*/device-authorization'=>Http::response([], 503), '*/capabilities'=>Http::response(['api_version'=>'1', 'operations'=>['text_to_image']])]);
+        config(['dreamlayer.connections_enabled' => true]);
+        Http::fake(['*/device-authorization' => Http::response([], 503), '*/capabilities' => Http::response(['api_version' => '1', 'operations' => ['text_to_image']])]);
         $this->postJson(route('dreamlayer.connect'))->assertStatus(502);
-        $this->post(route('dreamlayer.settings.save'), ['api_key'=>'working-manual-key', 'enabled'=>1])->assertSessionHasNoErrors();
+        $this->post(route('dreamlayer.settings.save'), ['api_key' => 'working-manual-key', 'enabled' => 1])->assertSessionHasNoErrors();
         $this->assertSame('working-manual-key', Settings::current()->credential);
         $this->assertTrue(Settings::current()->connected());
     }
@@ -624,7 +646,7 @@ final class WorkflowTest extends TestCase
     public function test_existing_api_rejects_sequential_plan_before_paid_submission(): void
     {
         $w = $this->generate();
-        $w->update(['execution_path'=>'execute_v1', 'steps'=>[['operation'=>'image_to_image', 'instruction'=>'Pink'], ['operation'=>'background_remove', 'instruction'=>'']]]);
+        $w->update(['execution_path' => 'execute_v1', 'steps' => [['operation' => 'image_to_image', 'instruction' => 'Pink'], ['operation' => 'background_remove', 'instruction' => '']]]);
         (new RunWorkflow($w->id))->handle();
         $this->assertSame('failed', $w->fresh()->status);
         $this->assertStringContainsString('Sequential edits require', $w->fresh()->error);
@@ -633,9 +655,14 @@ final class WorkflowTest extends TestCase
 
     public function test_enabled_without_credentials_does_not_silently_use_native_image_saving(): void
     {
-        Settings::current()->update(['enabled'=>true, 'credential'=>null]);
-        $tool = app(GenerateImage::class)->register($this->context());
-        $reply = json_decode($tool->handle(new Request(['steps'=>[['operation'=>'text_to_image', 'instruction'=>'Blue vase']]])), true);
+        if (! HostSupport::nativeChat()) {
+            $this->markTestSkipped('Native hook contract is absent on this released host.');
+        }
+        Settings::current()->update(['native_chat_enabled' => true]);
+
+        Settings::current()->update(['enabled' => true, 'credential' => null]);
+        $tool = app(GenerateImage::class)->register(new Webkul\AiAgent\Chat\ChatContext(...get_object_vars($this->context())));
+        $reply = json_decode($tool->handle(new Request(['steps' => [['operation' => 'text_to_image', 'instruction' => 'Blue vase']]])), true);
         $this->assertArrayHasKey('error', $reply);
         $this->assertSame(0, Workflow::where('user_id', $this->admin->id)->count());
         Http::assertNothingSent();
@@ -644,13 +671,13 @@ final class WorkflowTest extends TestCase
     public function test_gallery_replace_append_and_stale_value_conflict(): void
     {
         foreach ([0, 2] as $index) {
-            $a = Attribute::factory()->create(['code'=>'gallery_'.Str::lower(Str::random(6)), 'type'=>'gallery', 'value_per_locale'=>false, 'value_per_channel'=>false]);
+            $a = Attribute::factory()->create(['code' => 'gallery_'.Str::lower(Str::random(6)), 'type' => 'gallery', 'value_per_locale' => false, 'value_per_channel' => false]);
             $family = AttributeFamily::factory()->withRequiredAttributes($a)->create();
-            $p = Product::factory()->create(['attribute_family_id'=>$family->id, 'values'=>['common'=>[$a->code=>['one.png', 'two.png']]]]);
-            $w = app(Workflows::class)->start($this->context(product: $p->id), ['steps'=>[['operation'=>'text_to_image', 'instruction'=>'Vase']], 'attribute'=>$a->code, 'image_index'=>$index], true);
+            $p = Product::factory()->create(['attribute_family_id' => $family->id, 'values' => ['common' => [$a->code => ['one.png', 'two.png']]]]);
+            $w = app(Workflows::class)->start($this->context(product: $p->id), ['steps' => [['operation' => 'text_to_image', 'instruction' => 'Vase']], 'attribute' => $a->code, 'image_index' => $index], true);
             $path = 'dreamlayer/'.$w->id.'/result.png';
             Storage::disk('local')->put($path, $this->png());
-            $w->update(['status'=>'completed', 'result_path'=>$path]);
+            $w->update(['status' => 'completed', 'result_path' => $path]);
             $this->postJson(route('dreamlayer.apply', $w->id))->assertOk();
             $values = $p->fresh()->values['common'][$a->code];
             $this->assertCount($index === 2 ? 3 : 2, $values);
@@ -658,9 +685,9 @@ final class WorkflowTest extends TestCase
             $this->assertNotSame('one.png', $values[$index]);
             $this->postJson(route('dreamlayer.apply', $w->id))->assertOk();
             $this->assertSame($values, $p->fresh()->values['common'][$a->code]);
-            $stale = app(Workflows::class)->start($this->context(product: $p->id), ['steps'=>[['operation'=>'text_to_image', 'instruction'=>'New vase']], 'attribute'=>$a->code], true);
-            $stale->update(['status'=>'completed', 'result_path'=>$path]);
-            $p->forceFill(['values'=>['common'=>[$a->code=>['changed.png']]]])->save();
+            $stale = app(Workflows::class)->start($this->context(product: $p->id), ['steps' => [['operation' => 'text_to_image', 'instruction' => 'New vase']], 'attribute' => $a->code], true);
+            $stale->update(['status' => 'completed', 'result_path' => $path]);
+            $p->forceFill(['values' => ['common' => [$a->code => ['changed.png']]]])->save();
             $this->postJson(route('dreamlayer.apply', $stale->id))->assertConflict();
         }
     }
@@ -668,14 +695,14 @@ final class WorkflowTest extends TestCase
     public function test_channel_only_and_locale_only_apply(): void
     {
         foreach (['channel_specific', 'locale_specific'] as $scope) {
-            $a = Attribute::factory()->create(['code'=>'photo_'.Str::lower(Str::random(6)), 'type'=>'image', 'value_per_locale'=>$scope === 'locale_specific', 'value_per_channel'=>$scope === 'channel_specific']);
+            $a = Attribute::factory()->create(['code' => 'photo_'.Str::lower(Str::random(6)), 'type' => 'image', 'value_per_locale' => $scope === 'locale_specific', 'value_per_channel' => $scope === 'channel_specific']);
             $key = $scope === 'locale_specific' ? 'en_US' : 'default';
             $family = AttributeFamily::factory()->withRequiredAttributes($a)->create();
-            $p = Product::factory()->create(['attribute_family_id'=>$family->id, 'values'=>[$scope=>[$key=>[$a->code=>'original.png'], 'unrelated'=>[$a->code=>'other.png']]]]);
+            $p = Product::factory()->create(['attribute_family_id' => $family->id, 'values' => [$scope => [$key => [$a->code => 'original.png'], 'unrelated' => [$a->code => 'other.png']]]]);
             $w = $this->generate($this->context(product: $p->id));
             $path = 'dreamlayer/'.$w->id.'/result.png';
             Storage::disk('local')->put($path, $this->png());
-            $w->update(['status'=>'completed', 'result_path'=>$path]);
+            $w->update(['status' => 'completed', 'result_path' => $path]);
             $this->postJson(route('dreamlayer.apply', $w->id))->assertOk();
             $values = $p->fresh()->values[$scope];
             $this->assertNotSame('original.png', $values[$key][$a->code]);

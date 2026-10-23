@@ -6,7 +6,6 @@ namespace DreamLayer\UnoPIM\Tests\Fixtures;
 
 use DreamLayer\UnoPIM\Chat\Tools\EditImage;
 use DreamLayer\UnoPIM\Chat\Tools\GenerateImage;
-use DreamLayer\UnoPIM\Services\ManagedChat;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -31,9 +30,6 @@ class TestHostProvider extends ServiceProvider
         {
             public function run(ChatContext $context): array
             {
-                if ($context->platform->id === ManagedChat::ID) {
-                    return parent::run($context);
-                }
                 if (str_starts_with($context->message, 'Native history fixture')) {
                     $product = Product::where('sku', 'EXTENSION-FIXTURE')->firstOrFail();
 
@@ -63,9 +59,6 @@ class TestHostProvider extends ServiceProvider
 
             public function runStreaming(ChatContext $context): StreamedResponse
             {
-                if ($context->platform->id === ManagedChat::ID) {
-                    return parent::runStreaming($context);
-                }
 
                 return new StreamedResponse(function () use ($context) {
                     $r = $this->run($context);
@@ -89,7 +82,7 @@ class TestHostProvider extends ServiceProvider
                 return Http::response(['operations' => ['text_to_image', 'image_to_image', 'background_remove'], 'key_mode' => 'test', 'api_version' => '1', 'live_charge_credits_per_image' => 1, 'image_batches' => true, 'image_batch_versions' => [1], 'image_workflows' => ! Storage::disk('local')->exists('fixture-legacy-mode'), 'image_workflow_versions' => [1]]);
             }
             if (str_ends_with($url, '/chat/limits')) {
-                return Http::response(['contract_version' => 1, 'included' => true]);
+                return Http::response(['contract_version' => 1, 'included' => true, 'image_credits_charged' => false]);
             }
             if (str_ends_with($url, '/chat/completions')) {
                 $messages = $request['messages'];

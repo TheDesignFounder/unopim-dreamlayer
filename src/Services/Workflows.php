@@ -2,6 +2,7 @@
 
 namespace DreamLayer\UnoPIM\Services;
 
+use DreamLayer\UnoPIM\Compatibility\ImageContext;
 use DreamLayer\UnoPIM\Jobs\RunWorkflow;
 use DreamLayer\UnoPIM\Models\Batch;
 use DreamLayer\UnoPIM\Models\Settings;
@@ -10,27 +11,33 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Webkul\AiAgent\Chat\ChatContext;
 use Webkul\Product\Models\Product;
 
 /** Admits a durable preview request; catalog writes belong to ProductImages::apply(). */
 class Workflows
 {
-    public function recover(ChatContext $context): ?Workflow
+    public function recover(object $context): ?Workflow
     {
         abort_unless($context->hasPermission('catalog.products.edit'), 403);
 
         return Workflow::where('user_id', $context->user->id)->where('conversation_id', $context->conversationId)->where('request_id', $context->requestId)->first();
     }
 
-    public function start(ChatContext $context, array $input, bool $generate, bool $dispatch = true): Workflow
+    public function start(object $context, array $input, bool $generate, bool $dispatch = true): Workflow
     {
+        $context = ImageContext::from($context);
         abort_unless($context->hasPermission('catalog.products.edit'), 403);
-        abort_unless(Str::isUuid($context->requestId) && preg_match('/^[A-Za-z0-9_-]{1,64}$/', $context->conversationId ?? ''), 422, 'Chat request identity is required.');
+        abort_unless(Str::isUuid($context->requestId) && preg_match('/^[A-Za-z0-9_-]{1,64}$/', $context->conversationId ?? ''), 422, trans('dreamlayer::app.message-af468241b1'));
+        $fingerprint = hash('sha256', json_encode([$input, $context->message, $context->channel, $context->locale, $context->productId, $context->extensions]));
+        if ($existing = $this->recover($context)) {
+            abort_unless(hash_equals($existing->fingerprint, $fingerprint), 409);
+
+            return $existing;
+        }
         $selected = CatalogImages::selected($context);
         // The picker label is only display text. Resolve its encrypted token to an
         // owner-scoped catalog destination before trusting SKU, locale or channel.
-        if (! $generate && count($selected) === 1 && ! $context->hasNewImages && ! $this->recover($context)) {
+        if (count($selected) === 1 && ! $context->hasNewImages && ! $this->recover($context)) {
             $t = app(CatalogImages::class)->resolve($selected[0]['token'] ?? '', $context->user->id);
             $input['sku'] = $t['sku'];
             $input['attribute'] = $t['attribute'];
@@ -39,44 +46,59 @@ class Workflows
             $args = get_object_vars($context);
             $args['channel'] = $t['channel'];
             $args['locale'] = $t['locale'];
-            $context = new ChatContext(...$args);
+            $context = new ImageContext(...$args);
         }
         $data = Validator::make($input, [
-            'steps'               => ['required', 'array', 'min:1', 'max:2'],
-            'steps.*'             => ['array:operation,instruction'],
-            'steps.*.operation'   => ['required', 'in:text_to_image,image_to_image,background_remove'],
+            'steps' => ['required', 'array', 'min:1', 'max:2'],
+            'steps.*' => ['array:operation,instruction'],
+            'steps.*.operation' => ['required', 'in:text_to_image,image_to_image,background_remove'],
             'steps.*.instruction' => ['nullable', 'string', 'max:4000'],
-            'sku'                 => ['nullable', 'string', 'max:255'], 'attribute' => ['nullable', 'regex:/^[A-Za-z0-9_]+$/'],
-            'image_index'         => ['nullable', 'integer', 'min:0'], 'selected_result' => ['nullable', 'uuid'],
-            'aspect_ratio'        => ['nullable', 'in:1:1,3:4,4:3'],
+            'sku' => ['nullable', 'string', 'max:255'], 'attribute' => ['nullable', 'regex:/^[A-Za-z0-9_]+$/'],
+            'image_index' => ['nullable', 'integer', 'min:0'], 'selected_result' => ['nullable', 'uuid'],
+            'retry_result' => ['nullable', 'uuid'], 'upload_token' => ['nullable', 'string', 'max:8000'],
+            'aspect_ratio' => ['nullable', 'in:1:1,3:4,4:3'],
         ])->validate();
         foreach ($data['steps'] as $step) {
             abort_unless($generate ? count($data['steps']) === 1 && $step['operation'] === 'text_to_image' : $step['operation'] !== 'text_to_image', 422);
-            abort_unless($step['operation'] === 'background_remove' ? empty($step['instruction']) : filled($step['instruction'] ?? ''), 422, 'Provide executable instructions; removal is promptless.');
+            abort_unless($step['operation'] === 'background_remove' ? empty($step['instruction']) : filled($step['instruction'] ?? ''), 422, trans('dreamlayer::app.message-17de964579'));
         }
         // Identity precedes source resolution: a retry must not pick its own newer result as input.
-        $fingerprint = hash('sha256', json_encode([$data, $context->channel, $context->locale, $context->productId]));
         $identity = ['user_id' => $context->user->id, 'conversation_id' => $context->conversationId, 'request_id' => $context->requestId];
 
         return DB::transaction(function () use ($identity, $data, $context, $generate, $fingerprint, $dispatch) {
             // Settings row serializes admission and credential replacement; unique identity backs it up.
             $settings = Settings::current();
             $settings = Settings::whereKey($settings->id)->lockForUpdate()->firstOrFail();
-            abort_unless($settings->connected(), 422, 'Connect DreamLayer first.');
+            abort_unless($settings->connected(), 422, trans('dreamlayer::app.message-32322cd6fa'));
             if ($existing = Workflow::where($identity)->first()) {
                 abort_unless(hash_equals($existing->fingerprint, $fingerprint), 409);
 
                 return $existing;
             }
-            abort_if(Batch::where($identity)->exists(), 409, 'This request already owns a batch. Open its saved results.');
+            abort_if(Batch::where($identity)->exists(), 409, trans('dreamlayer::app.message-4b4cbad0d7'));
             $product = ! empty($data['sku']) ? Product::where('sku', $data['sku'])->firstOrFail() : ($context->productId ? Product::findOrFail($context->productId) : null);
             $target = $product ? app(ProductImages::class)->target($product, $data['attribute'] ?? null, $data['image_index'] ?? 0, $context->channel, $context->locale) : null;
             $source = null;
             $prior = null;
+            $reference = $context->extensions['dreamlayer']['source_reference'] ?? null;
+            if (! empty($data['retry_result'])) {
+                $prior = Workflow::whereKey($data['retry_result'])->where('user_id', $context->user->id)->where('conversation_id', $context->conversationId)->firstOrFail();
+                abort_unless($prior->terminal(), 422);
+                $reference = RetryInstruction::reference($prior);
+                if ($reference && $data['steps'][0]['operation'] === 'image_to_image') {
+                    $data['steps'][0]['instruction'] = RetryInstruction::scope($data['steps'][0]['instruction'], $reference);
+                }
+                $source = ! $generate && $prior->source_path ? Storage::disk('local')->path($prior->source_path) : null;
+            }
             if (! $generate) {
                 // Explicit new inputs outrank conversation history. Retained upload
                 // paths alone do not mean the user attached another image this turn.
-                if ($context->hasNewImages) {
+                if (! empty($data['upload_token'])) {
+                    $source = app(StudioUploads::class)->resolve($data['upload_token'], $context->user->id, $context->conversationId);
+                    $target = null;
+                } elseif (! empty($data['retry_result'])) {
+                    // Replay the original source; never silently substitute the last result.
+                } elseif ($context->hasNewImages) {
                     $source = $context->firstImagePath();
                     $root = realpath(Storage::disk('public')->path('ai-agent/images/'.$context->user->id.'/'.sha1($context->conversationId)));
                     $real = $source ? realpath($source) : false;
@@ -91,7 +113,7 @@ class Workflows
                     $prior = Workflow::where('user_id', $context->user->id)->where('conversation_id', $context->conversationId)->where('status', 'completed')->latest('created_at')->first();
                     $source = $prior ? Storage::disk('local')->path($prior->result_path) : ($product && $target ? app(ProductImages::class)->source($product, $target) : null);
                 }
-                abort_unless($source && is_file($source), 422, 'Attach or select an image.');
+                abort_unless($source && is_file($source), 422, trans('dreamlayer::app.message-3775ea16c0'));
             }
             // A result carries its destination across page navigation. Only an
             // explicit SKU/attribute overrides it; ambient page context does not.
@@ -111,10 +133,10 @@ class Workflows
                 abort_unless(Storage::disk('local')->put($sourcePath, $bytes), 500);
             }
             $workflow = Workflow::create($identity + ['id' => $id, 'fingerprint' => $fingerprint,
-                'api_url'                                  => Endpoints::api(),
-                'credential_version'                       => $settings->credential_version, 'source_path' => $sourcePath,
-                'target'                                   => $target, 'aspect_ratio' => $data['aspect_ratio'] ?? '1:1',
-                'steps'                                    => array_map(fn ($s) => ['operation' => $s['operation'], 'instruction' => $s['instruction'] ?? '', 'status' => 'pending', 'execution_id' => null, 'input_asset_id' => null], $data['steps'])]);
+                'api_url' => Endpoints::api(),
+                'credential_version' => $settings->credential_version, 'source_path' => $sourcePath,
+                'target' => $target, 'aspect_ratio' => $data['aspect_ratio'] ?? '1:1',
+                'steps' => array_map(fn ($s) => ['operation' => $s['operation'], 'instruction' => $s['instruction'] ?? '', 'user_instruction' => $context->message, 'source_reference' => $reference, 'status' => 'pending', 'execution_id' => null, 'input_asset_id' => null], $data['steps'])]);
             if ($dispatch) {
                 // Workers need the committed row and pinned source/credential version.
                 // Recovery can recreate a lost delivery without creating a new workflow.

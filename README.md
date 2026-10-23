@@ -1,156 +1,223 @@
-# DreamLayer for UnoPIM
+# DreamLayer for UnoPim
 
-Generate and edit product images from UnoPIM's Agentic PIM chat. Select a product image, describe the change, and refine the preview through follow-up messages before choosing **Apply to product**. Generating a preview does not change the catalog.
+Create and refine product images inside UnoPim. Select images, describe a change, review the previews, then choose what to save. Follow-up edits use the previous result. DreamLayer handles image model selection; UnoPim keeps the product records and permissions.
 
-**Version 0.2.16 — compatibility prerelease for pilots.** This version integrates with UnoPIM's merged chat extension hooks and optional saved history. The supported source baseline is UnoPIM `3.x` commit `1abbb5bfa393f62b7d3d8496a3afea2a93df4084` (October 19, 2026). This is a development-branch baseline, not a claim that every published UnoPIM 3.x release includes these hooks. See [compatibility and upgrades](docs/CORE_PATCH.md).
+**Free extension, requires paid DreamLayer credits.** **Release 0.5.5.** See the [release notes](docs/RELEASE_NOTES_0_5_5.md) for validation and known limitations.
 
-DreamLayer enables saved database chat history by default. This affects all chat providers on the host. Set `DREAMLAYER_PERSIST_CHAT_HISTORY=false` to leave UnoPIM's history setting unchanged.
+0.5.5 fixes **Try again** after a multi-product request. It restores the user's
+message without internal image-routing text, keeps the selected original source,
+and preserves per-image instructions when the retry is submitted. Older saved
+conversations use their retained original message; older unsaved jobs fall back
+to the cleaned processing instruction when the original wording is unavailable.
 
-Validation details and the distinction between local API fixtures and live provider testing are recorded in [release verification](docs/VERIFICATION_0_2_16.md).
+0.5.4 compacts chat result cards: completed images no longer repeat a status,
+Copy, feedback, or channel/locale rows. The catalog preview details and Apply
+reminder share one paragraph without the size-limit clause. Apply now follows
+the editor's enabled state even when settings change while History is open.
+Processing, failure, product destinations, reviewed-byte checks, original
+image downloads, Refine, and Try again remain available as appropriate.
 
-## Requirements
+0.5.3 fixes chat-assisted refinement after a referenced batch. Rewrites preserve
+only the references in the current message; if the assistant adds or drops a
+reference, the editor uses the user's original instruction. Catalog previews
+are fitted in the delivery worker before a new result is marked complete, with
+faster PNG compression. Existing reviewed previews and original downloads remain
+available, and Apply still checks the exact reviewed bytes.
 
-- UnoPIM at the supported source baseline above, with its native chat hooks. Older or customized installations need the [compatibility review](docs/CORE_PATCH.md) before upgrading.
-- PHP 8.4.1 or later, Laravel 13 and the GD extension.
-- Private writable local storage shared by the web application and queue workers. Storage must support atomic file renames.
-- UnoPIM's database queue tables, a supervised queue worker and the Laravel scheduler.
-- Access to a DreamLayer account or API key issued by the configured DreamLayer environment. English (`en_US`) is the initial supported locale.
+0.5.2 added inline image references to the standalone editor. Type **@** and choose
+a product image to insert a highlighted `@Asset-1` reference at the cursor. The
+thumbnail labels identify its product. Mention one attached image to edit only
+that image, or mention multiple images to create separate previews. Without
+inline references, the request uses all attached images.
 
-## Older UnoPIM installations
+The saved multi-product history fix from 0.5.1 is retained: each request restores
+its result cards in selection order, including older saved conversations. No data migration or image regeneration is required.
 
-Check [the supported core revision](docs/CORE_PATCH.md) before installing. Hosts
-without the required hooks cannot boot this extension. Upgrade and validate the
-host first; the extension does not silently install or modify core hooks.
+## Compatibility
+
+The image editor works independently of UnoPim's AI Agent and native chat hooks. The underlying image workflows were tested on released UnoPim **0.1.0, 1.0.1, 2.1.6 and 3.1.3** for 0.3.0. The 0.5.0 chat workspace is browser-tested on **3.1.3**; older-version UI acceptance remains pending. See the [compatibility matrix](docs/COMPATIBILITY.md) for the exact tests and limits. This is not a claim that every intermediate or future release has been tested.
+
+No core patch or host dependency upgrade is needed. Composer retains the host's Laravel and AI SDK versions. The optional native chat bridge appears only when the required extension registries are present. It is off by default; the standalone image editor remains available without it.
+
+Requirements:
+
+- PHP and Laravel versions required by your UnoPim release; PHP 8.2+ and GD for this extension.
+- Writable private local storage shared between the web application and workers, with atomic rename support.
+- A configured asynchronous Laravel queue connection and a supervised worker.
+- A DreamLayer account or API key with image credits.
+
+Old UnoPim releases can contain outdated dependencies. Compatibility testing does not replace the host's security updates.
 
 ## Install
 
-**Windows:** follow [the WSL 2 and Docker guide](docs/WINDOWS_INSTALL.md), including
-PowerShell setup, Ubuntu paths and the dedicated worker. Windows execution is
-not yet verified; the completed manual acceptance used macOS and Docker.
+**Setting up DreamLayer? Start here.** Whatever your setup process—installing it yourself, working with an internal team, agency or implementation partner, using a coding assistant, or automating deployment—follow the [recommended setup guide](docs/INSTALLER_GUIDE.md). It explains the benefits of chat assistance, saved editor conversations and native UnoPim chat integration, and helps you enable the features that match your business or client's requirements.
 
-Apply [the two required UnoPIM dependency updates](docs/HOST_PREREQUISITE.md)
-before installing the extension. The automated checks use this exact baseline.
+Using AI to help with installation? The same guide applies to:
 
-Run these commands from a compatible UnoPIM application directory with PHP and
-Composer available. For Docker, use the container commands in the Windows/WSL
-guide (the same Linux-container paths apply on macOS). Back up an existing host
-and database before installing.
+- **Coding assistants:** OpenAI Codex, Claude Code, Cursor, GitHub Copilot, Gemini CLI, Cline, OpenHands and other coding tools.
+- **Agents powered by open-weight models:** for example, [Qwen3-Coder](https://github.com/QwenLM/Qwen3-Coder), [DeepSeek-V3.2](https://huggingface.co/deepseek-ai/DeepSeek-V3.2) or [Mistral Devstral 2](https://mistral.ai/news/devstral-2-vibe-cli/), running through a coding tool with access to your installation.
 
-From the UnoPIM project root, install the tagged extension into the host's shared tree:
+Download the distribution ZIP from the [0.5.5 release](https://github.com/TheDesignFounder/unopim-dreamlayer/releases/tag/0.5.5). Extract it to `packages/DreamLayer/unopim-dreamlayer` in your UnoPim application. Do not copy test fixtures into the host. From the application directory:
 
 ```sh
-mkdir -p packages/DreamLayer
-git clone --branch 0.2.16 --depth 1 https://github.com/TheDesignFounder/unopim-dreamlayer.git packages/DreamLayer/unopim-dreamlayer
-```
-
-**Do not apply a bundled core patch to the supported merged UnoPIM baseline.** The hooks are already included. After installing the host's locked dependencies, check the required capabilities and register the package:
-
-```sh
-php packages/DreamLayer/unopim-dreamlayer/tools/check-host.php
 composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
-composer require dreamlayer/unopim-dreamlayer:0.2.16
+composer require dreamlayer/unopim-dreamlayer:0.5.5 --prefer-dist
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```
 
-The capability check reads host classes without modifying them. It is not a substitute for the supported-version requirement or the checks on your own installation. If it reports missing hooks, follow [compatibility and upgrades](docs/CORE_PATCH.md); do not force an old patch into a newer host.
+Review Composer's proposed operations: installing DreamLayer should not update or replace existing host dependencies. Do not use `--ignore-platform-reqs` or change UnoPim's dependency constraints to force installation. The package explicitly requires the `unopim/unopim` root project; see [host prerequisites](docs/HOST_PREREQUISITE.md) for why it does not require a nonexistent `unopim/core` package.
 
-This installation uses the public Git repository and a Composer path repository;
-Packagist or a marketplace listing is not required.
+Laravel discovers the provider automatically. If required product APIs are unavailable, the provider logs a warning and leaves its routes and features disabled so UnoPim can continue starting.
 
-Laravel discovers the extension automatically. No manual service-provider registration is needed.
+Choose an existing asynchronous queue connection in `.env`, for example:
 
-Run this worker under your process supervisor:
+```dotenv
+DREAMLAYER_QUEUE_CONNECTION=database
+DREAMLAYER_QUEUE=dreamlayer
+DREAMLAYER_WORKFLOW_TIMEOUT=1800
+```
+
+Run this under your process supervisor, using the same connection name:
 
 ```sh
-php artisan queue:work dreamlayer --queue=dreamlayer --sleep=1 --timeout=110 --tries=0
+php artisan queue:work database --queue=dreamlayer --sleep=1 --timeout=110 --tries=500
 ```
 
-The supervisor must restart the worker after **any exit**, including exit code 0
-after a lost database connection. For Docker Compose, set `restart: unless-stopped`
-on the queue and scheduler services. For Supervisor, use `autorestart=true`.
-An `on-failure` policy is insufficient for a clean worker exit. Database startup
-health checks do not restart a worker that stops later.
+Set the queue connection's `retry_after` above the worker timeout, and supervise it with automatic restarts. The extension does not replace the host's queue configuration. Jobs have a finite retry deadline and use short database leases; network requests run outside row-lock transactions.
 
-The result card distinguishes queued work from processing. If its saved progress
-has not updated for two minutes, it reports a delay and keeps the same request.
-Check worker logs and restart the worker; do not submit a replacement image request.
-The recovery schedule only adds missing queue deliveries. Existing queued or
-reserved jobs remain available to the worker after it restarts.
+Schedule `php artisan dreamlayer:recover` through your existing scheduler to prune expired temporary image uploads and recover deliveries. It restores missing queue deliveries with their original identifiers. `--resume-expired` explicitly resumes expired work; `--verify-deliveries` repairs missing preview files. Neither command applies images to products.
 
-Add the recovery task to UnoPIM's `routes/console.php`:
+## Connect
 
-```php
-\Illuminate\Support\Facades\Schedule::command('dreamlayer:recover')
-    ->everyMinute()
-    ->withoutOverlapping();
-```
+Open **DreamLayer** in the admin menu. Enter an API key and enable image tools. Keys are validated and encrypted in UnoPim; retain your application's `APP_KEY`.
 
-Keep the normal Laravel scheduler running. Restart the relevant web and queue processes after installation or configuration changes. Verify that `php artisan schedule:list` includes `dreamlayer:recover`.
+For account connection, set `DREAMLAYER_CONNECTIONS_ENABLED=true` and clear the configuration cache. Use a persistent cache driver such as `file`, `database` or `redis`; the `array` driver cannot retain connection codes between requests. In **Connect DreamLayer**, choose whether to enable chat assistance. Leave it off for image access only, or turn it on and acknowledge the data-sharing information. Then choose **Get connection code** and approve the installation in DreamLayer.
 
-**DreamLayer** should now appear in the admin menu. Give the appropriate roles access to DreamLayer settings, saved image results and product editing.
+To add chat to an existing account connection, turn on chat assistance in the connection section, acknowledge the disclosure, and choose **Reconnect DreamLayer**. Approve the new code. The old connection remains usable until the new one is saved, then the extension revokes it. Chat turns on only when the approved credential has chat permission and the server confirms that chat uses no image credits. A denied or unavailable chat grant is shown explicitly. History saving stays a separate setting. Account connection does not change UnoPim's default AI provider.
 
-## Connect an account
+Chat assistance, saving editor conversations, and the optional native chat bridge are separate choices, all **off by default**. Chat assistance requires explicit acknowledgement of the data disclosure. Upgrade from 0.2.x disables the old managed-chat setting until an administrator makes that choice again.
 
-When the DreamLayer connection API is available in your environment, set `DREAMLAYER_CONNECTIONS_ENABLED=true` in UnoPIM's server configuration.
+For the complete supported experience, recommend enabling these options during customer setup:
 
-1. Open **DreamLayer** in UnoPIM. A connection code appears automatically. It stays valid for the displayed countdown; a new code appears when it expires. **Generate new code** replaces it immediately.
-2. Choose **Open DreamLayer**, sign in or create an account, enter the matching code, and approve the installation. **Chat & Images** is the default.
-3. Choose **Return to UnoPIM**. The chip stays **Not Connected** until approval is detected, then shows **Waiting for connection** while the connection finishes. Returning to an existing code checks approval as soon as its current polling deadline allows, without restarting the countdown. The page updates to show your connected account and available credits.
-4. Choose **Open chat**. If UnoPIM chat is disabled, administrators with configuration access can choose **Enable and open chat**. This enables the chat interface without sending a message or enabling automatic enrichment.
+- **Chat assistance, included at no extra charge:** make follow-up edits easier to describe by using recent editor messages to clarify the next instruction. It uses no image credits and is subject to your account's usage limits.
+- **Saved editor conversations:** reopen, rename and bookmark your encrypted conversations in UnoPim.
+- **Native chat integration:** access DreamLayer image tools from UnoPim's existing chat on compatible hosts.
 
-**Account settings** lets you switch to **Images only** to keep another chat provider, pause DreamLayer tools, manage billing, connect another account, or disconnect. Manual keys and local connection recovery are in their own advanced sections.
+The [installer guide](docs/INSTALLER_GUIDE.md) maps these benefits to customer requirements and explains how to configure the approved choices through Settings.
 
-Manual API-key setup is also available in account settings. Keys are validated and encrypted in UnoPIM; preserve the application's `APP_KEY` so saved credentials remain readable. Reconnecting replaces the installation credential and attempts to revoke the previous installation. A cleanup failure appears as a notice. Manually created API keys are managed separately on DreamLayer's API-key page.
+Generating and editing images use paid DreamLayer credits; see [current pricing](https://dreamlayer.io/pricing). If you use UnoPim's native chat, its existing conversation provider retains its own billing.
+
+Give users the appropriate **My image results** permissions, including the editor, image browsing, previews and Apply. Product-edit permission is also required. Restrict connection and settings permissions to administrators.
 
 ## Use it
 
-1. Open Agentic PIM chat and click **Select Product Image**, or type `@`.
-2. Search by product name or SKU. Choose an image using its thumbnail and preview; arrow keys and Enter also work.
-3. Describe the edit using the inserted product-name reference, such as `Change the background of @Sample Serum to pale peach. Keep the bottle and label unchanged.`
-4. Wait for the preview. Open it to inspect or download the result.
-5. Choose **Apply to product** to save the image to the displayed product and destination. If the product image changed while the preview was running, create a new preview before applying.
+1. Open **My image results → Open image editor**.
+2. Type **@**, use **Add product images**, or use the + button. Search by name or SKU and select up to five product images when supported by the connected backend.
+3. Describe the change and choose **Create preview**. You can edit, remove a background, or generate a new image.
+4. Review each result. Choose **Refine this image** to continue from that preview, or select another catalog image.
+5. Choose **Apply to product** on the result you want. Each image has its own approval. Apply checks ownership, permissions and whether the destination changed, then fires UnoPim's normal product-update events.
 
-References display product names. Duplicate selected names receive a suffix such as `(2)` to distinguish them. Choose images through the picker; typing or pasting a product name alone does not attach its image.
+If a result exceeds the destination attribute’s upload limit, the result card displays a catalog preview fitted to that limit and identifies its dimensions. **Apply to product** saves those exact reviewed bytes. **Download original PNG** retains the full-resolution image; further refinement also uses that original. The extension does not increase the host upload limit.
 
-When the backend supports it, select up to **five images** and apply one shared instruction separately to each. Each image has its own preview, progress and Apply action. A single image can receive up to two sequential edit steps when workflow support is available. Completed outputs remain downloadable if a later step fails.
+A generated image without a selected product can be downloaded but has no catalog destination. Closing the editor does not stop queued image work. Saved previews are available in **My image results**; opening a new conversation does not restore unsaved conversation messages.
 
-Choose the chat setup that suits your installation:
+## Privacy and data handling
 
-- **DreamLayer – Chat & Images:** DreamLayer provides chat and image processing. Its single internal chat model is selected automatically.
-- **DreamLayer – Images only:** use your separately configured UnoPIM chat provider for conversations while DreamLayer handles image tools. Other providers retain their model selector.
+| Feature | Data sent to DreamLayer |
+| --- | --- |
+| Image editing | Selected source image or previous preview, editing instruction, requested dimensions/aspect ratio, and request identifiers. |
+| Optional chat assistance | The current message and recent conversation supplied in this editor, used to clarify an editing instruction. |
+| Account connection | Installation identifier, application/store name and this installation's settings URL. |
+| API calls | Access credential and the request identifiers required to authenticate and deduplicate work. |
 
-Included DreamLayer chat does not deduct image credits. Image generation and editing use image credits; each sequential edit step is charged separately. Availability and limits depend on the configured backend.
+DreamLayer and its processing providers receive the data needed to run those requests. The extension does not upload the entire catalog or send product text for similarity ranking. Native UnoPim chat continues using the provider chosen by the host administrator. Its provider may receive the product context and tool results that UnoPim normally shares with that provider.
 
-Open **My image results** to find saved previews, download outputs and apply completed results. Closing the browser does not stop queued image work. Applying a result does not generate another image.
+UnoPim stores source copies, private previews, editing instructions, product destinations and workflow records for recovery and explicit Apply. Full editor messages are stored encrypted only if **Save this editor's conversation history** is enabled. Turning it off stops new message storage; it does not erase existing records. Database backups contain those records. Conversation-history records can be removed by the host administrator according to the store's retention policy; workflow records and image files should be retained while jobs are active.
 
-## Configure the environment
+The extension never enables history for other providers. Image previews are served through authenticated, owner-scoped routes. API credentials are not included in public image requests or logs. See [DreamLayer's website](https://dreamlayer.io) for current service information and obtain the applicable data-processing terms before enabling the service.
 
-DreamLayer enables UnoPIM's optional database chat history so conversations and result cards can be reopened. This setting applies to the host's AI chat, including other providers. Set `DREAMLAYER_PERSIST_CHAT_HISTORY=false` to leave the core history setting unchanged; core database history is off by default. Browser storage remains available when database history is disabled. After changing environment settings, clear Laravel's configuration cache. Existing saved conversations are retained when persistence is disabled.
+## Configuration and upgrades
 
-The default endpoints are `https://api.dreamlayer.io/v1` and `https://platform.dreamlayer.io`. If an existing installation explicitly sets `DREAMLAYER_PLATFORM_URL=https://dreamlayer.io`, update that override to `https://platform.dreamlayer.io` and clear Laravel's configuration cache. The console origin must match the connection URL returned by the selected API. For another independently deployed environment, set:
+Default endpoints are `https://api.dreamlayer.io/v1` and `https://platform.dreamlayer.io`. Operators can configure `DREAMLAYER_API_URL` and `DREAMLAYER_PLATFORM_URL` for another environment. Use its credentials, clear configuration caches and restart workers. Existing jobs stay pinned to their original endpoint and credential version.
 
-```dotenv
-DREAMLAYER_API_URL=https://your-api.example/v1
-DREAMLAYER_PLATFORM_URL=https://your-account.example
-```
+Use a shared cache with atomic-lock support for multiple replicas. Private image storage must be shared with workers. Apply respects the host's image upload limits. Back up an existing installation before running migrations.
 
-Use credentials from that environment. Finish active work before switching endpoints, then replace the credential and restart workers. For local development only, `DREAMLAYER_ALLOW_LOCAL_HTTP=true` permits loopback or `host.docker.internal` endpoints when `APP_ENV` is `local` or `testing`.
+## Review material
 
-For multiple web replicas, use a shared cache with atomic-lock support and shared private storage. Local file cache is suitable only when the processes share its storage. Set an appropriate product image upload limit: generated PNGs can exceed UnoPIM's default 2 MB. Apply respects the configured limit.
+- [Compatibility and validation](docs/COMPATIBILITY.md)
+- [Marketplace review response](docs/MARKETPLACE_REVIEW.md)
+- [Listing draft](docs/MARKETPLACE_LISTING.md)
+- [Translation review](docs/TRANSLATIONS.md)
+- [Final acceptance checklist](docs/ACCEPTANCE_TEST.md)
+- [Current editor review media](docs/REVIEW_MEDIA.md)
+- [Operations](docs/OPERATIONS.md)
+- [API contract](docs/API_CONTRACT_V1.md)
 
-## Developer documentation
+## DreamLayer conversations
 
-- [Reviewer guide](docs/REVIEWING.md): request flow, design decisions, trust boundaries and test map.
-- [New-user and reconnect/revoke test](NEW_USER_TEST.md)
-- [Fresh installation test](docs/FRESH_INSTALL_TEST.md): installation, connection and chat acceptance for this candidate.
+Open **DreamLayer** from the floating button on any authorized admin screen.
+The compact chat stays available during UnoPim navigation. **Expand editor**
+opens the same conversation in a larger workspace; there is no canvas. Use
+**Add product images** (or the + button), choose up to five product images, and
+then describe an edit. Every preview keeps its own product destination and
+requires **Apply to product** before changing the catalog.
 
-- [Core extension hooks](docs/CORE_PATCH.md): integration points and compatibility.
-- [API contract](docs/API_CONTRACT_V1.md): supported operations and capability negotiation.
-- [Operating and verifying the integration](docs/OPERATIONS.md): execution, history, storage, recovery and isolated tests.
-- [Managed chat and multiple-image editing](docs/EXPERIENCE_0_2.md): detailed behavior and request contracts.
-- [Backend setup](docs/BACKEND_SETUP.md): service-side prerequisites.
+**History** contains **Chats**, **Bookmarks**, and **Images**. With saved history
+enabled, conversations and their titles are encrypted in the UnoPim database
+and can be reopened, renamed, bookmarked, or deleted by their owner. Turning
+history off stops saving new messages and leaves existing saved chats available.
+The active tab keeps temporary conversations and drafts in session storage so
+full page navigation can restore them; closing the tab ends that temporary
+session (browser session restoration may restore the tab). Logout clears it.
+Image job records and previews remain separate from saved conversation messages.
+Deleting a chat retains its image results and catalog images.
 
-## License
+The standalone DreamLayer chat works independently of UnoPim’s selected chat
+provider. The optional native chat bridge remains available only when the host
+exposes its integration hooks. See [acceptance checks](docs/ACCEPTANCE_TEST.md).
 
-[MIT](LICENSE), matching UnoPIM. The compatibility patch retains Webkul’s copyright notice.
+
+### Image chat controls
+
+- Type **@** to select catalog images by name or SKU; add the current product from the picker when working on its product page.
+- Upload, paste or drop one PNG, JPEG or WebP image (up to 20 MB and 40 megapixels). Uploaded images have no product destination. Use catalog selection to edit up to five products together.
+- Use **Image tasks** or the task selector for editing, background removal and generation.
+- Open a result at full size, copy your instruction, or record helpful/not-helpful feedback locally.
+- **Try again** restores the original source and instruction for review in the composer. It creates a new paid preview only after you choose **Create preview**. **Refine this image** instead starts from the selected result.
+- Scroll through earlier messages without being pulled to the bottom. **Latest messages** returns to the newest result.
+
+Files attached through the chat remain private in UnoPim until a preview request
+sends the selected file to DreamLayer. Unused uploads expire after 24 hours;
+`dreamlayer:recover` removes expired files. Accepted jobs keep a separate private
+source copy for recovery. Configure PHP and reverse-proxy upload limits to allow
+the advertised 20 MB maximum. Feedback is stored with the owner’s workflow in
+UnoPim and is not a promise of model training or external feedback delivery.
+
+Image editing, chat assistance and saving history remain independent settings.
+With editing off, new previews and uploads are blocked; existing saved results
+can still be reviewed and downloaded. With assistance off, the image instruction
+is used without a conversation rewrite. With history off, no new full message
+records are saved; temporary tab state and necessary image job records still
+exist. Existing history remains available. Settings changes are refreshed by
+an open chat within 15 seconds and validated immediately by the server.
+
+The standalone assistant supports image work, not general product/category CRUD,
+imports, exports, or changing UnoPim’s selected text provider. It does not require
+permission to configure UnoPim’s AI Agent. Administrators can grant the editor,
+catalog browsing, preview and product-edit permissions without settings access.
+Upload, feedback, history management and Apply each have their own permissions.
+Existing custom roles need the new upload/feedback grants if those actions are
+wanted; upgrades never silently expand a role.
+
+### Execution timing
+
+New single-image requests use the direct managed-execution API when the connected
+backend advertises it. Multi-product requests submit independent executions, so
+one slow product does not block dispatch of the others. Backends without direct
+execution keep the workflow API. Already accepted requests retain their original
+API path and identifiers; upgrades do not resubmit them or charge for duplicates.
+Ready local preparation checkpoints proceed immediately. Processing polls retain
+a bounded interval. Result cards show elapsed time; worker logs record stage
+latency and identifiers without recording credentials, prompts or image URLs.
+Provider runtime and worker startup still affect total duration.

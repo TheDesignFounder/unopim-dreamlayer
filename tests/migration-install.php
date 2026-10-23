@@ -50,16 +50,16 @@ function fixture(bool $withEndpoint): array
 {
     $id = (string) Str::uuid();
     DB::table('dreamlayer_settings')->insert([
-        'id'                 => 1, 'enabled' => true, 'credential' => encrypt('fixture-only-not-a-live-key'),
+        'id' => 1, 'enabled' => true, 'credential' => encrypt('fixture-only-not-a-live-key'),
         'credential_version' => (string) Str::uuid(), 'installation_id' => (string) Str::uuid(),
-        'connection_id'      => 'preserve-this-installation', 'created_at' => now(), 'updated_at' => now(),
+        'connection_id' => 'preserve-this-installation', 'created_at' => now(), 'updated_at' => now(),
     ]);
     $workflow = [
-        'id'                 => $id, 'user_id' => 1, 'conversation_id' => 'migration-fixture',
-        'request_id'         => (string) Str::uuid(), 'fingerprint' => str_repeat('a', 64),
+        'id' => $id, 'user_id' => 1, 'conversation_id' => 'migration-fixture',
+        'request_id' => (string) Str::uuid(), 'fingerprint' => str_repeat('a', 64),
         'credential_version' => (string) Str::uuid(), 'status' => 'completed',
-        'steps'              => '[]', 'result_path' => 'preserve-result.png', 'target' => '{"product_id":42}',
-        'created_at'         => now(), 'updated_at' => now(),
+        'steps' => '[]', 'result_path' => 'preserve-result.png', 'target' => '{"product_id":42}',
+        'created_at' => now(), 'updated_at' => now(),
     ];
     if ($withEndpoint) {
         $workflow['api_url'] = 'https://preserve-api.example/v1';
@@ -138,6 +138,29 @@ isolated('repair adds a missing column without assigning a new backend to old wo
     check(array_key_exists('api_url', $after[1]) && $after[1]['api_url'] === null, 'Repair assigned an endpoint to old work.');
     unset($after[1]['api_url']);
     check($after === $before, 'Repair changed unrelated saved values.');
+});
+
+isolated('0.2.16 upgrade preserves credentials and results and requires new privacy choices', function () use ($path, $files) {
+    $legacy = array_values(array_filter($files, fn ($file) => ! str_starts_with(basename($file), '2026_10_22_')));
+    migrate($legacy);
+    fixture(true);
+    DB::table('dreamlayer_settings')->update(['managed_chat' => true]);
+    $before = snapshot();
+    migrate([$path]);
+    $after = snapshot();
+    foreach (['credential', 'credential_version', 'connection_id', 'enabled'] as $key) {
+        check($before[0][$key] === $after[0][$key], 'Upgrade changed '.$key);
+    }
+    check(! $after[0]['managed_chat'] && ! $after[0]['save_chat_history'] && ! $after[0]['native_chat_enabled'], 'Upgrade kept broad chat defaults');
+    foreach ($before[1] as $key => $value) {
+        check($after[1][$key] === $value, 'Upgrade changed saved workflow '.$key);
+    }
+    check(Schema::hasTable('dreamlayer_editor_history') && Schema::hasTable('dreamlayer_editor_requests'), 'Missing editor tables');
+    migrate([$path], 'migrate:rollback');
+    check(! Schema::hasTable('dreamlayer_editor_requests'), 'Rollback left request receipts');
+    check(snapshot()[1] === $before[1], 'Rollback damaged the existing workflow');
+    check(snapshot()[0]['credential'] === $before[0]['credential'], 'Rollback changed the credential');
+    migrate([$path]);
 });
 
 echo "All migration scenarios passed. No provider calls were made.\n";

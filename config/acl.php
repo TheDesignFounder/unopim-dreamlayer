@@ -1,3 +1,31 @@
 <?php
 
-return [['key' => 'dreamlayer_results', 'name' => 'dreamlayer::app.results', 'route' => 'dreamlayer.results', 'sort' => 9, 'icon' => 'icon-dreamlayer'], ['key' => 'dreamlayer', 'name' => 'dreamlayer::app.settings', 'route' => 'dreamlayer.settings', 'sort' => 8]];
+return [
+    ['key' => 'dreamlayer', 'name' => 'dreamlayer::app.settings', 'route' => 'dreamlayer.settings', 'sort' => 8],
+    ['key' => 'dreamlayer_results', 'name' => 'dreamlayer::app.results', 'route' => 'dreamlayer.results', 'sort' => 9],
+    ['key' => 'dreamlayer_results.studio_open', 'name' => 'dreamlayer::studio.open-studio', 'route' => 'dreamlayer.studio', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_config', 'name' => 'dreamlayer::studio.open-studio', 'route' => 'dreamlayer.studio.config', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_threads', 'name' => 'dreamlayer::studio.history', 'route' => 'dreamlayer.studio.threads', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_images', 'name' => 'dreamlayer::studio.images', 'route' => 'dreamlayer.studio.images', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_thread', 'name' => 'dreamlayer::studio.history', 'route' => 'dreamlayer.studio.thread', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_update', 'name' => 'dreamlayer::studio.manage-history', 'route' => 'dreamlayer.studio.update', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_delete', 'name' => 'dreamlayer::studio.manage-history', 'route' => 'dreamlayer.studio.delete', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_upload', 'name' => 'dreamlayer::studio.upload-image', 'route' => 'dreamlayer.studio.upload', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_upload_image', 'name' => 'dreamlayer::studio.view-image', 'route' => 'dreamlayer.studio.upload.image', 'sort' => 2],
+    ['key' => 'dreamlayer_results.feedback', 'name' => 'dreamlayer::studio.helpful', 'route' => 'dreamlayer.feedback', 'sort' => 2],
+    ['key' => 'dreamlayer_results.editor_send', 'name' => 'dreamlayer::app.acl-editor-send', 'route' => 'dreamlayer.editor.send', 'sort' => 2],
+    ['key' => 'dreamlayer_results.choose', 'name' => 'dreamlayer::app.acl-choose', 'route' => 'dreamlayer.choose', 'sort' => 3],
+    ['key' => 'dreamlayer_results.catalog_options', 'name' => 'dreamlayer::app.acl-catalog-options', 'route' => 'dreamlayer.catalog.options', 'sort' => 4],
+    ['key' => 'dreamlayer_results.catalog', 'name' => 'dreamlayer::app.acl-catalog', 'route' => 'dreamlayer.catalog', 'sort' => 5],
+    ['key' => 'dreamlayer_results.catalog_image', 'name' => 'dreamlayer::app.acl-catalog-image', 'route' => 'dreamlayer.catalog.image', 'sort' => 6],
+    ['key' => 'dreamlayer.settings_status', 'name' => 'dreamlayer::app.acl-settings-status', 'route' => 'dreamlayer.settings.status', 'sort' => 8],
+    ['key' => 'dreamlayer.settings_save', 'name' => 'dreamlayer::app.acl-settings-save', 'route' => 'dreamlayer.settings.save', 'sort' => 9],
+    ['key' => 'dreamlayer.chat_open', 'name' => 'dreamlayer::app.acl-chat-open', 'route' => 'dreamlayer.chat.open', 'sort' => 10],
+    ['key' => 'dreamlayer.connect', 'name' => 'dreamlayer::app.acl-connect', 'route' => 'dreamlayer.connect', 'sort' => 11],
+    ['key' => 'dreamlayer.connect_poll', 'name' => 'dreamlayer::app.acl-connect-poll', 'route' => 'dreamlayer.connect.poll', 'sort' => 12],
+    ['key' => 'dreamlayer.disconnect', 'name' => 'dreamlayer::app.acl-disconnect', 'route' => 'dreamlayer.disconnect', 'sort' => 13],
+    ['key' => 'dreamlayer_results.batch', 'name' => 'dreamlayer::app.acl-batch', 'route' => 'dreamlayer.batch', 'sort' => 14],
+    ['key' => 'dreamlayer_results.workflow', 'name' => 'dreamlayer::app.acl-workflow', 'route' => 'dreamlayer.workflow', 'sort' => 16],
+    ['key' => 'dreamlayer_results.image', 'name' => 'dreamlayer::app.acl-image', 'route' => 'dreamlayer.image', 'sort' => 17],
+    ['key' => 'dreamlayer_results.apply', 'name' => 'dreamlayer::app.acl-apply', 'route' => 'dreamlayer.apply', 'sort' => 18],
+];

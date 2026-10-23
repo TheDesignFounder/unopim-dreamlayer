@@ -1,12 +1,12 @@
 <?php
 
+use DreamLayer\UnoPIM\Compatibility\ImageContext as ChatContext;
 use DreamLayer\UnoPIM\Jobs\RunBatch;
 use DreamLayer\UnoPIM\Jobs\RunWorkflow;
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Models\Workflow;
 use DreamLayer\UnoPIM\Services\Batches;
 use DreamLayer\UnoPIM\Services\CatalogImages;
-use DreamLayer\UnoPIM\Services\ManagedChat;
 use DreamLayer\UnoPIM\Services\ProductImages;
 use DreamLayer\UnoPIM\Services\Workflows;
 use Illuminate\Support\Facades\Http;
@@ -16,7 +16,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
-use Webkul\AiAgent\Chat\ChatContext;
 use Webkul\Attribute\Models\Attribute;
 use Webkul\Attribute\Models\AttributeFamily;
 use Webkul\MagicAI\Models\MagicAIPlatform;
@@ -238,7 +237,7 @@ final class ExperienceTest extends TestCase
     {
         [$p, $a, $selected] = $this->gallery();
         $workflow = app(Workflows::class)->start($this->context([$selected[0]]), $this->input(), false);
-        $this->getJson(route('dreamlayer.results', ['q' => 'Blue serum']))->assertOk()->assertJsonPath('workflows.0.id', $workflow->id);
+        $this->getJson(route('dreamlayer.results', ['q' => $p->sku]))->assertOk()->assertJsonPath('workflows.0.id', $workflow->id);
         $this->getJson(route('dreamlayer.results', ['q' => $p->sku]))->assertOk()->assertJsonCount(1, 'workflows');
         $this->getJson(route('dreamlayer.results', ['q' => 'absent-result']))->assertOk()->assertJsonCount(0, 'workflows');
     }
@@ -250,29 +249,5 @@ final class ExperienceTest extends TestCase
         $args['extensions'] = ['dreamlayer' => ['images' => 'invalid']];
         $this->expectException(ValidationException::class);
         app(Workflows::class)->start(new ChatContext(...$args), $this->input(), false);
-    }
-
-    public function test_chat_headers_reuse_same_identity_when_stream_transport_changes(): void
-    {
-        $chat = new ManagedChat;
-        $chat->turn = (string) Str::uuid();
-        $a = $chat->headers(json_encode(['messages' => [['role' => 'user', 'content' => 'hello']], 'stream' => true]));
-        $b = $chat->headers(json_encode(['stream' => false, 'messages' => [['role' => 'user', 'content' => 'hello']]]));
-        $this->assertSame($a, $b);
-    }
-
-    public function test_chat_replay_keeps_identity_when_journal_skips_nested_model_call(): void
-    {
-        $first = new ManagedChat;
-        $retry = new ManagedChat;
-        $first->turn = $retry->turn = (string) Str::uuid();
-        $outer = json_encode(['messages' => [['role' => 'user', 'content' => 'Summarize catalog']]]);
-        $nested = json_encode(['messages' => [['role' => 'user', 'content' => 'Describe selected image']]]);
-        $final = json_encode(['messages' => [['role' => 'tool', 'content' => 'Saved tool result']]]);
-        $this->assertSame($first->headers($outer), $retry->headers($outer));
-        $nestedIdentity = $first->headers($nested);
-        $completedIdentity = $first->headers($final);
-        $this->assertSame($completedIdentity, $retry->headers($final));
-        $this->assertNotSame($nestedIdentity, $completedIdentity);
     }
 }
