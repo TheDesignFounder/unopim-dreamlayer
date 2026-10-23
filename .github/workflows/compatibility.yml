@@ -67,6 +67,18 @@ jobs:
           COMPOSER_ROOT_VERSION: ${{ matrix.tag }}
         run: |
           cp .env.example .env
+          # The host installer reads .env directly when --skip-env-check is set.
+          # Keep its database values in sync with the disposable CI service.
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path('.env')
+          values = path.read_text().splitlines()
+          keys = ('DB_CONNECTION', 'DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD', 'ELASTICSEARCH_ENABLED')
+          values = [line for line in values if line.split('=', 1)[0] not in keys]
+          values.extend(f'{key}={os.environ[key]}' for key in keys)
+          path.write_text('\n'.join(values) + '\n')
+          PY
           composer install --prefer-dist --no-interaction --no-progress
           cp composer.lock /tmp/host-lock.json
           php artisan key:generate --no-interaction
