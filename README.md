@@ -2,11 +2,11 @@
 
 Create and refine product images inside UnoPim. Select images, describe a change, review the previews, then choose what to save. Follow-up edits use the previous result. DreamLayer handles image model selection; UnoPim keeps the product records and permissions.
 
-**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.3.0** candidate. It has not been submitted, merged or deployed.
+**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.4.0** candidate. It has not been submitted, merged or deployed.
 
 ## Compatibility
 
-The image editor works independently of UnoPim's AI Agent and native chat hooks. Installation and image workflow checks have passed on released UnoPim **0.1.0, 1.0.1, 2.1.6 and 3.1.3**. See the [compatibility matrix](docs/COMPATIBILITY.md) for the exact tests and limits. This is not a claim that every intermediate or future release has been tested.
+The image editor works independently of UnoPim's AI Agent and native chat hooks. The underlying image workflows were tested on released UnoPim **0.1.0, 1.0.1, 2.1.6 and 3.1.3** for 0.3.0. The new 0.4.0 chat workspace is browser-tested on **3.1.3**; older-version UI acceptance remains pending. See the [compatibility matrix](docs/COMPATIBILITY.md) for the exact tests and limits. This is not a claim that every intermediate or future release has been tested.
 
 No core patch or host dependency upgrade is needed. Composer retains the host's Laravel and AI SDK versions. The optional native chat bridge appears only when the required extension registries are present. It is off by default; the standalone image editor remains available without it.
 
@@ -32,7 +32,7 @@ For this unpublished candidate, use the reviewed distribution ZIP supplied along
 
 ```sh
 composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
-composer require dreamlayer/unopim-dreamlayer:0.3.0 --prefer-dist
+composer require dreamlayer/unopim-dreamlayer:0.4.0 --prefer-dist
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```
@@ -72,7 +72,7 @@ Chat assistance, saving editor conversations, and the optional native chat bridg
 For the complete supported experience, recommend enabling these options during customer setup:
 
 - **Chat assistance, included at no extra charge:** make follow-up edits easier to describe by using recent editor messages to clarify the next instruction. It uses no image credits and is subject to your account's usage limits.
-- **Saved editor conversations:** keep an encrypted message record in UnoPim for administrator review and troubleshooting.
+- **Saved editor conversations:** reopen, rename and bookmark your encrypted conversations in UnoPim.
 - **Native chat integration:** access DreamLayer image tools from UnoPim's existing chat on compatible hosts.
 
 The [installer guide](docs/INSTALLER_GUIDE.md) maps these benefits to customer requirements and explains how to configure the approved choices through Settings.
@@ -122,3 +122,26 @@ Use a shared cache with atomic-lock support for multiple replicas. Private image
 - [Current editor review media](docs/REVIEW_MEDIA.md)
 - [Operations](docs/OPERATIONS.md)
 - [API contract](docs/API_CONTRACT_V1.md)
+
+## DreamLayer conversations
+
+Open **DreamLayer** from the floating button on any authorized admin screen.
+The compact chat stays available during UnoPim navigation. **Expand editor**
+opens the same conversation in a larger workspace; there is no canvas. Use
+**Add product images** (or the + button), choose up to five product images, and
+then describe an edit. Every preview keeps its own product destination and
+requires **Apply to product** before changing the catalog.
+
+**History** contains **Chats**, **Bookmarks**, and **Images**. With saved history
+enabled, conversations and their titles are encrypted in the UnoPim database
+and can be reopened, renamed, bookmarked, or deleted by their owner. Turning
+history off stops saving new messages and leaves existing saved chats available.
+The active tab keeps temporary conversations and drafts in session storage so
+full page navigation can restore them; closing the tab ends that temporary
+session (browser session restoration may restore the tab). Logout clears it.
+Image job records and previews remain separate from saved conversation messages.
+Deleting a chat retains its image results and catalog images.
+
+The standalone DreamLayer chat works independently of UnoPim’s selected chat
+provider. The optional native chat bridge remains available only when the host
+exposes its integration hooks. See [acceptance checks](docs/ACCEPTANCE_TEST.md).

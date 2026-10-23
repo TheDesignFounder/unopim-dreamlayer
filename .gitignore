@@ -7,3 +7,5 @@
 
 /tools/translation-cache/
 /tools/__pycache__/
+
+/qa/

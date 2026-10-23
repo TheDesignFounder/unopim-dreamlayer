@@ -1,24 +1,24 @@
 # DreamLayer AI for UnoPim — listing draft
 
-Status: prepared for review of the unpublished 0.3.0 candidate. Do not publish this version number until its release tag exists.
+Status: prepared for review of the unpublished 0.4.0 candidate. Do not publish this version number until its release tag exists.
 
 | Field | Value |
 | --- | --- |
 | Extension name | DreamLayer AI for UnoPim |
-| Extension version | 0.3.0 (candidate; no tag published) |
-| Supported UnoPim versions | 0.1.0, 1.0.1, 2.1.6, 3.1.3 — see validation notes |
+| Extension version | 0.4.0 (candidate; no tag published) |
+| Supported UnoPim versions | 3.1.3 workspace validation; older host workflow results are historical — see compatibility matrix |
 | Pricing | Free extension, requires paid DreamLayer credits |
 | Developer | DreamLayer AI |
 | Developer profile | https://dreamlayer.io/ |
 | Integration page | https://dreamlayer.io/integrations/unopim |
 | User guide | https://github.com/TheDesignFounder/unopim-dreamlayer#use-it |
 | Installation guide | https://github.com/TheDesignFounder/unopim-dreamlayer#install |
-| Video demo | Attached `DreamLayer-UnoPim-0.3.0-editor-demo.mp4` — current standalone editor workflow demonstration; see media disclosure |
+| Video demo | Attached `DreamLayer-UnoPim-0.3.0-editor-demo.mp4` — historical interface only; replace with a 0.4.0 recording before submission |
 | Support label | DreamLayer Support |
 | Support link | https://github.com/TheDesignFounder/unopim-dreamlayer/issues |
 | Developer email | mackenzie@dreamlayer.io |
 | Created | 2026-10-13 |
-| Last updated | 2026-10-22 |
+| Last updated | 2026-10-23 |
 | SEO title | DreamLayer AI for UnoPim — Create and Refine Product Images |
 | Meta description | Create and refine product images in UnoPim with DreamLayer AI. Preview each result, keep refining it, and choose what to save to your catalog. |
 | Excerpt | Refine product images through conversation, review separate previews, and save the versions you choose. |
@@ -41,4 +41,4 @@ The extension does not upload the whole catalog, switch the host's default AI pr
 
 ## Listing assets and review notes
 
-Use the approved DreamLayer logo and current editor screenshots supplied in the review bundle. The attached MP4 shows the new editor using replayed image results; see [media details](REVIEW_MEDIA.md). The final acceptance recording can replace it before public publication. The linked guides still describe the public release until this branch is published; submit the candidate ZIP and current README to reviewers together. Do not claim an untested compatibility version or represent an unpublished tag as available.
+Use the approved DreamLayer logo and current editor screenshots supplied in the review bundle. The older MP4 shows the previous editor using replayed image results; see [media details](REVIEW_MEDIA.md). The final acceptance recording can replace it before public publication. The linked guides still describe the public release until this branch is published; submit the candidate ZIP and current README to reviewers together. Do not claim an untested compatibility version or represent an unpublished tag as available.

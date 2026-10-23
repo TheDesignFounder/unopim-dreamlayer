@@ -78,6 +78,7 @@ class WorkflowController extends Controller
         $damaged = $images->damaged($w);
 
         return response()->json(['id' => $w->id, 'status' => $w->status,
+            'references' => ['request-id' => $w->request_id, 'workflow-id' => $w->id, 'upstream-id' => $w->upstream_workflow_id, 'execution-ids' => implode(', ', array_filter(array_merge([$w->upstream_execution_id], array_column($w->progress ?? [], 'execution_id'))))],
             'phase' => $w->phase(),
             'error_code' => $w->error_code,
             'billing_url' => $w->status === 'failed' && $w->error_code === 402 ? config('dreamlayer.billing_url') : null,

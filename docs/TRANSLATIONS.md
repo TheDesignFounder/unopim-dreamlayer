@@ -41,3 +41,11 @@ It sends only public UI labels, never credentials or customer data. Its cache
 predates the reviewed corrections: do not overwrite reviewed files with cached
 drafts without a new language review. Translation caches and tools are excluded
 from distribution.
+
+## Studio update — 2026-10-23
+
+The new studio uses a separate `studio.php` dictionary. Its English copy follows
+the new side chat, History drawer and product picker. Other locales receive
+automatic draft translations of these new labels and the two updated history
+explanations. Existing reviewed translations are preserved. These additions
+need native-speaker review before claiming language certification.

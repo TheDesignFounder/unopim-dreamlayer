@@ -47,7 +47,7 @@ there is no need to ask for them again.
 | --- | --- | --- |
 | **Enable image editing** | Create product images, change backgrounds, refine previews and choose exactly what is saved to each product. DreamLayer handles image model selection. | The customer is installing DreamLayer to work on product images. |
 | **Enable DreamLayer chat assistance** | Included at no extra charge, within your account's usage limits. Make follow-up instructions easier to express: DreamLayer uses recent messages from the editor to clarify references such as “use the lighting I described earlier.” | The customer wants conversation-aware image refinement and has approved sharing the editor conversation with DreamLayer. |
-| **Save this editor's conversation history** | Keep an encrypted record of editor messages in the customer's UnoPim database for administrator review and troubleshooting. | The customer wants a retained message record and has approved that storage. |
+| **Save this editor's conversation history** | Save encrypted conversations in the customer's UnoPim database so each editor can reopen, rename, bookmark and delete their own chats from DreamLayer History. | The customer wants a retained message record and has approved that storage. |
 | **Use DreamLayer image tools in UnoPim chat** | Work with DreamLayer images from the UnoPim chat interface the team already uses, with its existing conversation provider. | The customer wants this interface and the installed UnoPim host exposes the required chat hooks. |
 
 **Chat assistance is included.** It uses no image credits, and the editor needs
@@ -105,8 +105,7 @@ is for configuring an approved installation, not changing default values in
 migrations or bypassing account, capability or consent checks.
 
 Chat assistance interprets image-editing instructions using the current editor
-conversation. Saved history provides an encrypted message record for
-administrator review. Native chat uses the host's existing provider and history
+conversation. Saved history provides encrypted conversations that their owner can reopen from DreamLayer History. Temporary conversations and drafts remain in the active browser tab across navigation; logout clears that tab state. Native chat uses the host's existing provider and history
 settings. Describe each setting in those terms.
 
 ## Verify and hand over

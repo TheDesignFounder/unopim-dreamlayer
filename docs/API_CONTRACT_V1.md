@@ -60,3 +60,8 @@ The v1 wire contract is unchanged. Installation credentials remain limited to im
 ## Additions in 0.2.0
 
 The API remains version 1. The batch, included-chat/embedding, account profile and explicit chat-consent contracts are documented in [EXPERIENCE_0_2.md](EXPERIENCE_0_2.md). Missing new capabilities preserve the old image/manual-key path. Existing installation keys retain their image-only scope.
+
+An optional public `steps[].execution_id` on workflow status responses identifies
+the execution shown in the owner’s API Usage ledger. Older servers may omit it.
+The extension displays available execution references under **Request details**;
+it does not infer a billing match from a different workflow or request ID.

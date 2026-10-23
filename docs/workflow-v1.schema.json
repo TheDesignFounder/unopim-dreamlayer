@@ -149,6 +149,19 @@
             }
           ],
           "default": null
+        },
+        "execution_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Id"
         }
       },
       "required": [

@@ -23,6 +23,7 @@ class EditorController extends Controller
     {
         $data = $request->validated();
         $settings = Settings::current();
+        app(\DreamLayer\UnoPIM\Services\EditorHistory::class)->assertAvailable(auth()->guard('admin')->id(), $data['conversation_id']);
         abort_unless($settings->connected(), 422, trans('dreamlayer::app.connect-first'));
         abort_if(! empty($data['selected_result']) && count($data['images']), 422, trans('dreamlayer::app.choose-source'));
         $context = new ImageContext(
@@ -92,12 +93,9 @@ class EditorController extends Controller
             $result = ['batch_id' => null, 'workflow_ids' => [$workflow->id]];
         }
         $reply = trans('dreamlayer::app.preview-queued');
-        if ($settings->save_chat_history) {
-            DB::table('dreamlayer_editor_history')->updateOrInsert(
-                ['user_id' => $context->user->id, 'conversation_id' => $context->conversationId, 'request_id' => $context->requestId],
-                ['messages' => Crypt::encryptString(json_encode([['role' => 'user', 'content' => $data['message']], ['role' => 'assistant', 'content' => $reply]])), 'created_at' => now(), 'updated_at' => now()],
-            );
-        }
+        app(\DreamLayer\UnoPIM\Services\EditorHistory::class)->record(
+            $context->user->id, $context->conversationId, $context->requestId, $data['message'], $reply,
+        );
 
         $response = $result + ['reply' => $reply];
         DB::table('dreamlayer_editor_requests')->where($identity)->update(['result' => json_encode($response), 'updated_at' => now()]);

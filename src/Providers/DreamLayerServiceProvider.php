@@ -46,6 +46,7 @@ class DreamLayerServiceProvider extends ServiceProvider
             }
         });
         Event::listen('unopim.admin.layout.head', fn ($manager) => $manager->addTemplate('dreamlayer::navigation-icons'));
+        Event::listen('unopim.admin.layout.body.after', fn ($manager) => $manager->addTemplate('dreamlayer::studio.launcher'));
         if (HostSupport::nativeChat()) {
             $this->nativeChat();
         }

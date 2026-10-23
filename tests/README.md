@@ -59,19 +59,23 @@ requires `APP_ENV=testing` and `DREAMLAYER_BROWSER_FIXTURES=true`; the queue wor
 also needs `DREAMLAYER_BROWSER_WORKER=true`. It blocks unhandled requests and
 returns synthetic image results. Never register it in a deployed host.
 
-After `compatibility.php` has created the local test administrator/product,
-serve that host and run an asynchronous worker, then:
+After `compatibility.php` has created the disposable administrator and image attribute,
+run `UNOPIM_HOST_ROOT=/path/to/host php tests/fixtures/studio-seed.php`.
+This guarded fixture creates two synthetic products and enables saved chat on
+the disposable database. Serve that host and run an asynchronous worker, then:
 
 ```sh
 PLAYWRIGHT_MODULE=/path/to/playwright \
 DREAMLAYER_BROWSER_URL=http://127.0.0.1:8190 \
 DREAMLAYER_BROWSER_EVIDENCE=/tmp/dreamlayer-browser \
-node /path/to/extension/tests/fixtures/browser-portable-editor.cjs
+node /path/to/extension/tests/fixtures/browser-studio.cjs
 ```
 
 This uses only the disposable administrator defined in the fixture. It verifies
-loaded previews, explicit Apply, follow-up images, native selectors, narrow
-layout and dark rendering. Screenshots contain synthetic fixtures, not examples
+scalar operation selection, loaded previews, explicit Apply, follow-up images,
+navigation persistence, saved threads, bookmarks, rename/delete, download-only
+generation, narrow layout and dark rendering. Each run creates its own thread
+and signs in using the disposable fixture; no browser profile is required. Screenshots contain synthetic fixtures, not examples
 of AI image quality. Older native-chat browser harnesses are development-only
 and do not establish portable-editor acceptance.
 

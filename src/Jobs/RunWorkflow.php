@@ -144,7 +144,8 @@ class RunWorkflow implements ShouldQueue
                         throw new \RuntimeException('Invalid progress');
                     }
 
-                    return ['description' => $s['description'], 'status' => $s['status']];
+                    return ['description' => $s['description'], 'status' => $s['status'],
+                        'execution_id' => \Illuminate\Support\Str::isUuid($s['execution_id'] ?? '') ? $s['execution_id'] : null];
                 }, $remote['steps']);
                 if (count($progress) < 1 || count($progress) > 2) {
                     throw new \RuntimeException('Invalid step count');

@@ -1,3 +1,7 @@
+# 0.4.0 review addendum
+
+The report below records the earlier 0.3.0 checks. This candidate adds the DreamLayer side chat, expanded workspace, saved-thread drawer, and native task selector. New workspace acceptance is documented in `ACCEPTANCE_TEST.md`; the old host-matrix evidence does not certify the new UI on older releases. The 0.4.0 regression run passed 150 PHP tests (874 assertions, 15 skips) and the fixture browser suite; real-account acceptance remains a separate run. No public release or deployment has been made.
+
 # Marketplace review response — local 0.3.0 candidate
 
 Prepared 2026-10-22 in response to the review of 0.2.16 at `de488f3`.

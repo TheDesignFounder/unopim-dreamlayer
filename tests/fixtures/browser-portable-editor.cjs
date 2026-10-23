@@ -1,16 +1,2 @@
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const fs=require('node:fs');
-(async()=>{
- const base=process.env.DREAMLAYER_BROWSER_URL||'http://127.0.0.1:8190',out=process.env.DREAMLAYER_BROWSER_EVIDENCE||'/tmp/dreamlayer-browser';fs.mkdirSync(out,{recursive:true});
- const browser=await chromium.launch({headless:true});const ctx=await browser.newContext({viewport:{width:1440,height:1100}});const p=await ctx.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));p.setDefaultTimeout(90000);
- await p.goto(base+'/admin/login',{waitUntil:'domcontentloaded'});await p.locator('[name=email]').fill('marketplace-test@example.test');await p.locator('[name=password]').fill('Local-Test-2026');await p.getByRole('button',{name:'Sign In',exact:true}).click();await p.waitForURL('**/admin/dashboard');
- await p.goto(base+'/admin/dreamlayer/choose',{waitUntil:'domcontentloaded'});await p.getByText('Edit image',{exact:true}).waitFor();await p.locator('.dl-image-choice').first().click();await p.locator('textarea[name=message]').fill('Give this image a plain blue background');
- const response=p.waitForResponse(r=>r.url().endsWith('/editor/messages')&&r.request().method()==='POST');await p.getByRole('button',{name:'Create preview',exact:true}).click();const r=await response;if(!r.ok())throw Error('Editor response '+r.status()+': '+await r.text());
- await p.getByRole('button',{name:'Apply to product',exact:true}).last().waitFor({timeout:180000});await p.waitForFunction(()=>[...document.querySelectorAll('.dl-workflow img')].some(i=>i.complete&&i.naturalWidth>0&&i.getBoundingClientRect().height>0));await p.screenshot({path:out+'/editor-preview-light.png',fullPage:true});
- await p.getByRole('button',{name:'Apply to product',exact:true}).last().click();await p.getByRole('button',{name:'Applied to product',exact:true}).last().waitFor();console.log('PASS preview and explicit Apply');
- await p.getByRole('button',{name:'Refine this image',exact:true}).last().click();await p.locator('textarea[name=message]').fill('Now make the background white');await p.getByRole('button',{name:'Create preview',exact:true}).click();await p.waitForFunction(()=>document.querySelectorAll('.dl-workflow img').length>=2,null,{timeout:180000});console.log('PASS follow-up image refinement');
- await p.setViewportSize({width:390,height:844});await p.screenshot({path:out+'/editor-mobile.png',fullPage:true});if(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2))throw Error('Horizontal overflow');
- await ctx.addCookies([{name:'dark_mode',value:'dark',url:base}]);await p.setViewportSize({width:1440,height:1100});await p.goto(base+'/admin/dreamlayer/workflows',{waitUntil:'domcontentloaded'});await p.getByRole('button',{name:'Review preview',exact:true}).first().waitFor();await p.screenshot({path:out+'/results-dark.png',fullPage:true});
- await p.goto(base+'/admin/dreamlayer/settings',{waitUntil:'domcontentloaded'});await p.getByText('What data is shared',{exact:true}).waitFor();await p.screenshot({path:out+'/settings-dark.png',fullPage:true});
- if(errors.length)throw Error(errors.join('\n'));console.log('PASS settings, saved results, narrow layout and dark theme');await browser.close();
-})().catch(e=>{console.error(e);process.exit(1)});
+// Kept as a compatibility entry point for local review runners.
+require('./browser-studio.cjs');

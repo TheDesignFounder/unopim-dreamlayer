@@ -1,8 +1,10 @@
-# Current editor review media
+# Editor review media
 
-The 0.3.0 review bundle contains screenshots and an MP4 recorded from the
+The 0.4.0 review handoff includes current light/dark and mobile screenshots. Its isolated browser runs use synthetic provider responses; these are interface and workflow checks, not evidence of live generation quality or billing. A current real-account recording is still needed before publication.
+
+The historical 0.3.0 review bundle contains screenshots and an MP4 recorded from the
 standalone DreamLayer editor inside the released UnoPim 3.1.3 admin interface.
-They replace the older native Agentic PIM chat demonstration for this candidate.
+They describe the previous interface and should not be used as a demonstration of the 0.4.0 workspace.
 
 The sequence shows selecting a catalog image, creating a blue-background preview,
 refining the previous result into a parking scene, and explicitly applying a

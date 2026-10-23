@@ -3,6 +3,13 @@
 return [
     ['key' => 'dreamlayer', 'name' => 'dreamlayer::app.settings', 'route' => 'dreamlayer.settings', 'sort' => 8],
     ['key' => 'dreamlayer_results', 'name' => 'dreamlayer::app.results', 'route' => 'dreamlayer.results', 'sort' => 9],
+    ['key' => 'dreamlayer_results.studio_open', 'name' => 'dreamlayer::studio.open-studio', 'route' => 'dreamlayer.studio', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_config', 'name' => 'dreamlayer::studio.open-studio', 'route' => 'dreamlayer.studio.config', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_threads', 'name' => 'dreamlayer::studio.history', 'route' => 'dreamlayer.studio.threads', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_images', 'name' => 'dreamlayer::studio.images', 'route' => 'dreamlayer.studio.images', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_thread', 'name' => 'dreamlayer::studio.history', 'route' => 'dreamlayer.studio.thread', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_update', 'name' => 'dreamlayer::studio.manage-history', 'route' => 'dreamlayer.studio.update', 'sort' => 2],
+    ['key' => 'dreamlayer_results.studio_delete', 'name' => 'dreamlayer::studio.manage-history', 'route' => 'dreamlayer.studio.delete', 'sort' => 2],
     ['key' => 'dreamlayer_results.editor_send', 'name' => 'dreamlayer::app.acl-editor-send', 'route' => 'dreamlayer.editor.send', 'sort' => 2],
     ['key' => 'dreamlayer_results.choose', 'name' => 'dreamlayer::app.acl-choose', 'route' => 'dreamlayer.choose', 'sort' => 3],
     ['key' => 'dreamlayer_results.catalog_options', 'name' => 'dreamlayer::app.acl-catalog-options', 'route' => 'dreamlayer.catalog.options', 'sort' => 4],

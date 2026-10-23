@@ -34,3 +34,15 @@ foreach ($files as $file) {
     }
 }
 echo 'PASS: '.count($files).' locales, '.count($english)." matching keys and placeholders\n";
+
+$studio = require $root.'/en_US/studio.php';
+foreach (glob($root.'/*/studio.php') as $file) {
+    $map = require $file;
+    if (array_keys($map) !== array_keys($studio)) throw new RuntimeException('Studio key mismatch: '.$file);
+    foreach ($studio as $key => $source) {
+        preg_match_all('/:(?:count|name|time|status)\\b/', $source, $expected);
+        preg_match_all('/:(?:count|name|time|status)\\b/', $map[$key], $actual);
+        if (! is_string($map[$key]) || trim($map[$key]) === '' || preg_match('/ZZPH|DLITEM/i', $map[$key]) || $expected[0] !== $actual[0]) throw new RuntimeException('Invalid studio translation: '.$file.' '.$key);
+    }
+}
+echo 'PASS: studio dictionaries, '.count($studio)." keys with preserved placeholders\n";
