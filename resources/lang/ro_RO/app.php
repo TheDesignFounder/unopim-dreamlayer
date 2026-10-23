@@ -29,6 +29,8 @@ return [
     'failed' => 'Lucrarea cu imaginea nu s-a putut termina',
     'applied' => 'Aplicat produsului',
     'editor' => 'Editor de imagini DreamLayer',
+    'open-editor' => 'Deschideți editorul de imagini',
+    'editor-entry-setup' => 'Conectați DreamLayer și activați editarea imaginilor mai jos pentru a deschide editorul.',
     'editor-help' => 'Selectați imaginile produselor, descrieți o modificare și rafinați rezultatele. Examinați fiecare previzualizare înainte de a o salva în catalog.',
     'catalog' => 'Imagini de produs',
     'conversation' => 'Conversație imagine',

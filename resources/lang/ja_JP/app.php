@@ -29,6 +29,8 @@ return [
     'failed' => '画像作業を完了できませんでした',
     'applied' => '製品に適用',
     'editor' => 'DreamLayer 画像エディター',
+    'open-editor' => '画像エディタを開く',
+    'editor-entry-setup' => 'エディターを開くには、以下でDreamLayerを接続し、画像編集を有効にしてください。',
     'editor-help' => '製品画像を選択し、変更を説明し、結果を絞り込みます。カタログに保存する前に、各プレビューを確認してください。',
     'catalog' => '商品画像',
     'conversation' => 'イメージ会話',

@@ -29,6 +29,8 @@ return [
     'failed' => 'Công việc hình ảnh không thể hoàn thành',
     'applied' => 'Áp dụng cho sản phẩm',
     'editor' => 'Trình chỉnh sửa hình ảnh DreamLayer',
+    'open-editor' => 'Mở trình chỉnh sửa ảnh',
+    'editor-entry-setup' => 'Kết nối DreamLayer và bật chỉnh sửa hình ảnh bên dưới để mở trình chỉnh sửa.',
     'editor-help' => 'Chọn hình ảnh sản phẩm, mô tả sự thay đổi và tinh chỉnh kết quả. Xem lại từng bản xem trước trước khi lưu vào danh mục của bạn.',
     'catalog' => 'Hình ảnh sản phẩm',
     'conversation' => 'Hình ảnh hội thoại',

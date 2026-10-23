@@ -29,6 +29,8 @@ return [
     'failed' => 'Bildarbeit konnte nicht abgeschlossen werden',
     'applied' => 'Wird auf das Produkt angewendet',
     'editor' => 'DreamLayer Bildeditor',
+    'open-editor' => 'Bildeditor öffnen',
+    'editor-entry-setup' => 'Verbinden Sie DreamLayer und aktivieren Sie unten die Bildbearbeitung, um den Editor zu öffnen.',
     'editor-help' => 'Wählen Sie Produktbilder aus, beschreiben Sie eine Änderung und verfeinern Sie die Ergebnisse. Überprüfen Sie jede Vorschau, bevor Sie sie in Ihrem Katalog speichern.',
     'catalog' => 'Produktbilder',
     'conversation' => 'Bildkonversation',

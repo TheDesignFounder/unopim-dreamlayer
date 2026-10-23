@@ -29,6 +29,8 @@ return [
     'failed' => 'Görüntü çalışması tamamlanamadı',
     'applied' => 'Ürüne uygulandı',
     'editor' => 'DreamLayer resim düzenleyici',
+    'open-editor' => 'Resim düzenleyiciyi aç',
+    'editor-entry-setup' => 'Düzenleyiciyi açmak için aşağıdan DreamLayer bağlantısını kurun ve görsel düzenlemeyi etkinleştirin.',
     'editor-help' => 'Ürün görsellerini seçin, bir değişikliği tanımlayın ve sonuçları iyileştirin. Kataloğunuza kaydetmeden önce her önizlemeyi inceleyin.',
     'catalog' => 'Ürün resimleri',
     'conversation' => 'Görüntü konuşması',

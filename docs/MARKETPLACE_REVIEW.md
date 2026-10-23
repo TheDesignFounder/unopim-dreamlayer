@@ -15,7 +15,7 @@ been made. Marketplace approval remains UnoPim's decision.
 | Data disclosure | Settings, README and listing explain image/instruction transfer, optional messages, account metadata, credentials, local storage and processing providers. | Browser rendering and regression checks cover the settings controls and disclosure. |
 | No core patches | Removed `patches/`, `LEGACY_CORE_PATCH.md`, patch attribution and dependency-change installation instructions. | Released hosts use their original packages and locks; ZIP exclusions are enforced by the builder. |
 | Product update events | Apply fires `catalog.product.update.before` and `.after` around the normal repository write, with explicit ownership/permission/conflict checks. | Both events fire once; repeated Apply is idempotent; a preview alone leaves the catalog unchanged. |
-| Translations | UI/controller messages and ACL labels use translation keys; all 33 locales are supplied. | 230 matching keys and preserved placeholders per locale. AI-assisted review corrected untranslated labels and misleading Apply/background-removal wording; native-speaker certification is not claimed. |
+| Translations | UI/controller messages and ACL labels use translation keys; all 33 locales are supplied. | 232 matching keys and preserved placeholders per locale. AI-assisted review corrected untranslated labels and misleading Apply/background-removal wording; native-speaker certification is not claimed. |
 | Packaging | `.gitattributes` and Composer archive rules exclude tests, tools, CI, patches and `NEW_USER_TEST.md`. Installation uses a distribution ZIP plus Composer. | Deterministic ZIP builder checks excluded paths; the extracted package is tested independently. |
 
 ## Recommended changes

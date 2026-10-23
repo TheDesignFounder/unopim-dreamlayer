@@ -29,6 +29,8 @@ return [
     'failed' => 'Billedarbejde kunne ikke afsluttes',
     'applied' => 'Anvendt på produkt',
     'editor' => 'DreamLayer billededitor',
+    'open-editor' => 'Åbn billedredigering',
+    'editor-entry-setup' => 'Forbind DreamLayer, og slå billedredigering til nedenfor for at åbne editoren.',
     'editor-help' => 'Vælg produktbilleder, beskriv en ændring og forfin resultaterne. Gennemgå hver forhåndsvisning, før du gemmer den i dit katalog.',
     'catalog' => 'Produktbilleder',
     'conversation' => 'Billedsamtale',

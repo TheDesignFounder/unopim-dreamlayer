@@ -29,6 +29,8 @@ return [
     'failed' => '이미지 작업을 완료할 수 없습니다.',
     'applied' => '적용제품',
     'editor' => 'DreamLayer 이미지 편집기',
+    'open-editor' => '이미지 편집기 열기',
+    'editor-entry-setup' => '편집기를 열려면 아래에서 DreamLayer를 연결하고 이미지 편집을 활성화하세요.',
     'editor-help' => '제품 이미지를 선택하고 변경 사항을 설명하고 결과를 구체화합니다. 카탈로그에 저장하기 전에 각 미리보기를 검토하세요.',
     'catalog' => '제품 이미지',
     'conversation' => '이미지 대화',

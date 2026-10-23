@@ -29,6 +29,8 @@ return [
     'failed' => 'Pekerjaan gambar tidak dapat diselesaikan',
     'applied' => 'Diterapkan pada produk',
     'editor' => 'Editor gambar DreamLayer',
+    'open-editor' => 'Buka editor gambar',
+    'editor-entry-setup' => 'Hubungkan DreamLayer dan aktifkan pengeditan gambar di bawah untuk membuka editor.',
     'editor-help' => 'Pilih gambar produk, jelaskan perubahannya, dan sempurnakan hasilnya. Tinjau setiap pratinjau sebelum menyimpannya ke katalog Anda.',
     'catalog' => 'Gambar produk',
     'conversation' => 'Percakapan gambar',

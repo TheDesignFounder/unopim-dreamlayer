@@ -29,6 +29,8 @@ return [
     'failed' => 'Nie można ukończyć pracy nad obrazem',
     'applied' => 'Zastosowano do produktu',
     'editor' => 'Edytor obrazów DreamLayer',
+    'open-editor' => 'Otwórz edytor obrazów',
+    'editor-entry-setup' => 'Połącz DreamLayer i włącz poniżej edycję obrazów, aby otworzyć edytor.',
     'editor-help' => 'Wybierz zdjęcia produktów, opisz zmianę i doprecyzuj wyniki. Przejrzyj każdy podgląd przed zapisaniem go w katalogu.',
     'catalog' => 'Zdjęcia produktów',
     'conversation' => 'Rozmowa obrazowa',

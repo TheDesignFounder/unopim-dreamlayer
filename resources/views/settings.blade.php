@@ -2,12 +2,21 @@
     <x-slot:title>@lang('dreamlayer::app.ui-df37e16ca0')</x-slot>
     @include('dreamlayer::styles')
     <div class="dl-page dl-settings dl-stack text-gray-800 dark:text-gray-200">
-        <div class="dl-heading"><h1>@lang('dreamlayer::app.ui-df37e16ca0')</h1><a class="secondary-button" href="{{ route('dreamlayer.choose') }}">@lang('dreamlayer::app.editor')</a></div>
+        <h1>@lang('dreamlayer::app.ui-df37e16ca0')</h1>
         @foreach($errors->all() as $error)<p class="dl-error" role="alert">{{ $error }}</p>@endforeach
         @if($connectionNotice)<p class="dl-notice" role="status">{{ $connectionNotice }}</p>@endif
         <p>@lang('dreamlayer::app.settings-help')</p>
         <p><strong>@lang('dreamlayer::app.connection-status'):</strong> {{ trans('dreamlayer::app.connection-'.$connectionState['status']) }}</p>
         @if($connectionState['balances'])<p>@lang('dreamlayer::app.available-credits'): {{ $connectionState['balances']['available'] ?? '—' }}</p>@endif
+        <section class="dl-editor-entry" aria-labelledby="dl-editor-entry-title">
+            <h2 id="dl-editor-entry-title">@lang('dreamlayer::app.editor')</h2>
+            <p class="dl-muted">@lang('dreamlayer::app.editor-help')</p>
+            @if($settings->connected())
+                <a class="dl-link" href="{{ route('dreamlayer.choose') }}">@lang('dreamlayer::app.open-editor')</a>
+            @else
+                <p class="dl-muted">@lang('dreamlayer::app.editor-entry-setup')</p>
+            @endif
+        </section>
         @if(config('dreamlayer.connections_enabled'))<section class="dl-section"><h2>@lang('dreamlayer::app.connect')</h2><v-dreamlayer-connect :connected="@json((bool) $settings->credential)"></v-dreamlayer-connect></section>@endif
         @if(view()->exists('admin::components.form.unsaved-changes'))
             @include('admin::components.form.unsaved-changes')

@@ -83,7 +83,7 @@ Give users the appropriate **My image results** permissions, including the edito
 
 ## Use it
 
-1. Open **My image results → DreamLayer image editor**.
+1. Open **My image results → Open image editor**.
 2. Search by SKU and select a product image. Select up to five images when the backend supports image workflows.
 3. Describe the change and choose **Create preview**. You can edit, remove a background, or generate a new image.
 4. Review each result. Choose **Refine this image** to continue from that preview, or select another catalog image.

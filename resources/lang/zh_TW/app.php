@@ -29,6 +29,8 @@ return [
     'failed' => '影像工作無法完成',
     'applied' => '應用於產品',
     'editor' => 'DreamLayer 影像編輯器',
+    'open-editor' => '開啟影像編輯器',
+    'editor-entry-setup' => '請在下方連接 DreamLayer 並啟用圖片編輯，以開啟編輯器。',
     'editor-help' => '選擇產品影像，描述變更並最佳化結果。在將每個預覽儲存到目錄之前，請先查看它。',
     'catalog' => '產品圖片',
     'conversation' => '影像對話',

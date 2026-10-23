@@ -29,6 +29,8 @@ return [
     'failed' => 'El treball d\'imatge no ha pogut acabar',
     'applied' => 'Aplicat al producte',
     'editor' => 'Editor d\'imatges DreamLayer',
+    'open-editor' => 'Obre l\'editor d\'imatges',
+    'editor-entry-setup' => 'Connecteu DreamLayer i activeu l’edició d’imatges a continuació per obrir l’editor.',
     'editor-help' => 'Seleccioneu imatges de productes, descriu un canvi i perfeccioneu els resultats. Reviseu cada vista prèvia abans de desar-la al vostre catàleg.',
     'catalog' => 'Imatges del producte',
     'conversation' => 'Conversa d\'imatge',

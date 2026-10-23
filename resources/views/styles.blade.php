@@ -10,6 +10,8 @@
 /* Contain the host's absolutely positioned, visually hidden form inputs.
    Otherwise they can extend the document beyond the scrolling admin panel. */
 .dl-settings{position:relative}
+.dl-editor-entry{display:grid;gap:8px;padding:16px 0;border-block:1px solid var(--dl-border)}
+.dl-editor-entry .dl-link{justify-self:start;display:inline-flex;align-items:center;min-height:36px;font-size:14px;font-weight:500}
 /* The host teleports its save bar outside the scrolling panel. Leave room for
    it here so the final settings remain reachable when the form is dirty. */
 .unsaved-bar-open .dl-settings{padding-bottom:108px}

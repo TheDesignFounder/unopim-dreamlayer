@@ -29,6 +29,8 @@ return [
     'failed' => 'Le travail sur l\'image n\'a pas pu se terminer',
     'applied' => 'Appliqué au produit',
     'editor' => 'Éditeur d’images DreamLayer',
+    'open-editor' => 'Ouvrir l\'éditeur d\'images',
+    'editor-entry-setup' => 'Connectez DreamLayer et activez la retouche d’images ci-dessous pour ouvrir l’éditeur.',
     'editor-help' => 'Sélectionnez des images de produits, décrivez une modification et affinez les résultats. Examinez chaque aperçu avant de l’enregistrer dans votre catalogue.',
     'catalog' => 'Images de produits',
     'conversation' => 'Conversation d\'images',

@@ -29,6 +29,8 @@ return [
     'failed' => 'Kuvan käsittelyä ei voitu viimeistellä',
     'applied' => 'Käytetty tuotteessa',
     'editor' => 'DreamLayer-kuvaeditori',
+    'open-editor' => 'Avaa kuvaeditori',
+    'editor-entry-setup' => 'Yhdistä DreamLayer ja ota kuvien muokkaus käyttöön alla avataksesi editorin.',
     'editor-help' => 'Valitse tuotekuvat, kuvaile muutos ja tarkenna tuloksia. Tarkista jokainen esikatselu ennen tallentamista tuoteluetteloon.',
     'catalog' => 'Tuotekuvat',
     'conversation' => 'Kuvakeskustelu',

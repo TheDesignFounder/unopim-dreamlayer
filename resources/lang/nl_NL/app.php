@@ -29,6 +29,8 @@ return [
     'failed' => 'Het beeldwerk kon niet worden voltooid',
     'applied' => 'Toegepast op product',
     'editor' => 'DreamLayer afbeeldingseditor',
+    'open-editor' => 'Afbeeldingseditor openen',
+    'editor-entry-setup' => 'Verbind DreamLayer en schakel hieronder beeldbewerking in om de editor te openen.',
     'editor-help' => 'Selecteer productafbeeldingen, beschrijf een wijziging en verfijn de resultaten. Controleer elk voorbeeld voordat u het in uw catalogus opslaat.',
     'catalog' => 'Productafbeeldingen',
     'conversation' => 'Beeldgesprek',

@@ -29,6 +29,8 @@ return [
     'failed' => 'Hindi natapos ang gawaing larawan',
     'applied' => 'Inilapat sa produkto',
     'editor' => 'Editor ng larawan ng DreamLayer',
+    'open-editor' => 'Buksan ang image editor',
+    'editor-entry-setup' => 'Ikonekta ang DreamLayer at i-enable ang pag-edit ng larawan sa ibaba upang buksan ang editor.',
     'editor-help' => 'Pumili ng mga larawan ng produkto, ilarawan ang isang pagbabago, at pinuhin ang mga resulta. Suriin ang bawat preview bago ito i-save sa iyong catalog.',
     'catalog' => 'Mga larawan ng produkto',
     'conversation' => 'Pag-uusap sa larawan',

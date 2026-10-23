@@ -2,7 +2,7 @@
 <x-slot:title>{{ trans('dreamlayer::app.results') }}</x-slot>
 @include('dreamlayer::styles')
 <div class="dl-page dl-stack text-gray-800 dark:text-gray-200">
-<div class="dl-heading" style="justify-content:space-between"><h1 class="text-xl font-semibold">@lang('dreamlayer::app.results')</h1><a class="primary-button" href="{{ route('dreamlayer.choose') }}">@lang('dreamlayer::app.editor')</a></div>
+<div class="dl-heading" style="justify-content:space-between"><h1 class="text-xl font-semibold">@lang('dreamlayer::app.results')</h1><a class="primary-button" href="{{ route('dreamlayer.choose') }}">@lang('dreamlayer::app.open-editor')</a></div>
 <p class="mb-4">@lang('dreamlayer::app.results-help')</p>
 <form method="get" class="dl-actions"><x-admin::form.control-group><x-admin::form.control-group.control type="text" name="q" :value="request('q')" :aria-label="trans('dreamlayer::app.search-sku')" :placeholder="trans('dreamlayer::app.search-sku')" /></x-admin::form.control-group><x-admin::form.control-group><x-admin::form.control-group.control type="select" name="status" :value="request('status', '')" :aria-label="trans('dreamlayer::app.result-status')" :options="json_encode(collect([''=>'all-statuses','processing'=>'status-processing','ready'=>'status-ready','applied'=>'status-applied','partial'=>'status-partial','failed'=>'status-failed'])->map(fn($key,$id)=>['id'=>$id,'label'=>trans('dreamlayer::app.'.$key)])->values())" track-by="id" label-by="label" /></x-admin::form.control-group><button class="secondary-button">@lang('dreamlayer::app.search')</button></form>
 <div class="dl-result-grid">

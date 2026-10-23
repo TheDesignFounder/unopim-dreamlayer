@@ -29,6 +29,8 @@ return [
     'failed' => 'Rad na slici nije mogao biti dovršen',
     'applied' => 'Primijenjeno na proizvod',
     'editor' => 'DreamLayer uređivač slika',
+    'open-editor' => 'Otvori uređivač slika',
+    'editor-entry-setup' => 'Povežite DreamLayer i u nastavku omogućite uređivanje slika kako biste otvorili uređivač.',
     'editor-help' => 'Odaberite slike proizvoda, opišite promjenu i pročistite rezultate. Pregledajte svaki pregled prije nego što ga spremite u svoj katalog.',
     'catalog' => 'Slike proizvoda',
     'conversation' => 'Razgovor o slikama',
