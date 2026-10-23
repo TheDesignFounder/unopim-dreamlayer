@@ -12,7 +12,7 @@ No worker writes a product image. Apply takes a product lock, checks the destina
 
 The catalog picker uses indexed SKU-prefix search and batches image-attribute lookups. Settings are scoped to a request/job and invalidated after saves. The application receipt index covers batch, product and destination.
 
-Optional conversation saving stores encrypted messages in `dreamlayer_editor_history`. Turning saving off stops future inserts; existing history and backups remain under the host administrator's retention policy. Workflow instructions and product destinations are operational records even when conversation saving is off. Preserve active jobs and their source files until completion. The extension does not change UnoPim's global history setting.
+Optional conversation saving stores encrypted messages in `dreamlayer_editor_history`. Turning saving off stops future inserts; existing history and backups remain under the host administrator's retention policy. Workflow instructions, the submitted instruction used by Try again, and product destinations are operational records even when conversation saving is off. Retry metadata does not retain earlier conversation messages. Preserve active jobs and their source files until completion. The extension does not change UnoPim's global history setting.
 
 Account connection stores pending codes in an encrypted cache entry. Use a
 persistent cache driver (`file`, `database` or `redis`) with atomic-lock support;

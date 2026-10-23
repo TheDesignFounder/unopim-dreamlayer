@@ -83,7 +83,7 @@ class WorkflowController extends Controller
             'references' => ['request-id' => $w->request_id, 'workflow-id' => $w->id, 'upstream-id' => $w->upstream_workflow_id, 'execution-ids' => implode(', ', array_filter(array_merge([$w->upstream_execution_id], array_column($w->progress ?? [], 'execution_id'))))],
             'phase' => $w->phase(), 'created_at' => $w->created_at, 'updated_at' => $w->completed_at ?: $w->updated_at,
             'feedback' => $w->feedback,
-            'retry' => $w->terminal() ? ['operation' => $w->steps[0]['operation'], 'instruction' => $w->steps[0]['instruction'] ?? '', 'has_source' => (bool) $w->source_path] : null,
+            'retry' => $w->terminal() ? ['operation' => $w->steps[0]['operation'], 'instruction' => \DreamLayer\UnoPIM\Services\RetryInstruction::display($w), 'has_source' => (bool) $w->source_path] : null,
             'error_code' => $w->error_code,
             'billing_url' => $w->status === 'failed' && $w->error_code === 402 ? config('dreamlayer.billing_url') : null,
             // A successful status GET is not evidence that a worker is processing it.

@@ -2,7 +2,13 @@
 
 Create and refine product images inside UnoPim. Select images, describe a change, review the previews, then choose what to save. Follow-up edits use the previous result. DreamLayer handles image model selection; UnoPim keeps the product records and permissions.
 
-**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.4** candidate. It has not been submitted, merged or published.
+**Free extension, requires paid DreamLayer credits.** **Release 0.5.5.** See the [release notes](docs/RELEASE_NOTES_0_5_5.md) for validation and known limitations.
+
+0.5.5 fixes **Try again** after a multi-product request. It restores the user's
+message without internal image-routing text, keeps the selected original source,
+and preserves per-image instructions when the retry is submitted. Older saved
+conversations use their retained original message; older unsaved jobs fall back
+to the cleaned processing instruction when the original wording is unavailable.
 
 0.5.4 compacts chat result cards: completed images no longer repeat a status,
 Copy, feedback, or channel/locale rows. The catalog preview details and Apply
@@ -51,11 +57,11 @@ Using AI to help with installation? The same guide applies to:
 - **Coding assistants:** OpenAI Codex, Claude Code, Cursor, GitHub Copilot, Gemini CLI, Cline, OpenHands and other coding tools.
 - **Agents powered by open-weight models:** for example, [Qwen3-Coder](https://github.com/QwenLM/Qwen3-Coder), [DeepSeek-V3.2](https://huggingface.co/deepseek-ai/DeepSeek-V3.2) or [Mistral Devstral 2](https://mistral.ai/news/devstral-2-vibe-cli/), running through a coding tool with access to your installation.
 
-For this unpublished candidate, use the reviewed distribution ZIP supplied alongside the release notes. Extract it to `packages/DreamLayer/unopim-dreamlayer` in your UnoPim application. Do not copy test fixtures into the host. From the application directory:
+Download the distribution ZIP from the [0.5.5 release](https://github.com/TheDesignFounder/unopim-dreamlayer/releases/tag/0.5.5). Extract it to `packages/DreamLayer/unopim-dreamlayer` in your UnoPim application. Do not copy test fixtures into the host. From the application directory:
 
 ```sh
 composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
-composer require dreamlayer/unopim-dreamlayer:0.5.4 --prefer-dist
+composer require dreamlayer/unopim-dreamlayer:0.5.5 --prefer-dist
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```

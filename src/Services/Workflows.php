@@ -80,9 +80,14 @@ class Workflows
             $target = $product ? app(ProductImages::class)->target($product, $data['attribute'] ?? null, $data['image_index'] ?? 0, $context->channel, $context->locale) : null;
             $source = null;
             $prior = null;
+            $reference = $context->extensions['dreamlayer']['source_reference'] ?? null;
             if (! empty($data['retry_result'])) {
                 $prior = Workflow::whereKey($data['retry_result'])->where('user_id', $context->user->id)->where('conversation_id', $context->conversationId)->firstOrFail();
                 abort_unless($prior->terminal(), 422);
+                $reference = RetryInstruction::reference($prior);
+                if ($reference && $data['steps'][0]['operation'] === 'image_to_image') {
+                    $data['steps'][0]['instruction'] = RetryInstruction::scope($data['steps'][0]['instruction'], $reference);
+                }
                 $source = ! $generate && $prior->source_path ? Storage::disk('local')->path($prior->source_path) : null;
             }
             if (! $generate) {
@@ -131,7 +136,7 @@ class Workflows
                 'api_url' => Endpoints::api(),
                 'credential_version' => $settings->credential_version, 'source_path' => $sourcePath,
                 'target' => $target, 'aspect_ratio' => $data['aspect_ratio'] ?? '1:1',
-                'steps' => array_map(fn ($s) => ['operation' => $s['operation'], 'instruction' => $s['instruction'] ?? '', 'status' => 'pending', 'execution_id' => null, 'input_asset_id' => null], $data['steps'])]);
+                'steps' => array_map(fn ($s) => ['operation' => $s['operation'], 'instruction' => $s['instruction'] ?? '', 'user_instruction' => $context->message, 'source_reference' => $reference, 'status' => 'pending', 'execution_id' => null, 'input_asset_id' => null], $data['steps'])]);
             if ($dispatch) {
                 // Workers need the committed row and pinned source/credential version.
                 // Recovery can recreate a lost delivery without creating a new workflow.

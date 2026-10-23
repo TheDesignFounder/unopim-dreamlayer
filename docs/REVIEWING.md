@@ -1,4 +1,6 @@
-# Reviewing the 0.3.0 candidate
+# Reviewing 0.5.5
+
+Current validation, changes and known limitations are recorded in [the 0.5.5 release notes](RELEASE_NOTES_0_5_5.md).
 
 The standalone image editor is the primary integration. It uses UnoPim product APIs, permissions, translations and admin components. Its workflow context does not depend on the AI Agent package. The optional native adapter is registered only when the host provides its extension interfaces.
 

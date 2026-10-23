@@ -71,7 +71,8 @@ jobs:
           cp composer.lock /tmp/host-lock.json
           php artisan key:generate --no-interaction
           composer config repositories.dreamlayer '{"type":"path","url":"../extension","options":{"symlink":true}}'
-          composer require dreamlayer/unopim-dreamlayer:0.3.0 --prefer-dist --no-interaction --no-progress
+          extension_version="$(php -r 'echo json_decode(file_get_contents("../extension/composer.json"), true)["version"];')"
+          composer require "dreamlayer/unopim-dreamlayer:$extension_version" --prefer-dist --no-interaction --no-progress
           python3 ../extension/tools/check-host-lock.py /tmp/host-lock.json composer.lock
           php artisan unopim:install --skip-env-check --skip-admin-creation --no-interaction
           php artisan migrate --force --no-interaction
@@ -95,3 +96,14 @@ jobs:
           php tests/safe-bootstrap.php
           composer validate --no-check-publish
           python3 tools/build_release.py
+
+  compatibility:
+    name: Extension compatibility
+    needs: released-hosts
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every released-host check
+        env:
+          MATRIX_RESULT: ${{ needs.released-hosts.result }}
+        run: test "$MATRIX_RESULT" = success

@@ -1,3 +1,16 @@
+# Current release: 0.5.5
+
+The 0.5.x workspace has real-account desktop acceptance on UnoPim 3.1.3 through
+0.5.4. Version 0.5.5 adds the batch retry wording fix, verified separately with
+isolated server and browser regression tests. This is not a claim of a new paid
+acceptance run. See [release notes](RELEASE_NOTES_0_5_5.md).
+
+The older release matrix below is historical 0.3.0 evidence. The automated release
+workflow tests the current package against all four released hosts; a green run
+establishes the checks named there, not real-account browser acceptance on every
+version. Native chat remains optional and is unavailable on released hosts that
+lack the required hooks.
+
 # UnoPim compatibility
 
 **0.5.0 update (2026-10-23):** the persistent chat workspace and image-workflow fixes are tested on 3.1.3. The full PHP run passed 160 tests and 977 assertions, with 15 skips (14 native-hook tests absent on this host, one PostgreSQL-only test). Browser evidence distinguishes recorded provider responses from real paid generation. The independent 0.4.0 live run found defects; it is not a pass for this candidate. The older-release matrix below belongs to 0.3.0 and must not be read as completed acceptance of the new workspace on those releases.

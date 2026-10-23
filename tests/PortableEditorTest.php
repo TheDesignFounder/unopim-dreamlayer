@@ -160,6 +160,53 @@ final class PortableEditorTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_batch_retry_displays_user_wording_and_keeps_source_scope_on_repeated_retries(): void
+    {
+        $this->twoReferencedImages();
+        Http::fake(['*' => Http::response(['managed_execute' => true, 'operations' => ['text_to_image', 'image_to_image', 'background_remove']])]);
+        $message = $this->input['message'] = 'Blue for @Asset-1, white for @Asset-2.';
+        $batch = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $original = Workflow::findOrFail($batch['workflow_ids'][1]);
+        $bytes = Storage::disk('local')->get($original->source_path);
+        $original->update(['status' => 'failed']);
+        $this->getJson(route('dreamlayer.workflow', $original->id))->assertOk()->assertJsonPath('retry.instruction', $message);
+        $this->assertSame(0, DB::table('dreamlayer_editor_history')->where('user_id', $this->admin->id)->count());
+        $this->input['images'] = [];
+        for ($i = 0; $i < 2; $i++) {
+            $this->input['request_id'] = (string) Str::uuid();
+            $this->input['retry_result'] = $original->id;
+            $response = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+            $next = Workflow::findOrFail($response['workflow_ids'][0]);
+            $this->assertSame($bytes, Storage::disk('local')->get($next->source_path));
+            $this->assertSame($original->target['product_id'], $next->target['product_id']);
+            $this->assertSame('The supplied image is @Asset-2. Apply instructions for this image only. '.$message, $next->steps[0]['instruction']);
+            $next->update(['status' => 'failed']);
+            $this->getJson(route('dreamlayer.workflow', $next->id))->assertOk()->assertJsonPath('retry.instruction', $message);
+            $original = $next;
+        }
+        $this->input['request_id'] = (string) Str::uuid();
+        $this->input['message'] = str_pad($message, 4000, 'x');
+        $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertUnprocessable();
+    }
+
+    public function test_legacy_batch_retry_uses_saved_message_and_cleans_unsaved_fallback(): void
+    {
+        $this->twoReferencedImages();
+        Settings::current()->update(['save_chat_history' => true]);
+        Http::fake(['*' => Http::response(['managed_execute' => true, 'operations' => ['text_to_image', 'image_to_image', 'background_remove']])]);
+        $message = $this->input['message'] = 'Blue for @Asset-1, white for @Asset-2.';
+        $batch = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $w = Workflow::findOrFail($batch['workflow_ids'][0]);
+        $steps = $w->steps;
+        unset($steps[0]['user_instruction'], $steps[0]['source_reference']);
+        $clean = 'Give @Asset-1 a blue background and @Asset-2 a white background.';
+        $steps[0]['instruction'] = 'The supplied image is @Asset-1. Apply instructions for this image only. '.$clean;
+        $w->update(['status' => 'failed', 'steps' => $steps]);
+        $this->getJson(route('dreamlayer.workflow', $w->id))->assertOk()->assertJsonPath('retry.instruction', $message);
+        DB::table('dreamlayer_editor_history')->where('user_id', $this->admin->id)->delete();
+        $this->getJson(route('dreamlayer.workflow', $w->id))->assertOk()->assertJsonPath('retry.instruction', $clean);
+    }
+
     public function test_replay_is_identical_and_changed_inputs_are_rejected(): void
     {
         $first = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
