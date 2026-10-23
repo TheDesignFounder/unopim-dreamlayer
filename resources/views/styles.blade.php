@@ -12,6 +12,30 @@
 .dl-settings{position:relative}
 .dl-editor-entry{display:grid;gap:8px;padding:16px 0;border-block:1px solid var(--dl-border)}
 .dl-editor-entry .dl-link{justify-self:start;display:inline-flex;align-items:center;min-height:36px;font-size:14px;font-weight:500}
+/* Settings have two distinct actions: authorize an account connection, then
+   save editor preferences. Boundaries and nested consent keep those clear. */
+.dl-settings .dl-stack{gap:16px}
+.dl-settings .dl-settings-panel{display:grid;gap:16px;padding:24px;border:1px solid var(--dl-border);border-radius:10px;min-width:0}
+.dl-settings .dl-settings-panel h2{font-size:18px;line-height:1.4;margin:0}
+.dl-settings .dl-panel-intro{display:grid;gap:8px}
+.dl-settings [data-control-group]{margin-bottom:0;position:relative}
+.dl-settings [data-control-group]>p{margin-top:8px;max-width:76ch}
+.dl-settings .dl-setting-row{display:grid;gap:16px;border-top:1px solid var(--dl-border);padding-top:20px;min-width:0}
+.dl-settings .dl-consent-box{display:grid;gap:12px;padding:16px;border-inline-start:3px solid var(--dl-border);background:var(--dl-surface);min-width:0}
+.dl-settings .dl-consent-box .dl-data-disclosure{background:transparent}
+.dl-settings .dl-consent input[type=checkbox]~label{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px}
+.dark .dl-settings .dl-consent input[type=checkbox]:checked~label{color:rgb(var(--c-primary-300,196 181 253))}
+.dl-settings .dl-data-disclosure{border:1px solid var(--dl-border);border-radius:6px;background:var(--dl-surface);min-width:0}
+.dl-settings .dl-data-disclosure>summary{padding:12px 16px;font-size:14px;line-height:1.5;min-height:44px}
+.dl-settings .dl-data-disclosure[open]>summary{border-bottom:1px solid var(--dl-border)}
+.dl-settings .dl-data-topics{display:grid;gap:16px;padding:16px;max-width:80ch}
+.dl-settings .dl-data-topics>div{display:grid;gap:6px}
+.dl-settings .dl-data-topics h3{font-size:14px;font-weight:600;line-height:1.5;margin:0}
+.dl-settings .dl-data-topics p{font-size:14px;line-height:1.6}
+.dl-settings details.dl-advanced-panel{display:block}
+.dl-settings .dl-advanced-panel>summary{padding:0;font-size:16px;line-height:1.6}
+@supports selector(:has(*)){.dl-settings .dl-managed-setting:not(:has(input[name=managed_chat]:checked)) .dl-settings-consent{display:none}}
+@media(max-width:640px){.dl-settings .dl-settings-panel{padding:18px 16px}.dl-settings .dl-consent-box{padding:14px 12px}.dl-settings .dl-data-topics{padding:12px}.dl-settings .dl-data-disclosure>summary{padding:12px}.dl-settings .dl-settings-panel h2{font-size:17px}}
 /* The host teleports its save bar outside the scrolling panel. Leave room for
    it here so the final settings remain reachable when the form is dirty. */
 .unsaved-bar-open .dl-settings{padding-bottom:108px}

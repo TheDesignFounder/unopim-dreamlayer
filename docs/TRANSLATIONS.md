@@ -1,6 +1,6 @@
 # Translation review
 
-All 33 UnoPim locales contain 232 matching translation keys. User-facing labels,
+All 33 UnoPim locales contain 245 matching translation keys. User-facing labels,
 status messages, errors, connection choices and permission names use those keys.
 Host validation messages use UnoPim/Laravel's locale resources. Tool schemas and
 diagnostic logs are not translated.
@@ -12,6 +12,10 @@ all 29 non-English locale files checked the connection/consent text, chat and
 history explanations, encrypted-key notice, Apply conflicts and preview status.
 It also scanned every label for untranslated English, missing text, damaged
 placeholders and broken translation boundaries.
+
+The settings-section update adds 13 labels and revises six explanations across
+all locales. These additions use AI-assisted draft translations with targeted
+terminology checks; the previously reviewed translations are preserved.
 
 Corrections include:
 

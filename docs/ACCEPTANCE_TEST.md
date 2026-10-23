@@ -28,9 +28,16 @@ Refresh the settings page to load the latest UI. If an unsaved-changes warning
 appears, finish saving your intended changes or choose **Discard** and confirm
 **Discard** to abandon that unsaved draft before starting.
 
-There are two chat switches with different purposes. The one in **Connect
-DreamLayer** requests chat permission when connecting the account. The one
-farther down the settings form controls whether this editor uses that permission.
+The page separates account connection from saved editor settings:
+
+- **Connect DreamLayer → Include chat assistance in this connection** requests
+  chat permission when you approve the connection in DreamLayer. Its checkbox
+  acknowledges data sharing for that connection request.
+- **Editor settings → Enable DreamLayer chat assistance** controls whether the
+  editor uses chat assistance. Its acknowledgement records consent when you
+  click **Save changes**; it does not connect the account.
+- **What data is shared** expands in place within either section. Read it without
+  leaving the page or losing your current choices.
 
 The **DreamLayer image editor** explanation describes the workspace. Its smaller
 **Open image editor** link appears when an account is connected and image editing
@@ -51,7 +58,7 @@ If you already see **Connection status: Connected**, do not disconnect just to
 follow this section. Record whether chat is already enabled, then continue with
 the remaining checks. Record a skipped first-connection test as skipped.
 
-1. In **Connect DreamLayer**, leave **Enable DreamLayer chat assistance** off.
+1. In **Connect DreamLayer**, leave **Include chat assistance in this connection** off.
 2. Click **Get connection code**. A **Your connection code** box should appear.
 3. Click **Copy** beside the code.
 4. Click **Open DreamLayer**. A new browser tab opens. Sign in to your DreamLayer account if asked.
@@ -61,7 +68,7 @@ the remaining checks. Record a skipped first-connection test as skipped.
 8. Wait for **Connection status: Connected**. The page updates automatically. Image editing should now be on; chat assistance should still be off.
 9. Record **Available credits**. If you need to inspect the balance in DreamLayer, use **Manage billing** near the bottom of the settings page.
 
-Leave **Replace API key (optional)** blank throughout this test. The connection
+Leave **Advanced: use an API key** collapsed throughout this test. The connection
 flow supplies the credential; you do not need to paste an API key.
 
 Connection result / starting credits: ______
@@ -87,16 +94,16 @@ Preview result / time / screenshot: ______
 ## 3. Reconnect with chat assistance
 
 1. In the editor, click **DreamLayer** beside the page title to return to settings.
-2. Under **Connect DreamLayer**, turn on the first **Enable DreamLayer chat assistance** switch. This is the switch above the connection-code button.
-3. Read the data-sharing explanation. Turn on **I have read the data-sharing information and agree to enable optional chat assistance.**
+2. Under **Connect DreamLayer**, turn on **Include chat assistance in this connection**.
+3. In the shaded area that appears, click **What data is shared** and read the explanation. Tick **I have read the data-sharing information and agree to enable optional chat assistance.** in that same area.
 4. Click **Reconnect DreamLayer**.
 5. Click **Copy**, then **Open DreamLayer**.
 6. Paste this new code into **Connection code**, click **Review connection**, review the requested chat access, then click **Approve connection**.
 7. Switch back to the original UnoPim settings tab and wait for **Connected**.
-8. Check the lower settings form: **Enable image editing** and **Enable DreamLayer chat assistance** should both be on. **Save this editor’s conversation history** should remain off if you turned it off before starting; reconnect should preserve that choice.
+8. Check **Editor settings**: **Enable image editing** and **Enable DreamLayer chat assistance** should both be on. **Save this editor’s conversation history** should remain off if you turned it off before starting; reconnect should preserve that choice.
 
-The first connection-section switch is a choice for the next connection request;
-it resets after connection. Use the lower settings-form switch to check whether
+The **Include chat assistance in this connection** switch is a choice for the
+next connection request; it resets after connection. Use **Editor settings** to check whether
 chat assistance is currently enabled. On released UnoPim 3.1.3, a native UnoPim
 chat switch should not appear; the standalone editor remains available.
 
@@ -142,7 +149,7 @@ Two-product result: ______
 ## 6. Enable saved history and check the balance
 
 1. Click **DreamLayer** to return to settings.
-2. Leave the lower **Enable image editing** and **Enable DreamLayer chat assistance** switches on.
+2. Under **Editor settings**, leave **Enable image editing** and **Enable DreamLayer chat assistance** on.
 3. Turn on **Save this editor’s conversation history**.
 4. Click **Save changes** in the bottom bar. On hosts that show an inline button instead, click **Save settings**.
 5. Refresh settings and confirm the history switch remains on.
