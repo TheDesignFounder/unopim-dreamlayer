@@ -9,14 +9,18 @@
     let open=false,frame=null,lastHost=base+'/settings',lastProduct=null;
     try{const previous=JSON.parse(sessionStorage.getItem(panelKey)||'null');open=!!previous?.open;lastHost=previous?.lastHost||lastHost;}catch(e){}
     const style=document.createElement('style');style.id='dreamlayer-shell-style';style.textContent=`
-        #dreamlayer-shell{position:fixed;right:16px;top:88px;bottom:20px;width:min(460px,calc(100vw - 24px));z-index:45;border:1px solid #dfe3ea;border-radius:18px;overflow:hidden;box-shadow:0 16px 64px #11182730;background:white}
+        #dreamlayer-shell{position:fixed;right:0;top:0;bottom:0;width:420px;max-width:100vw;z-index:10000;border:0;border-left:1px solid #e5e7eb;border-radius:0;overflow:hidden;box-shadow:none;background:white}
+        body.dreamlayer-docked #app{margin-right:420px;contain:paint;transition:none}
+        body.dreamlayer-expanded #app{transition:none}
+        body.dreamlayer-docked .unsaved-bar{right:0}
         #dreamlayer-shell[hidden],#dreamlayer-launcher[hidden]{display:none!important}
         #dreamlayer-shell iframe{border:0;width:100%;height:100%;display:block;background:white}
-        #dreamlayer-shell.expanded{border-radius:14px;box-shadow:none;bottom:auto;z-index:15}
+        #dreamlayer-shell.expanded{border:0;border-radius:0;box-shadow:none;bottom:auto;z-index:15}
         #dreamlayer-launcher{position:fixed;right:24px;bottom:84px;z-index:44;border:1px solid #bfceec;border-radius:28px;padding:12px 18px;background:#fff;color:#2563eb;box-shadow:0 6px 28px #17295d22;font:600 14px/1.5 Inter,system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px}
         #dreamlayer-launcher:focus-visible{outline:3px solid #2563eb;outline-offset:4px}
-        .dark #dreamlayer-shell{border-color:#48465f;background:#1e1d30}.dark #dreamlayer-launcher{background:#29283e;color:#c8b4ff;border-color:#615082}
-        @media(max-width:600px){#dreamlayer-shell{inset:8px;width:auto;z-index:1001;border-radius:14px}#dreamlayer-launcher{right:14px;bottom:80px;padding:10px 14px}#dreamlayer-shell.expanded{z-index:15}}
+        .dark #dreamlayer-shell{border-color:#453c5f;background:#1f1b2d}.dark #dreamlayer-launcher{background:#29283e;color:#c8b4ff;border-color:#615082}
+        @media(max-width:1024px){body.dreamlayer-docked #app{margin-right:0;contain:none}#dreamlayer-shell:not(.expanded){inset:0;width:100vw;max-width:100vw;border:0;z-index:10002}}
+        @media(max-width:600px){#dreamlayer-launcher{right:14px;bottom:80px;padding:10px 14px}}
     `;document.head.append(style);
     const shell=document.createElement('section');shell.id='dreamlayer-shell';shell.hidden=true;shell.setAttribute('aria-label',labels.brand);
     const launch=document.createElement('button');launch.id='dreamlayer-launcher';launch.type='button';launch.textContent='◇ '+labels.brand;launch.setAttribute('aria-label',labels['open-studio']);launch.setAttribute('aria-expanded','false');
@@ -26,6 +30,9 @@
     function context(refresh=false){frame?.contentWindow?.postMessage({dreamlayer:true,action:'context',productId:product(),expanded:!!document.getElementById('dreamlayer-editor-mount'),dark:document.documentElement.classList.contains('dark'),refresh},location.origin);}
     function sync(refresh=false){
         const mount=document.getElementById('dreamlayer-editor-mount');
+        if(mount)open=true;
+        document.body.classList.toggle('dreamlayer-docked',open&&!mount);
+        document.body.classList.toggle('dreamlayer-expanded',!!mount);
         if(mount){open=true;const rect=mount.getBoundingClientRect();mount.style.height=Math.max(300,innerHeight-rect.top-20)+'px';shell.classList.add('expanded');Object.assign(shell.style,{left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:Math.max(300,innerHeight-rect.top-20)+'px',right:'auto',bottom:'auto'});}
         else{shell.classList.remove('expanded');shell.removeAttribute('style');}
         if(open&&!frame){frame=document.createElement('iframe');frame.title=labels.brand+' — '+labels['open-studio'];frame.src=base+'/studio';frame.setAttribute('allow','clipboard-write');shell.append(frame);}
