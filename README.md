@@ -2,9 +2,16 @@
 
 Create and refine product images inside UnoPim. Select images, describe a change, review the previews, then choose what to save. Follow-up edits use the previous result. DreamLayer handles image model selection; UnoPim keeps the product records and permissions.
 
-**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.2** candidate. It has not been submitted, merged or deployed.
+**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.3** candidate. It has not been submitted, merged or deployed.
 
-0.5.2 adds inline image references to the standalone editor. Type **@** and choose
+0.5.3 fixes chat-assisted refinement after a referenced batch. Rewrites preserve
+only the references in the current message; if the assistant adds or drops a
+reference, the editor uses the user's original instruction. Catalog previews
+are fitted in the delivery worker before a new result is marked complete, with
+faster PNG compression. Existing reviewed previews and original downloads remain
+available, and Apply still checks the exact reviewed bytes.
+
+0.5.2 added inline image references to the standalone editor. Type **@** and choose
 a product image to insert a highlighted `@Asset-1` reference at the cursor. The
 thumbnail labels identify its product. Mention one attached image to edit only
 that image, or mention multiple images to create separate previews. Without
@@ -41,7 +48,7 @@ For this unpublished candidate, use the reviewed distribution ZIP supplied along
 
 ```sh
 composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
-composer require dreamlayer/unopim-dreamlayer:0.5.2 --prefer-dist
+composer require dreamlayer/unopim-dreamlayer:0.5.3 --prefer-dist
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```

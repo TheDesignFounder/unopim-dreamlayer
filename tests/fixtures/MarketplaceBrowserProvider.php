@@ -47,6 +47,13 @@ class MarketplaceBrowserProvider extends ServiceProvider
                 $messages = $request['messages'];
                 $last = end($messages);
 
+                // Regression fixture: reproduce the actual 0.5.2 assistant error,
+                // rather than letting the echo provider mask reference pollution.
+                if ($last['content'] === 'Add a soft shadow under the car. Keep everything else unchanged.'
+                    && str_contains(json_encode($messages), '@Asset-1') && str_contains(json_encode($messages), '@Asset-2')) {
+                    return Http::response(['choices' => [['message' => ['content' => 'Add a soft shadow under the car for @Asset-1 (blue background) and add a soft shadow under the car for @Asset-2 (white background). Keep everything else unchanged.']]]]);
+                }
+
                 return Http::response(['choices' => [['message' => ['content' => $last['content']]]]]);
             }
             if (str_ends_with($request->url(), '/balance')) {

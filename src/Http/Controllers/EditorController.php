@@ -88,7 +88,10 @@ class EditorController extends Controller
             abort_unless($settings->managed_chat && $settings->privacy_consent_version >= 1, 409, trans('dreamlayer::app.workflow-conflict'));
             try {
                 $instruction = $receipt->instruction ? Crypt::decryptString($receipt->instruction)
-                    : (new Client($settings->credential))->refineInstruction($data['message'], $data['history'], $data['request_id'], $context->user->id);
+                    : (new Client($settings->credential))->refineInstruction($data['message'], $data['history'], $data['request_id'], $context->user->id,
+                        ! empty($data['selected_result']) || ! empty($data['retry_result']) || ! empty($data['upload_token']) || count($selected) === 1);
+                // Also check a rewrite cached by an earlier admission attempt.
+                $instruction = Client::scopedInstruction($data['message'], $instruction);
                 DB::table('dreamlayer_editor_requests')->where($identity)->update(['instruction' => Crypt::encryptString($instruction), 'updated_at' => now()]);
             } catch (ConnectionException) {
                 abort(503, trans('dreamlayer::app.request-error'));

@@ -1,4 +1,4 @@
-# DreamLayer 0.5.2 — acceptance test
+# DreamLayer 0.5.3 — acceptance test
 
 Use a review copy of UnoPim with two disposable products, `DL-TEST-RED` and
 `DL-TEST-BLUE`, each with an image. Record the ZIP SHA-256 and UnoPim version.
@@ -247,3 +247,35 @@ image responses as live AI verification. Do not reuse a pass for a different ZIP
 Local recorded-provider checks establish routing and UI behavior, not live
 image quality, service latency or billing. Retain the independent 0.5.1 PASS
 report as earlier evidence and label any 0.5.2 checks that were not rerun.
+
+## 10. Refinement scope and preview loading (0.5.3)
+
+1. With chat assistance and History enabled, open a saved two-image conversation
+   whose message requested blue for `@Asset-1` and white for `@Asset-2`. Select
+   **Refine this image** on only the first result. Send `Add a soft shadow under
+   the car. Keep everything else unchanged.` without any reference.
+2. Confirm exactly one workflow, the selected result as its source, and the same
+   product destination. Inspect the stored instruction: it must not contain
+   historical asset references or instructions for both images. The raw user
+   message is used if a rewrite adds or drops a reference. Judge the live image
+   separately for framing, background and shadow; code checks cannot establish
+   model quality. Repeat with assistance off if needed.
+3. Current-message references must still work: a two-image instruction keeps
+   both references and each child gets its own source prefix. A single mentioned
+   reference still narrows the request to that product.
+4. Generate or edit a product result over its attribute upload limit. Capture
+   `prepare_catalog_preview` worker timings and verify the fitted private file
+   exists before the workflow becomes complete. Reopen from a fresh browser
+   context and time both detail GETs. Neither should spend tens of seconds
+   fitting PNGs, or hold its sibling card behind that work.
+5. Check a legacy result without a fitted cache, using a disposable copy. It
+   still fits on demand with normal compression; record cold and cached timings
+   separately. Never delete a live reviewed preview to manufacture a cold test.
+6. Confirm the reviewed PNG fits the host limit and preserves transparency; its
+   Apply writes those exact bytes only to its own product. Original downloads
+   and refinement sources retain the original bytes. A changed attribute limit
+   must still return 409 until the updated preview is reviewed.
+7. Restore starting preferences and preserve source backups. Report live
+   provider quality, server fitting time and browser loading time separately.
+   The implementation regression uses a deliberately bad recorded chat reply
+   and recorded images, so it spends no live image credits.

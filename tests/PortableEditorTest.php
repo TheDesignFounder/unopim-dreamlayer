@@ -200,6 +200,50 @@ final class PortableEditorTest extends TestCase
         $this->assertSame(0, DB::table('dreamlayer_editor_history')->where('user_id', $this->admin->id)->count());
     }
 
+    public function test_refining_one_batch_result_rejects_historical_references_in_a_rewrite(): void
+    {
+        $this->twoReferencedImages();
+        $batchMessage = 'Use a blue background for @Asset-1 and a white background for @Asset-2.';
+        $this->input['message'] = $batchMessage;
+        Http::fake(['*/capabilities' => Http::response(['managed_execute' => true, 'operations' => ['text_to_image', 'image_to_image', 'background_remove']])]);
+        $batch = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $original = Workflow::findOrFail($batch['workflow_ids'][0]);
+        Storage::disk('local')->put('batch-result.png', Storage::disk('public')->get('editor-test.png'));
+        $original->update(['status' => 'completed', 'result_path' => 'batch-result.png']);
+        Settings::current()->update(['managed_chat' => true, 'privacy_consent_version' => 1]);
+        $polluted = 'Add a soft shadow under the car for @Asset-1 (blue background) and add a soft shadow under the car for @Asset-2 (white background). Keep everything else unchanged.';
+        Http::fake(['*/chat/completions' => Http::response(['choices' => [['message' => ['content' => $polluted]]]])]);
+        $this->input = array_replace($this->input, ['request_id' => (string) Str::uuid(), 'images' => [], 'selected_result' => $original->id,
+            'history' => [['role' => 'user', 'content' => $batchMessage]], 'message' => 'Add a soft shadow under the car. Keep everything else unchanged.']);
+        $result = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $this->assertCount(1, $result['workflow_ids']);
+        $refine = Workflow::findOrFail($result['workflow_ids'][0]);
+        $this->assertSame($this->input['message'], $refine->steps[0]['instruction']);
+        $this->assertSame($this->product->sku, $refine->target['sku']);
+        $this->assertSame(Storage::disk('local')->get($original->result_path), Storage::disk('local')->get($refine->source_path));
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/chat/completions')
+            && str_contains($request['messages'][0]['content'], 'Exactly one source image')
+            && str_contains($request['messages'][0]['content'], 'Never introduce references from history')
+            && array_slice($request['messages'], -1)[0]['content'] === $this->input['message']);
+        // An admission interrupted on 0.5.2 may still have the bad rewrite cached.
+        DB::table('dreamlayer_editor_requests')->where('request_id', $this->input['request_id'])
+            ->update(['instruction' => Crypt::encryptString($polluted), 'result' => null]);
+        $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->assertExactJson($result);
+        $this->assertSame(3, Workflow::where('user_id', $this->admin->id)->count());
+    }
+
+    public function test_rewrite_preserves_only_current_references_and_keeps_valid_clarifications(): void
+    {
+        $message = 'Use blue for @Asset-1 and white for @Asset-2.';
+        foreach (['Use blue for @Asset-1.', 'Use blue for @Asset-1 and white for @Asset-3.', 'Use blue and white backgrounds.', 'Use blue for @Asset-1 and white for @Asset-2wrong.'] as $bad) {
+            $this->assertSame($message, \DreamLayer\UnoPIM\Services\Client::scopedInstruction($message, $bad));
+        }
+        $valid = 'Use a plain white background for @Asset-2 and a plain blue background for @Asset-1. Preserve the products.';
+        $this->assertSame($valid, \DreamLayer\UnoPIM\Services\Client::scopedInstruction($message, $valid));
+        $this->assertSame('Add a soft ground shadow. Preserve the blue background and framing.',
+            \DreamLayer\UnoPIM\Services\Client::scopedInstruction('Add a shadow. Keep everything else unchanged.', 'Add a soft ground shadow. Preserve the blue background and framing.'));
+    }
+
     public function test_account_chat_grant_is_used_by_editor_without_enabling_history(): void
     {
         config(['dreamlayer.connections_enabled' => true]);

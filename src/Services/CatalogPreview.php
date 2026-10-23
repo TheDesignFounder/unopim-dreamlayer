@@ -50,7 +50,10 @@ class CatalogPreview
             try {
                 for ($attempt = 0; $attempt < 20; $attempt++) {
                     ob_start();
-                    imagepng($image, null, 9);
+                    // Maximum PNG compression is disproportionately expensive
+                    // for generated photos. The normal level remains lossless;
+                    // the size check below still enforces the attribute limit.
+                    imagepng($image, null, 6);
                     $fitted = ob_get_clean();
                     if (strlen($fitted) <= $limit * 1024) break;
                     $ratio = min(0.85, sqrt($limit * 1024 / strlen($fitted)) * 0.95);

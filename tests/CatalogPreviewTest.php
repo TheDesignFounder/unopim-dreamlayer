@@ -97,6 +97,39 @@ final class CatalogPreviewTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_delivery_fits_the_catalog_preview_before_publishing_completion(): void
+    {
+        [$product, $attribute, $workflow, $original] = $this->preview();
+        $workflow->update(['status' => 'running', 'result_path' => null]);
+        $plan = ['status' => 'completed', 'assets' => [], 'final_path' => 'dreamlayer/'.$workflow->id.'/result.png', 'error' => null, 'error_code' => null];
+        $workflow->update(['delivery' => $plan]);
+        $this->assertFalse(app(\DreamLayer\UnoPIM\Services\WorkflowDelivery::class)->advance($workflow, new \DreamLayer\UnoPIM\Services\Client('fixture')));
+        $this->assertSame('completed', $workflow->fresh()->status);
+        $files = Storage::disk('local')->files('dreamlayer/catalog-previews/'.$workflow->id);
+        $this->assertCount(1, $files, 'Catalog artifact exists before any browser detail request');
+        $bytes = app(ImageStore::class)->read($files[0]);
+        $this->assertLessThanOrEqual(2 * 1024 * 1024, strlen($bytes));
+        $response = $this->getJson(route('dreamlayer.workflow', $workflow->id))->assertOk();
+        $this->assertSame(hash('sha256', $bytes), $response->json('catalog_token'));
+        $this->assertSame($bytes, $this->get($response->json('catalog_image_url'))->assertOk()->getContent());
+        $this->assertSame($original, Storage::disk('local')->get($workflow->fresh()->result_path));
+        $this->assertSame('original.png', $product->fresh()->values['common'][$attribute->code]);
+        Http::assertNothingSent();
+    }
+
+    public function test_catalog_fit_failure_never_discards_a_delivered_original(): void
+    {
+        [$product, $attribute, $workflow, $original] = $this->preview();
+        $plan = ['status' => 'completed', 'assets' => [], 'final_path' => $workflow->result_path, 'error' => null, 'error_code' => null];
+        $workflow->update(['status' => 'running', 'delivery' => $plan, 'result_path' => null]);
+        $this->mock(CatalogPreview::class, fn ($mock) => $mock->shouldReceive('prepare')->once()->andThrow(new RuntimeException('Fixture disk failure')));
+        app(\DreamLayer\UnoPIM\Services\WorkflowDelivery::class)->advance($workflow, new \DreamLayer\UnoPIM\Services\Client('fixture'));
+        $this->assertSame('completed', $workflow->fresh()->status);
+        $this->assertSame($original, $this->get(route('dreamlayer.image', $workflow->id))->assertOk()->getContent());
+        $this->assertSame('original.png', $product->fresh()->values['common'][$attribute->code]);
+        Http::assertNothingSent();
+    }
+
     public function test_gallery_uses_its_own_host_limits_and_explicit_attribute_size_is_respected(): void
     {
         $service = app(CatalogPreview::class);
