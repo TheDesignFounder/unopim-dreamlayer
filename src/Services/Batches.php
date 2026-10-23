@@ -25,13 +25,13 @@ class Batches
         abort_unless($c->hasPermission('catalog.products.edit'), 403);
         abort_unless(Settings::current()->connected(), 422, trans('dreamlayer::app.connect-first'));
         $caps = (new Client(Settings::current()->credential))->capabilities();
-        abort_unless(($caps['image_workflows'] ?? false) && in_array(1, $caps['image_workflow_versions'] ?? [], true), 422, trans('dreamlayer::app.message-289c38f839'));
+        abort_unless(($caps['managed_execute'] ?? false) || (($caps['image_workflows'] ?? false) && in_array(1, $caps['image_workflow_versions'] ?? [], true)), 422, trans('dreamlayer::app.message-289c38f839'));
 
         abort_unless(Str::isUuid($c->requestId) && preg_match('/^[A-Za-z0-9_-]{1,64}$/', $c->conversationId ?? ''), 422);
         $selected = CatalogImages::selected($c);
         abort_unless(is_array($selected) && count($selected) >= 2 && count($selected) <= 5 && is_array($input['steps'] ?? null) && count($input['steps']) === 1 && ! $c->hasNewImages, 422, trans('dreamlayer::app.message-94a5548b25'));
 
-        return DB::transaction(function () use ($c, $input, $selected) {
+        return DB::transaction(function () use ($c, $input, $selected, $caps) {
             $settings = Settings::whereKey(Settings::current()->id)->lockForUpdate()->firstOrFail();
             abort_unless($settings->connected(), 422);
             $fingerprint = hash('sha256', json_encode([$input, $c->message, array_column($selected, 'token')]));
@@ -61,7 +61,7 @@ class Batches
                 $data['attribute'] = $t['attribute'];
                 $data['image_index'] = $t['index'];
                 $w = app(Workflows::class)->start(new ImageContext(...$args), $data, false, false);
-                $w->update(['batch_id' => $id, 'execution_path' => 'workflow_v1']);
+                $w->update(['batch_id' => $id, 'execution_path' => ($caps['managed_execute'] ?? false) ? 'execute_v1' : 'workflow_v1']);
                 $children[] = $w->id;
             }
             $batch = Batch::create(['id' => $id, 'user_id' => $c->user->id, 'conversation_id' => $c->conversationId, 'request_id' => $c->requestId,

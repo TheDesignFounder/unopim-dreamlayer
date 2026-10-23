@@ -25,7 +25,7 @@ class EditorController extends Controller
         $settings = Settings::current();
         app(\DreamLayer\UnoPIM\Services\EditorHistory::class)->assertAvailable(auth()->guard('admin')->id(), $data['conversation_id']);
         abort_unless($settings->connected(), 422, trans('dreamlayer::app.connect-first'));
-        abort_if(! empty($data['selected_result']) && count($data['images']), 422, trans('dreamlayer::app.choose-source'));
+        abort_if(count(array_filter([$data['selected_result'] ?? null, $data['retry_result'] ?? null, $data['upload_token'] ?? null, count($data['images'])])) > 1, 422, trans('dreamlayer::app.choose-source'));
         $context = new ImageContext(
             message: $data['message'], history: $data['history'], productId: null, productSku: null, productName: null,
             locale: $data['locale'], channel: $data['channel'], user: auth()->guard('admin')->user(),
@@ -64,6 +64,14 @@ class EditorController extends Controller
             abort_unless(Workflow::whereKey($data['selected_result'])->where('user_id', $context->user->id)
                 ->where('conversation_id', $context->conversationId)->where('status', 'completed')->exists(), 422, trans('dreamlayer::app.workflow-unavailable'));
         }
+        if (! empty($data['upload_token'])) {
+            app(\DreamLayer\UnoPIM\Services\StudioUploads::class)->resolve($data['upload_token'], $context->user->id, $context->conversationId);
+            abort_if($data['operation'] === 'text_to_image', 422, trans('dreamlayer::app.choose-source'));
+        }
+        if (! empty($data['retry_result'])) {
+            $original = Workflow::whereKey($data['retry_result'])->where('user_id', $context->user->id)->where('conversation_id', $context->conversationId)->firstOrFail();
+            abort_unless($original->terminal() && ($data['operation'] === 'text_to_image' || $original->source_path), 422, trans('dreamlayer::app.workflow-unavailable'));
+        }
         $operation = $data['operation'];
         $instruction = $operation === 'background_remove' ? '' : $data['message'];
         // The selected source is resolved by the server. Model output can only
@@ -81,6 +89,7 @@ class EditorController extends Controller
             }
         }
         $input = ['steps' => [['operation' => $operation, 'instruction' => $instruction]]];
+        foreach (['upload_token', 'retry_result'] as $source) if (! empty($data[$source])) $input[$source] = $data[$source];
         if (! empty($data['selected_result'])) {
             $input['selected_result'] = $data['selected_result'];
         }

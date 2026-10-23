@@ -2,11 +2,11 @@
 
 Create and refine product images inside UnoPim. Select images, describe a change, review the previews, then choose what to save. Follow-up edits use the previous result. DreamLayer handles image model selection; UnoPim keeps the product records and permissions.
 
-**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.4.0** candidate. It has not been submitted, merged or deployed.
+**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.0** candidate. It has not been submitted, merged or deployed.
 
 ## Compatibility
 
-The image editor works independently of UnoPim's AI Agent and native chat hooks. The underlying image workflows were tested on released UnoPim **0.1.0, 1.0.1, 2.1.6 and 3.1.3** for 0.3.0. The new 0.4.0 chat workspace is browser-tested on **3.1.3**; older-version UI acceptance remains pending. See the [compatibility matrix](docs/COMPATIBILITY.md) for the exact tests and limits. This is not a claim that every intermediate or future release has been tested.
+The image editor works independently of UnoPim's AI Agent and native chat hooks. The underlying image workflows were tested on released UnoPim **0.1.0, 1.0.1, 2.1.6 and 3.1.3** for 0.3.0. The 0.5.0 chat workspace is browser-tested on **3.1.3**; older-version UI acceptance remains pending. See the [compatibility matrix](docs/COMPATIBILITY.md) for the exact tests and limits. This is not a claim that every intermediate or future release has been tested.
 
 No core patch or host dependency upgrade is needed. Composer retains the host's Laravel and AI SDK versions. The optional native chat bridge appears only when the required extension registries are present. It is off by default; the standalone image editor remains available without it.
 
@@ -32,7 +32,7 @@ For this unpublished candidate, use the reviewed distribution ZIP supplied along
 
 ```sh
 composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
-composer require dreamlayer/unopim-dreamlayer:0.4.0 --prefer-dist
+composer require dreamlayer/unopim-dreamlayer:0.5.0 --prefer-dist
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```
@@ -57,7 +57,7 @@ php artisan queue:work database --queue=dreamlayer --sleep=1 --timeout=110 --tri
 
 Set the queue connection's `retry_after` above the worker timeout, and supervise it with automatic restarts. The extension does not replace the host's queue configuration. Jobs have a finite retry deadline and use short database leases; network requests run outside row-lock transactions.
 
-Optionally schedule `php artisan dreamlayer:recover` through your existing scheduler. It restores missing queue deliveries with their original identifiers. `--resume-expired` explicitly resumes expired work; `--verify-deliveries` repairs missing preview files. Neither command applies images to products.
+Schedule `php artisan dreamlayer:recover` through your existing scheduler to prune expired temporary image uploads and recover deliveries. It restores missing queue deliveries with their original identifiers. `--resume-expired` explicitly resumes expired work; `--verify-deliveries` repairs missing preview files. Neither command applies images to products.
 
 ## Connect
 
@@ -84,10 +84,12 @@ Give users the appropriate **My image results** permissions, including the edito
 ## Use it
 
 1. Open **My image results → Open image editor**.
-2. Search by SKU and select a product image. Select up to five images when the backend supports image workflows.
+2. Type **@**, use **Add product images**, or use the + button. Search by name or SKU and select up to five product images when supported by the connected backend.
 3. Describe the change and choose **Create preview**. You can edit, remove a background, or generate a new image.
 4. Review each result. Choose **Refine this image** to continue from that preview, or select another catalog image.
 5. Choose **Apply to product** on the result you want. Each image has its own approval. Apply checks ownership, permissions and whether the destination changed, then fires UnoPim's normal product-update events.
+
+If a result exceeds the destination attribute’s upload limit, the result card displays a catalog preview fitted to that limit and identifies its dimensions. **Apply to product** saves those exact reviewed bytes. **Download original PNG** retains the full-resolution image; further refinement also uses that original. The extension does not increase the host upload limit.
 
 A generated image without a selected product can be downloaded but has no catalog destination. Closing the editor does not stop queued image work. Saved previews are available in **My image results**; opening a new conversation does not restore unsaved conversation messages.
 
@@ -145,3 +147,48 @@ Deleting a chat retains its image results and catalog images.
 The standalone DreamLayer chat works independently of UnoPim’s selected chat
 provider. The optional native chat bridge remains available only when the host
 exposes its integration hooks. See [acceptance checks](docs/ACCEPTANCE_TEST.md).
+
+
+### Image chat controls
+
+- Type **@** to select catalog images by name or SKU; add the current product from the picker when working on its product page.
+- Upload, paste or drop one PNG, JPEG or WebP image (up to 20 MB and 40 megapixels). Uploaded images have no product destination. Use catalog selection to edit up to five products together.
+- Use **Image tasks** or the task selector for editing, background removal and generation.
+- Open a result at full size, copy your instruction, or record helpful/not-helpful feedback locally.
+- **Try again** restores the original source and instruction for review in the composer. It creates a new paid preview only after you choose **Create preview**. **Refine this image** instead starts from the selected result.
+- Scroll through earlier messages without being pulled to the bottom. **Latest messages** returns to the newest result.
+
+Files attached through the chat remain private in UnoPim until a preview request
+sends the selected file to DreamLayer. Unused uploads expire after 24 hours;
+`dreamlayer:recover` removes expired files. Accepted jobs keep a separate private
+source copy for recovery. Configure PHP and reverse-proxy upload limits to allow
+the advertised 20 MB maximum. Feedback is stored with the owner’s workflow in
+UnoPim and is not a promise of model training or external feedback delivery.
+
+Image editing, chat assistance and saving history remain independent settings.
+With editing off, new previews and uploads are blocked; existing saved results
+can still be reviewed and downloaded. With assistance off, the image instruction
+is used without a conversation rewrite. With history off, no new full message
+records are saved; temporary tab state and necessary image job records still
+exist. Existing history remains available. Settings changes are refreshed by
+an open chat within 15 seconds and validated immediately by the server.
+
+The standalone assistant supports image work, not general product/category CRUD,
+imports, exports, or changing UnoPim’s selected text provider. It does not require
+permission to configure UnoPim’s AI Agent. Administrators can grant the editor,
+catalog browsing, preview and product-edit permissions without settings access.
+Upload, feedback, history management and Apply each have their own permissions.
+Existing custom roles need the new upload/feedback grants if those actions are
+wanted; upgrades never silently expand a role.
+
+### Execution timing
+
+New single-image requests use the direct managed-execution API when the connected
+backend advertises it. Multi-product requests submit independent executions, so
+one slow product does not block dispatch of the others. Backends without direct
+execution keep the workflow API. Already accepted requests retain their original
+API path and identifiers; upgrades do not resubmit them or charge for duplicates.
+Ready local preparation checkpoints proceed immediately. Processing polls retain
+a bounded interval. Result cards show elapsed time; worker logs record stage
+latency and identifiers without recording credentials, prompts or image URLs.
+Provider runtime and worker startup still affect total duration.

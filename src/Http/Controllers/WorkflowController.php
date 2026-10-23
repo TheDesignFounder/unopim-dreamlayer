@@ -6,6 +6,7 @@ use DreamLayer\UnoPIM\Http\Requests\WorkflowRequest as Request;
 use DreamLayer\UnoPIM\Models\Batch;
 use DreamLayer\UnoPIM\Models\Workflow;
 use DreamLayer\UnoPIM\Services\ImageStore;
+use DreamLayer\UnoPIM\Services\CatalogPreview;
 use DreamLayer\UnoPIM\Services\ProductImages;
 use Illuminate\Routing\Controller;
 use Webkul\Product\Models\Product;
@@ -76,10 +77,13 @@ class WorkflowController extends Controller
 
         $images = app(ImageStore::class);
         $damaged = $images->damaged($w);
+        $catalog = ! $damaged && $w->status === 'completed' && $w->result_path ? app(CatalogPreview::class)->prepare($w) : null;
 
         return response()->json(['id' => $w->id, 'status' => $w->status,
             'references' => ['request-id' => $w->request_id, 'workflow-id' => $w->id, 'upstream-id' => $w->upstream_workflow_id, 'execution-ids' => implode(', ', array_filter(array_merge([$w->upstream_execution_id], array_column($w->progress ?? [], 'execution_id'))))],
-            'phase' => $w->phase(),
+            'phase' => $w->phase(), 'created_at' => $w->created_at, 'updated_at' => $w->completed_at ?: $w->updated_at,
+            'feedback' => $w->feedback,
+            'retry' => $w->terminal() ? ['operation' => $w->steps[0]['operation'], 'instruction' => $w->steps[0]['instruction'] ?? '', 'has_source' => (bool) $w->source_path] : null,
             'error_code' => $w->error_code,
             'billing_url' => $w->status === 'failed' && $w->error_code === 402 ? config('dreamlayer.billing_url') : null,
             // A successful status GET is not evidence that a worker is processing it.
@@ -92,6 +96,9 @@ class WorkflowController extends Controller
             'target' => $w->target ? array_diff_key($w->target, array_flip(['version', 'attribute_id'])) : null,
             'delivery_unavailable' => $damaged,
             'error' => $damaged ? trans('dreamlayer::app.message-6f279d2d4e') : $w->error, 'applied' => (bool) $w->applied_at,
+            'catalog_token' => $catalog['token'] ?? null,
+            'catalog_notice' => $catalog ? app(CatalogPreview::class)->notice($catalog) : null,
+            'catalog_image_url' => $catalog && $catalog['adjusted'] ? route('dreamlayer.image', ['id' => $w->id, 'catalog' => $catalog['token']]) : null,
             'image_url' => $w->status === 'completed' && $images->valid($w->result_path) ? route('dreamlayer.image', $w->id) : null,
         ])->header('Cache-Control', 'private, no-store');
     }
@@ -105,6 +112,11 @@ class WorkflowController extends Controller
             $result = ($step['status'] ?? '') === 'completed' ? ($step['result_path'] ?? null) : null;
         }
         abort_unless($result, 404);
+        if ($request->filled('catalog') && $w->status === 'completed') {
+            $catalog = app(CatalogPreview::class)->prepare($w);
+            abort_unless(hash_equals($catalog['token'], (string) $request->input('catalog')), 409, trans('dreamlayer::studio.catalog-preview-changed'));
+            $result = $catalog['path'];
+        }
         try {
             $bytes = app(ImageStore::class)->read($result);
         } catch (\RuntimeException $e) {
@@ -115,10 +127,31 @@ class WorkflowController extends Controller
             'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline').'; filename="dreamlayer-'.$w->id.'.png"']);
     }
 
-    public function apply(string $id, ProductImages $images)
+    public function feedback(\Illuminate\Http\Request $request, string $id)
+    {
+        $w = $this->owned($id);
+        $data = $request->validate(['feedback' => 'present|nullable|in:helpful,not_helpful']);
+        abort_unless($w->status === 'completed', 422);
+        $w->update($data);
+
+        return $this->show($id);
+    }
+
+    public function apply(Request $request, string $id, ProductImages $images)
     {
         $this->owned($id);
-        $images->apply($id, auth()->guard('admin')->id());
+        $request->validate(['catalog_token' => 'sometimes|nullable|string|size:64']);
+        try {
+            $images->apply($id, auth()->guard('admin')->id(), $request->input('catalog_token'));
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception) {
+            // The host may replace 409 reasons with generic 500 copy. Keep our
+            // intentional Apply refusals intact before its exception renderer runs.
+            if (in_array($exception->getStatusCode(), [409, 422, 503], true) && $exception->getMessage() !== '') {
+                return response()->json(['message' => $exception->getMessage()], $exception->getStatusCode())
+                    ->header('Cache-Control', 'private, no-store');
+            }
+            throw $exception;
+        }
 
         return $this->show($id);
     }

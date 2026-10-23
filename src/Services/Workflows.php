@@ -55,6 +55,7 @@ class Workflows
             'steps.*.instruction' => ['nullable', 'string', 'max:4000'],
             'sku' => ['nullable', 'string', 'max:255'], 'attribute' => ['nullable', 'regex:/^[A-Za-z0-9_]+$/'],
             'image_index' => ['nullable', 'integer', 'min:0'], 'selected_result' => ['nullable', 'uuid'],
+            'retry_result' => ['nullable', 'uuid'], 'upload_token' => ['nullable', 'string', 'max:8000'],
             'aspect_ratio' => ['nullable', 'in:1:1,3:4,4:3'],
         ])->validate();
         foreach ($data['steps'] as $step) {
@@ -79,10 +80,20 @@ class Workflows
             $target = $product ? app(ProductImages::class)->target($product, $data['attribute'] ?? null, $data['image_index'] ?? 0, $context->channel, $context->locale) : null;
             $source = null;
             $prior = null;
+            if (! empty($data['retry_result'])) {
+                $prior = Workflow::whereKey($data['retry_result'])->where('user_id', $context->user->id)->where('conversation_id', $context->conversationId)->firstOrFail();
+                abort_unless($prior->terminal(), 422);
+                $source = ! $generate && $prior->source_path ? Storage::disk('local')->path($prior->source_path) : null;
+            }
             if (! $generate) {
                 // Explicit new inputs outrank conversation history. Retained upload
                 // paths alone do not mean the user attached another image this turn.
-                if ($context->hasNewImages) {
+                if (! empty($data['upload_token'])) {
+                    $source = app(StudioUploads::class)->resolve($data['upload_token'], $context->user->id, $context->conversationId);
+                    $target = null;
+                } elseif (! empty($data['retry_result'])) {
+                    // Replay the original source; never silently substitute the last result.
+                } elseif ($context->hasNewImages) {
                     $source = $context->firstImagePath();
                     $root = realpath(Storage::disk('public')->path('ai-agent/images/'.$context->user->id.'/'.sha1($context->conversationId)));
                     $real = $source ? realpath($source) : false;

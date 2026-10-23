@@ -18,7 +18,8 @@
         </template>
         <a href="{{ route('dreamlayer.results') }}" class="inline-block text-xs underline mt-2">@lang('dreamlayer::app.all-results')</a>
         <template v-if="state?.image_url">
-            <a :href="state.image_url" target="_blank" rel="noopener"><img :src="state.image_url" alt="{{ trans('dreamlayer::app.image-preview') }}" class="mt-3 rounded-lg object-contain" style="max-width:100%;width:auto;height:auto;max-height:320px;display:block;margin-inline:auto;background:repeating-conic-gradient(var(--dl-surface) 0% 25%,var(--dl-border) 0% 50%) 50% / 16px 16px"></a>
+            <a :href="state.catalog_image_url || state.image_url" target="_blank" rel="noopener"><img :src="state.catalog_image_url || state.image_url" alt="{{ trans('dreamlayer::app.image-preview') }}" class="mt-3 rounded-lg object-contain" style="max-width:100%;width:auto;height:auto;max-height:320px;display:block;margin-inline:auto;background:repeating-conic-gradient(var(--dl-surface) 0% 25%,var(--dl-border) 0% 50%) 50% / 16px 16px"></a>
+            <p v-if="state.catalog_notice" class="text-xs mt-2" v-text="state.catalog_notice"></p>
             <a :href="state.image_url+'?download=1'" class="secondary-button dl-result-action">@lang('dreamlayer::app.download')</a>
             <div v-if="state.target" class="mt-3 text-xs"><p><strong v-text="state.target.sku"></strong> · <span v-text="state.target.attribute"></span> · @lang('dreamlayer::app.image') <span v-text="state.target.index + 1"></span> · <span v-text="state.target.channel"></span> / <span v-text="state.target.locale"></span></p>
             <p class="mt-2">@lang('dreamlayer::app.approval-help')</p><button class="secondary-button mt-2" @click="apply" :disabled="applying || state.applied" :title="state.applied ? labels['already-applied'] : null" v-text="state.applied ? labels.applied : labels.apply"></button></div>
@@ -103,13 +104,11 @@ app.component('v-dreamlayer-workflow', {
             // ownership, permissions, destination version and prior application.
             this.applying = true;
             try {
-                this.state = (await this.$axios.post(this.url() + '/apply')).data;
+                this.state = (await this.$axios.post(this.url() + '/apply', {catalog_token: this.state.catalog_token})).data;
                 this.error = null;
             } catch (e) {
                 this.error =
-                    e.response?.status === 409
-                        ? this.labels['apply-conflict']
-                        : this.labels['apply-error'];
+                    e.response?.data?.message || e.response?.data?.description || (e.response?.status === 409 ? this.labels['apply-conflict'] : this.labels['apply-error']);
             } finally {
                 this.applying = false;
             }

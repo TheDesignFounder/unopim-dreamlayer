@@ -31,7 +31,7 @@ class CatalogController extends Controller
             abort(503, trans('dreamlayer::app.message-5bf8f9ce3a'));
         }
 
-        return response()->json(['batch_supported' => ($caps['image_workflows'] ?? false) && in_array(1, $caps['image_workflow_versions'] ?? [], true),
+        return response()->json(['batch_supported' => ($caps['managed_execute'] ?? false) === true || (($caps['image_workflows'] ?? false) && in_array(1, $caps['image_workflow_versions'] ?? [], true)),
             'credits_per_image' => $caps['live_charge_credits_per_image'] ?? null, 'test_mode' => ($caps['key_mode'] ?? null) === 'test',
             'maximum_steps' => ($caps['image_workflows'] ?? false) && in_array(1, $caps['image_workflow_versions'] ?? [], true) ? 2 : 1])->header('Cache-Control', 'private, no-store');
     }
@@ -48,7 +48,12 @@ class CatalogController extends Controller
         [$channel, $locale] = $this->scope($request);
         $query = Product::query();
         if ($request->filled('q')) {
-            $query->where('sku', 'like', addcslashes($request->input('q'), '%_\\').'%');
+            $term = '%'.addcslashes(mb_strtolower($request->input('q')), '%_\\').'%';
+            $query->where(function ($query) use ($channel, $locale, $term) {
+                foreach (['sku', 'values->common->name', 'values->locale_specific->'.$locale.'->name', 'values->channel_specific->'.$channel.'->name', 'values->channel_locale_specific->'.$channel.'->'.$locale.'->name'] as $column) {
+                    $query->orWhereRaw('LOWER('.$query->getQuery()->getGrammar()->wrap($column).') LIKE ?', [$term]);
+                }
+            });
         }
         if ($request->filled('product_id')) {
             $query->whereKey($request->integer('product_id'));

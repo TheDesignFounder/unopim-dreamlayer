@@ -1,4 +1,4 @@
-# DreamLayer 0.4.0 — acceptance test
+# DreamLayer 0.5.0 — acceptance test
 
 Use a review copy of UnoPim with two disposable products, `DL-TEST-RED` and
 `DL-TEST-BLUE`, each with an image. Record the ZIP SHA-256 and UnoPim version.
@@ -32,7 +32,7 @@ this interface and its saved-history features require their own acceptance run.
    DreamLayer branding, History, New conversation (+), expand/collapse and Close.
    There is no canvas.
 10. Click **Add product images**. In the picker, enter `DL-TEST-RED` in **Search by
-    SKU**, then click **Search**.
+    name or SKU**, then click **Search**.
 11. Click the product thumbnail. Confirm its selection checkmark and **1 selected**.
     Click **Use selected images**. Confirm the product chip above the message box.
 12. Change **Image task** to **Remove background**, then **Generate image**, then
@@ -92,8 +92,7 @@ this interface and its saved-history features require their own acceptance run.
 
 30. Close the side chat if it covers settings. In DreamLayer settings → Editor
     settings, turn **Save this editor’s conversation history** on and click
-    **Save changes**. Reopen DreamLayer. Its footer should say new messages are
-    saved to History.
+    **Save changes**. Reopen DreamLayer. The composer should not repeat history or catalog-approval footnotes; the setting remains visible in Settings.
 31. Start a new conversation and make one preview. Click **History** → **Chats**.
     Confirm the thread appears under its date and is marked **Saved**.
 32. Click its star to bookmark it. Open **Bookmarks** and confirm the thread is
@@ -139,6 +138,55 @@ this interface and its saved-history features require their own acceptance run.
     may omit this new field; report exact attribution as pending in that case.
 45. Independently verify the service-side chat grant/limits and no unauthorized
     native provider/history changes. Record any unrun checks explicitly.
+
+## 7. Regression checks for 0.5.0
+
+46. Use **@** to open catalog selection. Search by car name and by `ABLO-00`.
+    The local acceptance catalog contains 284 car images. Select two different
+    cars, submit once, confirm two destination labels, and apply only one.
+47. Test a completed PNG larger than 2 MB against the host's default image
+    attribute. Inspect the catalog-preview notice. Hash the displayed preview,
+    apply it, and verify the saved catalog file matches. Download original PNG
+    and verify the original resolution and bytes were retained. Repeat with a
+    transparent result. Do not raise the host limit to make the test pass.
+48. Start another edit, wait for completion, and click **Refine this image** on
+    an earlier result without reloading. Confirm it is enabled and the selected
+    result is actually used. Apply a stale result and verify the actual reason
+    appears beside that result. Simulate 422 and network failure separately.
+49. Dock chat beside a settings or product edit page. Change a field. Check that
+    Save changes and Discard remain visible and clickable. Confirm UnoPim's
+    Discard dialog appears above the chat and completing/cancelling it behaves
+    correctly. Repeat with narrow layouts and 200% zoom.
+50. Test file selection, clipboard paste and drag/drop with PNG/JPEG/WebP;
+    invalid files and multi-file input must show a useful message. An uploaded
+    image produces a downloadable preview with no automatic product destination.
+    Verify another user cannot view or reuse the upload token. Do not expose
+    private upload links in a public report.
+51. Use Copy, full-image viewing, Helpful/Not helpful and Try again. Try again
+    should populate the composer with the original source/instruction and make
+    no paid request until Create preview. Refinement uses the previous result.
+52. Scroll to older messages during processing. Polling must not pull you down.
+    Latest messages must return to the newest result. Elapsed/completion time
+    must remain stable after Apply or feedback.
+53. Test all eight combinations of image editing, chat assistance and saved
+    history through the actual settings form. Provide consent when enabling
+    assistance. Confirm edits are blocked when editing is off, assistant
+    rewriting is absent when assistance is off, and new message rows are absent
+    when history is off. Existing saved history must remain readable with all
+    three switches off. Preserve the initial settings after testing.
+54. Test a custom editor role without settings or native AI permissions. Grant
+    only the image workflow permissions needed for the scenario; verify actions
+    outside those grants are rejected. Test optional upload and feedback grants
+    independently. Do not broaden existing user roles merely for convenience.
+55. Log out with chat open. Verify the login screen has no lingering chat panel,
+    private tab state is cleared, and login returns to the host interface rather
+    than a bare iframe page.
+56. For one fresh paid edit, record UTC timestamps at submit, direct admission,
+    worker start, provider completion, download and visible completion. New
+    single-image jobs should use `execute_v1`; old jobs must keep their original
+    identifiers. Confirm there is no scheduled wrapper delay. Record real
+    duration rather than extrapolating from fixture tests. At least two image
+    credits are needed for a two-product request; never top up without approval.
 
 ## Evidence and result
 

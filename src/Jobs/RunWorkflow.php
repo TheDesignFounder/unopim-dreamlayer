@@ -52,7 +52,8 @@ class RunWorkflow implements ShouldQueue
         // One delivery advances the saved state, then releases the same job to poll.
         // Keep the workflow UUID as the upstream idempotency key: a lost response or
         // stopped worker must not admit another paid edit. No catalog write occurs here.
-        $pending = JobLease::run(Workflow::class, $this->workflowId, function (Workflow $w) {
+        $delay = (int) config('dreamlayer.poll_interval', 5);
+        $pending = JobLease::run(Workflow::class, $this->workflowId, function (Workflow $w) use (&$delay) {
             $images = app(ImageStore::class);
             if (! $w || ($w->terminal() && ! $images->damaged($w))) {
                 return false;
@@ -80,12 +81,16 @@ class RunWorkflow implements ShouldQueue
             $delivering = $w->delivery && empty($w->delivery['refresh']);
             try {
                 if ($delivering) {
-                    return app(WorkflowDelivery::class)->advance($w, $client);
+                    $pending = app(WorkflowDelivery::class)->advance($w, $client);
+                    if ($w->delivery) $delay = 0;
+
+                    return $pending;
                 }
                 if (! $w->execution_path) {
                     // Existing admitted workflows retain their path even if capabilities changed.
-                    $path = $w->upstream_workflow_id ? 'workflow_v1' : WorkflowDiagnostics::measure($w, 'capabilities', fn () => $client->executionPath());
+                    $path = $w->upstream_workflow_id ? 'workflow_v1' : WorkflowDiagnostics::measure($w, 'capabilities', fn () => $client->executionPath(count($w->steps) === 1));
                     $w->update(['execution_path' => $path]);
+                    $delay = 0;
 
                     return true; // Commit the choice before any upstream admission.
                 }
@@ -96,6 +101,8 @@ class RunWorkflow implements ShouldQueue
                 }
                 if ($w->source_path && ! $w->input_asset_id) {
                     $w->update(['input_asset_id' => WorkflowDiagnostics::measure($w, 'upload_source', fn () => $client->upload(Storage::disk('local')->get($w->source_path)))]);
+
+                    $delay = 0;
 
                     return true;
                 }
@@ -116,6 +123,8 @@ class RunWorkflow implements ShouldQueue
                         return false;
                     }
                     if (($execution['status'] ?? '') === 'completed') {
+                        $delay = 0;
+
                         return app(WorkflowDelivery::class)->prepare($w, ['status' => 'completed', 'image' => $execution['image_job']['finished_assets'][0] ?? null], null);
                     }
                     // An unchanged healthy poll is still a heartbeat. Eloquent otherwise
@@ -154,7 +163,10 @@ class RunWorkflow implements ShouldQueue
                     throw new \RuntimeException('Invalid workflow status');
                 }
 
-                return app(WorkflowDelivery::class)->prepare($w, $remote, $progress);
+                $pending = app(WorkflowDelivery::class)->prepare($w, $remote, $progress);
+                if ($w->delivery) $delay = 0;
+
+                return $pending;
             } catch (ApiException $e) {
                 if ($delivering) {
                     // Refresh expiring/revoked asset references from the SAME upstream
@@ -179,7 +191,7 @@ class RunWorkflow implements ShouldQueue
             return true;
         });
         if ($pending && $this->job) {
-            $this->release((int) config('dreamlayer.poll_interval', 5));
+            $this->release($delay);
         }
     }
 }

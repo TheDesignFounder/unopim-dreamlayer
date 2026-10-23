@@ -92,7 +92,7 @@ class WorkflowDelivery
     {
         $workflow->update(['status' => $plan['status'], 'delivery' => null,
             'result_path' => $plan['final_path'], 'error' => $plan['error'],
-            'error_code' => $plan['error_code'], 'updated_at' => now()]);
+            'error_code' => $plan['error_code'], 'updated_at' => now(), 'completed_at' => $plan['status'] === 'completed' ? ($workflow->completed_at ?: now()) : null]);
 
         return ! $workflow->terminal();
     }

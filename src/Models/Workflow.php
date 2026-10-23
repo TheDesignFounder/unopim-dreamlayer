@@ -14,9 +14,9 @@ class Workflow extends Model
 
     protected $guarded = [];
 
-    protected $hidden = ['source_path', 'result_path', 'credential_version', 'fingerprint', 'delivery'];
+    protected $hidden = ['source_path', 'result_path', 'credential_version', 'fingerprint', 'delivery', 'catalog_preview'];
 
-    protected $casts = ['lease_expires_at' => 'datetime', 'poll_deadline' => 'datetime', 'progress' => 'array', 'delivery' => 'array', 'steps' => 'array', 'target' => 'array', 'applied_at' => 'datetime', 'error_code' => 'integer'];
+    protected $casts = ['completed_at' => 'datetime', 'catalog_preview' => 'array', 'lease_expires_at' => 'datetime', 'poll_deadline' => 'datetime', 'progress' => 'array', 'delivery' => 'array', 'steps' => 'array', 'target' => 'array', 'applied_at' => 'datetime', 'error_code' => 'integer'];
 
     public function terminal(): bool
     {

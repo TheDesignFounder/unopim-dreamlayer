@@ -45,6 +45,16 @@ class DreamLayerServiceProvider extends ServiceProvider
                 $manager->addTemplate('dreamlayer::product-shortcut');
             }
         });
+        Event::listen(\Illuminate\Auth\Events\Logout::class, function ($event) {
+            // A polling iframe may still have an old file session in flight.
+            // Rotate the browser's session on explicit admin logout so a late
+            // response cannot revive its authenticated session identifier.
+            $request = request();
+            if ($event->guard === 'admin' && $request->routeIs('admin.session.destroy') && $request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+        });
         Event::listen('unopim.admin.layout.head', fn ($manager) => $manager->addTemplate('dreamlayer::navigation-icons'));
         Event::listen('unopim.admin.layout.body.after', fn ($manager) => $manager->addTemplate('dreamlayer::studio.launcher'));
         if (HostSupport::nativeChat()) {

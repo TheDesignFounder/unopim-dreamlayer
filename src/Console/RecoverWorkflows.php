@@ -18,6 +18,11 @@ class RecoverWorkflows extends Command
 
     public function handle(): int
     {
+        // Uploads expire after a day; admitted requests already own a durable source copy.
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+        foreach ($disk->allFiles('dreamlayer/uploads') as $file) {
+            if ($disk->lastModified($file) < now()->subDay()->timestamp) $disk->delete($file);
+        }
         $connection = config('dreamlayer.queue_connection') ?: config('queue.default');
         if (config('queue.connections.'.$connection.'.driver') === 'sync') {
             $this->error(trans('dreamlayer::app.async-queue-required'));

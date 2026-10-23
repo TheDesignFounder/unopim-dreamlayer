@@ -56,10 +56,22 @@ class MarketplaceBrowserProvider extends ServiceProvider
                 return Http::response(['account_label' => 'Local review demonstration']);
             }
             if (str_ends_with($request->url(), '/capabilities')) {
-                return Http::response(['api_version' => '1', 'image_workflows' => true, 'image_workflow_versions' => [1], 'operations' => ['image_to_image', 'text_to_image', 'background_remove']]);
+                return Http::response(['api_version' => '1', 'managed_execute' => true, 'image_workflows' => true, 'image_workflow_versions' => [1], 'operations' => ['image_to_image', 'text_to_image', 'background_remove']]);
             }
             if (str_ends_with($request->url(), '/input-assets')) {
                 return Http::response(['input_asset_id' => (string) Str::uuid()]);
+            }
+            if (str_ends_with($request->url(), '/execute')) {
+                $id = (string) Str::uuid();
+                $asset = $request['operation'] === 'background_remove' ? 'cutout' : 'blue';
+                Storage::disk('local')->put('review-workflows/'.$id.'.json', json_encode(['asset' => $asset]));
+
+                return Http::response(['execution_id' => $id], 202);
+            }
+            if (str_contains($request->url(), '/executions/')) {
+                $id = basename($request->url());
+
+                return Http::response(['execution_id' => $id, 'status' => 'completed', 'image_job' => ['finished_assets' => [['download_url' => 'https://api.dreamlayer.io/v1/image-jobs/'.$id.'/asset']]]]);
             }
             if (str_ends_with($request->url(), '/image-workflows')) {
                 $id = (string) Str::uuid();
@@ -80,6 +92,9 @@ class MarketplaceBrowserProvider extends ServiceProvider
                 $id = basename(dirname($request->url()));
                 $state = json_decode(Storage::disk('local')->get('review-workflows/'.$id.'.json'), true);
                 $directory = env('DREAMLAYER_REVIEW_ASSETS');
+                if ($directory && is_file($directory.'/result-'.$state['asset'].'.png')) {
+                    return Http::response(file_get_contents($directory.'/result-'.$state['asset'].'.png'), 200, ['Content-Type' => 'image/png']);
+                }
                 if ($directory) {
                     $im = imagecreatefromwebp($directory.'/unopim-car-'.$state['asset'].'.webp');
                     imagealphablending($im, false);

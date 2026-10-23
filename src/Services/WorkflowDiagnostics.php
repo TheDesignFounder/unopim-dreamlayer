@@ -13,10 +13,10 @@ class WorkflowDiagnostics
         // A start without a finish identifies the operation interrupted by a worker timeout.
         $context = ['workflow_id' => $workflow->id, 'operation' => $operation];
         $start = hrtime(true);
-        Log::debug('DreamLayer workflow operation started', $context);
+        Log::info('DreamLayer workflow operation started', $context);
         try {
             $result = $work();
-            Log::debug('DreamLayer workflow operation finished', $context + ['duration_ms' => round((hrtime(true) - $start) / 1e6)]);
+            Log::info('DreamLayer workflow operation finished', $context + ['duration_ms' => round((hrtime(true) - $start) / 1e6)]);
 
             return $result;
         } catch (\Throwable $error) {

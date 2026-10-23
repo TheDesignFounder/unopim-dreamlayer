@@ -263,7 +263,7 @@ final class DeliveryRecoveryTest extends TestCase
         $this->tick($w);
         $this->tick($w);
         foreach (['workflow_status', 'download_image', 'save_image'] as $operation) {
-            Log::shouldHaveReceived('debug')->with('DreamLayer workflow operation finished', Mockery::on(fn ($context) => $context['workflow_id'] === $w->id && $context['operation'] === $operation
+            Log::shouldHaveReceived('info')->with('DreamLayer workflow operation finished', Mockery::on(fn ($context) => $context['workflow_id'] === $w->id && $context['operation'] === $operation
                 && array_keys($context) === ['workflow_id', 'operation', 'duration_ms']
                 && $context['duration_ms'] >= 0));
         }

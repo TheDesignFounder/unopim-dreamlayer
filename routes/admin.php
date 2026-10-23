@@ -7,9 +7,12 @@ use DreamLayer\UnoPIM\Http\Controllers\WorkflowController;
 use Illuminate\Support\Facades\Route;
 use DreamLayer\UnoPIM\Http\Controllers\StudioController;
 
-Route::middleware('admin')->prefix(config('app.admin_url').'/dreamlayer')->name('dreamlayer.')->group(function () {
+Route::middleware([\DreamLayer\UnoPIM\Http\Middleware\ExtensionResponses::class, 'admin'])->prefix(config('app.admin_url').'/dreamlayer')->name('dreamlayer.')->group(function () {
     Route::get('studio', [StudioController::class, 'page'])->name('studio');
     Route::get('studio/config', [StudioController::class, 'config'])->name('studio.config');
+    Route::post('studio/uploads', [StudioController::class, 'upload'])->middleware('throttle:20,1,dreamlayer-upload:')->name('studio.upload');
+    Route::get('studio/uploads/image', [StudioController::class, 'uploadImage'])->name('studio.upload.image');
+    Route::patch('workflows/{id}/feedback', [WorkflowController::class, 'feedback'])->whereUuid('id')->name('feedback');
     Route::get('studio/threads', [StudioController::class, 'threads'])->name('studio.threads');
     Route::get('studio/images', [StudioController::class, 'images'])->name('studio.images');
     Route::get('studio/threads/{id}', [StudioController::class, 'show'])->whereUuid('id')->name('studio.thread');

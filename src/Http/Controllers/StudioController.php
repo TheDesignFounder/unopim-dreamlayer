@@ -23,10 +23,12 @@ class StudioController extends Controller
         $user = $this->user();
         $settings = Settings::current();
         $data = [
-            'connected' => $settings->connected(), 'history' => $settings->save_chat_history,
+            'connected' => $settings->connected(), 'linked' => filled($settings->credential),
+            'permissions' => ['settings' => bouncer()->hasPermission('dreamlayer'), 'upload' => bouncer()->hasPermission('dreamlayer_results.studio_upload') && bouncer()->hasPermission('dreamlayer_results.studio_upload_image'), 'feedback' => bouncer()->hasPermission('dreamlayer_results.feedback'), 'apply' => bouncer()->hasPermission('dreamlayer_results.apply')], 'history' => $settings->save_chat_history,
             'assistance' => $settings->managed_chat && $settings->privacy_consent_version >= 1,
             'sessionKey' => hash_hmac('sha256', $user.'|'.$request->session()->getId(), config('app.key')),
             'csrf' => csrf_token(), 'channel' => core()->getRequestedChannelCode(), 'locale' => core()->getRequestedLocaleCode(),
+            'maxUploadBytes' => config('dreamlayer.max_image_bytes'),
             'base' => url(config('app.admin_url').'/dreamlayer'),
             'labels' => array_merge(trans('dreamlayer::app'), trans('dreamlayer::studio')),
         ];
@@ -37,10 +39,33 @@ class StudioController extends Controller
     public function page(Request $request)
     {
         $config = $this->config($request)->getData(true);
+        if (! $request->expectsJson() && $request->header('Sec-Fetch-Dest') !== 'iframe') {
+            return redirect()->route('dreamlayer.choose');
+        }
 
         return response()->view('dreamlayer::studio.index', compact('config'))
             ->header('Cache-Control', 'private, no-store')->header('X-Frame-Options', 'SAMEORIGIN')
             ->header('Content-Security-Policy', "frame-ancestors 'self'");
+    }
+
+    public function upload(Request $request)
+    {
+        $owner = $this->user();
+        abort_unless(Settings::current()->connected(), 422, trans('dreamlayer::app.editor-entry-setup'));
+        $request->validate(['conversation_id' => 'required|uuid', 'image' => 'required|file|mimes:png,jpg,jpeg,webp|max:'.(int) (config('dreamlayer.max_image_bytes') / 1024)]);
+        app(\DreamLayer\UnoPIM\Services\EditorHistory::class)->assertAvailable($owner, $request->input('conversation_id'));
+
+        return response()->json(app(\DreamLayer\UnoPIM\Services\StudioUploads::class)->store($request->file('image'), $owner, $request->input('conversation_id')))
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    public function uploadImage(Request $request)
+    {
+        $owner = $this->user();
+        $request->validate(['conversation_id' => 'required|uuid', 'token' => 'required|string|max:8000']);
+        $path = app(\DreamLayer\UnoPIM\Services\StudioUploads::class)->resolve($request->input('token'), $owner, $request->input('conversation_id'));
+
+        return response()->file($path, ['Content-Type' => mime_content_type($path), 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
     }
 
     public function threads(Request $request)

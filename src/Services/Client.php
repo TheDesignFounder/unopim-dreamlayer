@@ -105,9 +105,12 @@ class Client
         return $data;
     }
 
-    public function executionPath(): string
+    public function executionPath(bool $singleStep = false): string
     {
         $caps = $this->capabilities();
+        if ($singleStep && ($caps['managed_execute'] ?? false) === true) {
+            return 'execute_v1'; // Direct admission avoids the scheduled multi-step coordinator.
+        }
 
         return ($caps['image_workflows'] ?? false) === true && in_array(1, $caps['image_workflow_versions'] ?? [], true) ? 'workflow_v1' : 'execute_v1';
     }

@@ -75,13 +75,13 @@ class ProductImages
         return $path;
     }
 
-    public function apply(string $id, int $owner): Workflow
+    public function apply(string $id, int $owner, ?string $catalogToken = null): Workflow
     {
         // Apply is a separate, owner-authorized write. Lock the receipt and product
         // so repeat clicks are harmless and an older preview cannot overwrite a new image.
         abort_unless(bouncer()->hasPermission('catalog.products.edit'), 403);
 
-        return DB::transaction(function () use ($id, $owner) {
+        return DB::transaction(function () use ($id, $owner, $catalogToken) {
             $w = Workflow::whereKey($id)->where('user_id', $owner)->lockForUpdate()->firstOrFail();
             abort_unless($w->status === 'completed' && $w->target, 422);
             if ($w->applied_at) {
@@ -93,9 +93,10 @@ class ProductImages
             abort_unless($fresh && $fresh['scope'] === $t['scope'] && $fresh['attribute_id'] === $t['attribute_id'] && $this->compatibleVersion($w, $fresh, $t), 409, trans('dreamlayer::app.message-5b8888faeb'));
             $a = Attribute::findOrFail($t['attribute_id']);
             abort_unless(app(ImageStore::class)->valid($w->result_path), 503, trans('dreamlayer::app.message-e2db6b8836'));
-            $path = Storage::disk('local')->path($w->result_path);
-            $defaultLimit = (int) (core()->getConfigData('catalog.products.attribute.image_attribute_upload_size') ?? 2048);
-            $limit = method_exists($a, 'resolvedMaxKilobytes') ? $a->resolvedMaxKilobytes($defaultLimit) : $defaultLimit;
+            $preview = app(CatalogPreview::class)->prepare($w);
+            abort_if(($preview['adjusted'] || $catalogToken !== null) && ! hash_equals($preview['token'], $catalogToken ?? ''), 409, trans('dreamlayer::studio.catalog-preview-changed'));
+            $path = Storage::disk('local')->path($preview['path']);
+            $limit = app(CatalogPreview::class)->limit($a);
             abort_if($limit > 0 && filesize($path) > $limit * 1024, 422, trans('dreamlayer::app.message-ff711ff54d'));
             $stored = app(FileStorer::class)->storeAs('product/'.$p->id.'/'.$a->code, 'dreamlayer-'.$w->id.'.png', new File($path), ['disk' => 'public', FileStorer::HASHED_FOLDER_NAME_KEY => true]);
             abort_unless($stored, 500);
@@ -127,7 +128,7 @@ class ProductImages
                     'destination' => $this->destination($t), 'slot' => $t['index'], 'before_version' => $fresh['version'], 'after_version' => $after['version'],
                     'created_at' => now(), 'updated_at' => now()]);
             }
-            $w->update(['applied_at' => now()]);
+            $w->update(['applied_at' => now(), 'catalog_preview' => $preview]);
 
             return $w;
         });

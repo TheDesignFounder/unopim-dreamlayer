@@ -1,6 +1,6 @@
 # UnoPim compatibility
 
-**0.4.0 update (2026-10-23):** the new persistent chat workspace is browser-tested on 3.1.3. Its PHP regression run passed 150 tests, 874 assertions and 15 host/configuration-specific skips. The older-release matrix below belongs to 0.3.0 and must not be read as completed acceptance of the new workspace on those releases.
+**0.5.0 update (2026-10-23):** the persistent chat workspace and image-workflow fixes are tested on 3.1.3. The full PHP run passed 160 tests and 977 assertions, with 15 skips (14 native-hook tests absent on this host, one PostgreSQL-only test). Browser evidence distinguishes recorded provider responses from real paid generation. The independent 0.4.0 live run found defects; it is not a pass for this candidate. The older-release matrix below belongs to 0.3.0 and must not be read as completed acceptance of the new workspace on those releases.
 
 Validation date: 2026-10-22. Candidate: DreamLayer 0.3.0, unpublished.
 
@@ -54,7 +54,7 @@ in the marketplace compatibility field.
 
 ## Limits of the claim
 
-The historical 0.3.0 listing named the four tested tags above. The 0.4.0 workspace needs browser acceptance on an older tag before renewing its UI claim for that tag. The Composer range
+The historical 0.3.0 listing named the four tested tags above. The 0.5.0 workspace needs browser acceptance on an older tag before renewing its UI claim for that tag. The Composer range
 `>=0.1.0 <4.0.0` permits installation and further testing; it is not evidence that
 every intermediate, customized or future release works. Additional tags should
 pass the same clean-install, permission, image, migration and browser checks.
