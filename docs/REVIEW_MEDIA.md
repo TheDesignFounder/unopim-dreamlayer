@@ -1,27 +1,20 @@
 # Editor review media
 
-The 0.5.0 review handoff includes current light/dark and mobile screenshots. Its isolated browser runs use synthetic provider responses; these are interface and workflow checks, not evidence of live generation quality or billing. A current real-account recording is still needed before publication.
+The current package is 0.5.5. Use current compact-editor screenshots for marketplace
+review, alongside the [workflow page](https://dreamlayer.io/integrations/unopim)
+and [release notes](RELEASE_NOTES_0_5_5.md).
 
-The historical 0.3.0 review bundle contains screenshots and an MP4 recorded from the
-standalone DreamLayer editor inside the released UnoPim 3.1.3 admin interface.
-They describe the previous interface and should not be used as a demonstration of the 0.5.0 workspace.
+Independent real-account desktop testing passed the 0.5.3 fixes and the 0.5.4
+compact cards. The 0.5.5 retry browser check uses an isolated replay provider:
+image generation and authorization are simulated, and no credits are spent.
+It verifies the interface, source/product routing and retry wording; it does not
+measure live generation quality, speed or billing.
 
-The sequence shows selecting a catalog image, creating a blue-background preview,
-refining the previous result into a parking scene, and explicitly applying a
-chosen result. Settings screenshots show chat as a choice during connection and
-saved history as a separate option.
+The older 0.3.0 MP4 and native-chat YouTube demo show an earlier interface. Keep
+them as historical evidence only; do not attach them as current-editor media.
+A recording represented as a live 0.5.5 demonstration must be recorded against
+that release with the real service. A replay workflow recording must be labelled
+as a replay and any time compression disclosed.
 
-The review environment replays previously generated product images from the
-existing DreamLayer integration assets. Image generation and account authorization
-are simulated in that isolated environment. The MP4 identifies this as a workflow
-demonstration. It demonstrates the current interface and saving behavior, not
-live generation speed, output quality, provider availability or billing.
-
-The test provider, seed script and image assets are excluded from the installable
-extension. No customer credentials or real account data appear in the media.
-
-Before public publication, replace or accompany this workflow demonstration with
-a recording from the final real-account acceptance test. Supply the current
-README with the ZIP: public GitHub links still refer to the older release until
-the candidate is published. Do not use the old native-chat YouTube URL as the
-primary demo for the four released compatibility targets.
+The test provider, seed scripts and test image assets are excluded from the
+installable extension. No customer credentials should appear in review media.

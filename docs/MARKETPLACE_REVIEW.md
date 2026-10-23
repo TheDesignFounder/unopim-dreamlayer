@@ -1,3 +1,21 @@
+# 0.5.5 review update
+
+The current release includes the persistent editor, inline image references, saved
+conversations, compact cards and the corrected batch retry wording. Independent
+real-account desktop acceptance passed the 0.5.3 fixes and 0.5.4 compact cards.
+The final 0.5.5 suite passed 174 tests and 1,100 assertions, with 15 documented
+host-specific skips. An isolated browser check passed batch retry, source removal
+and repeated retry, without paid requests.
+
+Fresh CI passed installation, 22 workflow checks and page rendering on UnoPim
+0.1.0, 1.0.1, 2.1.6 and 3.1.3 with host dependencies unchanged. Older-host account
+connection tests passed 19 tests / 165 assertions each. See
+[release notes](RELEASE_NOTES_0_5_5.md) for the complete scope and known follow-ups.
+Marketplace approval remains UnoPim’s decision.
+
+The sections below are historical records; their candidate status and test counts
+apply to the version named in each section, not to the current release.
+
 # 0.4.0 review addendum
 
 The report below records the earlier 0.3.0 checks. This candidate adds the DreamLayer side chat, expanded workspace, saved-thread drawer, and native task selector. New workspace acceptance is documented in `ACCEPTANCE_TEST.md`; the old host-matrix evidence does not certify the new UI on older releases. The 0.4.0 regression run passed 150 PHP tests (874 assertions, 15 skips) and the fixture browser suite; real-account acceptance remains a separate run. No public release or deployment has been made.

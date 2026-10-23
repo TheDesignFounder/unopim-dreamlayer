@@ -41,7 +41,7 @@ Try again, source-chip removal, a completed retry and another retry. It verified
 the original wording, original source bytes, correct product and exactly one
 server-side routing prefix, with no browser errors or paid requests.
 
-The release workflow checks installation and workflow compatibility on official
+The release workflow passed installation and workflow compatibility on official
 UnoPim 0.1.0, 1.0.1, 2.1.6 and 3.1.3. This does not imply real-account browser
 acceptance on every host. See [compatibility details](COMPATIBILITY.md).
 

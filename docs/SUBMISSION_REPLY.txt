@@ -1,34 +1,33 @@
-DRAFT — send after final acceptance and release-tag publication.
-Replace the release-tag line with the published URL before sending.
+UNSENT DRAFT — marketplace re-review for release 0.5.5.
 
 Hi Navneet,
 
-Thank you for the detailed review. We have prepared a revised DreamLayer 0.3.0
-candidate addressing the required changes and the recommended improvements.
+We have prepared DreamLayer 0.5.5 for marketplace re-review. It includes a
+standalone, persistent image editor with saved conversations, inline image
+references, multi-product requests, follow-up refinement and compact result
+cards. The batch Try again action now restores the user's original wording.
 
-The main change is a standalone image editor inside UnoPim. It works without
-the newer native-chat hooks. Installation and workflow checks cover the released
-UnoPim versions 0.1.0, 1.0.1, 2.1.6 and 3.1.3, with the original host dependencies.
-The native-chat integration stays optional and appears only on supported hosts.
+Fresh installation and workflow checks pass on UnoPim 0.1.0, 1.0.1, 2.1.6 and
+3.1.3, with all existing host dependencies unchanged. No core patch is required.
+Optional native chat appears only on hosts with the required extension hooks.
 
-Chat assistance and saved editor conversations are off by default. Administrators
-can choose chat during account connection or reconnect later to add permission.
-The settings and README explain what data is sent and stored. The extension does
-not change UnoPim's default chat provider or enable other providers' history.
+Chat assistance and saved conversations are separate opt-ins. The README and
+settings disclose data sharing. The extension does not change the default AI
+provider or enable other providers' history. Every result requires explicit
+review and Apply before changing its product image.
 
-We also removed the core patches and dependency-change instructions, added the
-normal product-update events around Apply, supplied all 33 locales, and cleaned
-up the distribution and installation guide. The revised code includes bounded
-polling, network calls outside workflow row locks, configurable queues, complete
-route permissions and the catalog/settings performance improvements.
+The 0.5.5 regression suite passed 174 tests and 1,100 assertions, with 15
+host-specific skips. A separate replay-browser check passed the retry fix.
+Independent real-account acceptance passed the preceding 0.5.3 and 0.5.4
+changes; this is not a claim of an independent 0.5.5 rerun. Release notes include
+remaining performance and usability follow-ups.
 
-Attached are the package, compatibility evidence, updated listing details,
-current editor screenshots and a point-by-point response. The review video
-shows the current editor with replayed example images; it is clearly labelled.
-Please see the completed acceptance checklist for the real-service test results.
+Release: https://github.com/TheDesignFounder/unopim-dreamlayer/releases/tag/v0.5.5
+Guide: https://github.com/TheDesignFounder/unopim-dreamlayer#install
+Workflow: https://dreamlayer.io/integrations/unopim
 
-Release tag: [add the published tag URL after acceptance]
-
+The package, listing copy and current screenshots can be supplied together.
+The historical 0.3.0 video should not be used as the current-editor demo.
 Please review this version for the marketplace listing.
 
 Thanks,

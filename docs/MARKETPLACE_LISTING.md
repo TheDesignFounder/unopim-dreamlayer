@@ -1,19 +1,19 @@
 # DreamLayer AI for UnoPim — listing draft
 
-Status: prepared for review of the unpublished 0.4.0 candidate. Do not publish this version number until its release tag exists.
+Submission copy for release 0.5.5. Marketplace approval is pending; publication of the GitHub release does not imply listing approval.
 
 | Field | Value |
 | --- | --- |
 | Extension name | DreamLayer AI for UnoPim |
-| Extension version | 0.4.0 (candidate; no tag published) |
-| Supported UnoPim versions | 3.1.3 workspace validation; older host workflow results are historical — see compatibility matrix |
+| Extension version | 0.5.5 |
+| Supported UnoPim versions | 0.1.0, 1.0.1, 2.1.6 and 3.1.3 installation/workflow checks; current desktop acceptance on 3.1.3 — see compatibility matrix |
 | Pricing | Free extension, requires paid DreamLayer credits |
 | Developer | DreamLayer AI |
 | Developer profile | https://dreamlayer.io/ |
 | Integration page | https://dreamlayer.io/integrations/unopim |
 | User guide | https://github.com/TheDesignFounder/unopim-dreamlayer#use-it |
 | Installation guide | https://github.com/TheDesignFounder/unopim-dreamlayer#install |
-| Video demo | Attached `DreamLayer-UnoPim-0.3.0-editor-demo.mp4` — historical interface only; replace with a 0.4.0 recording before submission |
+| Video demo | Current workflow: https://dreamlayer.io/integrations/unopim — see REVIEW_MEDIA.md for recording scope |
 | Support label | DreamLayer Support |
 | Support link | https://github.com/TheDesignFounder/unopim-dreamlayer/issues |
 | Developer email | mackenzie@dreamlayer.io |
@@ -41,4 +41,10 @@ The extension does not upload the whole catalog, switch the host's default AI pr
 
 ## Listing assets and review notes
 
-Use the approved DreamLayer logo and current editor screenshots supplied in the review bundle. The older MP4 shows the previous editor using replayed image results; see [media details](REVIEW_MEDIA.md). The final acceptance recording can replace it before public publication. The linked guides still describe the public release until this branch is published; submit the candidate ZIP and current README to reviewers together. Do not claim an untested compatibility version or represent an unpublished tag as available.
+Use the approved DreamLayer logo and current compact-editor screenshots. Do not use the historical 0.3.0 MP4 or old native-chat YouTube recording as evidence of the current standalone editor. See [media details](REVIEW_MEDIA.md) and [0.5.5 release notes](RELEASE_NOTES_0_5_5.md) for acceptance scope and known follow-ups.
+
+Release: https://github.com/TheDesignFounder/unopim-dreamlayer/releases/tag/v0.5.5
+
+Package: https://github.com/TheDesignFounder/unopim-dreamlayer/releases/download/v0.5.5/unopim-dreamlayer-0.5.5.zip
+
+These URLs become available when the authorized release publication completes. The marketplace form is submitted separately at the end of the release process.
