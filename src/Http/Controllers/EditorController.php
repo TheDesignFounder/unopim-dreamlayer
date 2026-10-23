@@ -26,12 +26,20 @@ class EditorController extends Controller
         app(\DreamLayer\UnoPIM\Services\EditorHistory::class)->assertAvailable(auth()->guard('admin')->id(), $data['conversation_id']);
         abort_unless($settings->connected(), 422, trans('dreamlayer::app.connect-first'));
         abort_if(count(array_filter([$data['selected_result'] ?? null, $data['retry_result'] ?? null, $data['upload_token'] ?? null, count($data['images'])])) > 1, 422, trans('dreamlayer::app.choose-source'));
+        preg_match_all('/(?<![\p{L}\p{N}_])@(Asset-[\p{L}\p{N}_-]*)/u', $data['message'], $mentions);
+        if (array_filter($mentions[1], fn ($reference) => ! preg_match('/^Asset-[1-9][0-9]{0,12}$/D', $reference))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['images' => trans('dreamlayer::app.message-268f960b4a')]);
+        }
         $context = new ImageContext(
             message: $data['message'], history: $data['history'], productId: null, productSku: null, productName: null,
             locale: $data['locale'], channel: $data['channel'], user: auth()->guard('admin')->user(),
             conversationId: $data['conversation_id'], requestId: $data['request_id'],
-            extensions: ['dreamlayer' => ['images' => $data['images']]],
+            extensions: ['dreamlayer' => ['images' => $data['images'],
+                'bound_source' => ! empty($data['selected_result']) || ! empty($data['retry_result']) || ! empty($data['upload_token'])]],
         );
+        // Resolve references before optional chat or image work. A mention can
+        // narrow the supplied selection, but cannot name an unattached image.
+        $selected = CatalogImages::selected($context);
         // Pin the browser request before optional model calls. Store a hash,
         // never the conversation, unless history saving was explicitly enabled.
         $identity = ['user_id' => $context->user->id, 'request_id' => $data['request_id']];
@@ -93,7 +101,7 @@ class EditorController extends Controller
         if (! empty($data['selected_result'])) {
             $input['selected_result'] = $data['selected_result'];
         }
-        if (count($data['images']) > 1) {
+        if (count($selected) > 1) {
             abort_unless($operation !== 'text_to_image', 422, trans('dreamlayer::app.select-one-generation'));
             $batch = app(Batches::class)->start($context, $input);
             $result = ['batch_id' => $batch->id, 'workflow_ids' => $batch->children];

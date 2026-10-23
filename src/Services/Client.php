@@ -34,7 +34,7 @@ class Client
 
     public function refineInstruction(string $message, array $history, string $requestId, int $owner): string
     {
-        $messages = [['role' => 'system', 'content' => 'Rewrite the final user message as a concise, executable product-image editing instruction. Use the supplied conversation only to resolve visual references. The selected source image is the latest result or the image selected by the user. Preserve the product unless the user explicitly changes it. Return only the editing instruction. Never choose a product, call tools, claim an edit succeeded, or apply a change.']];
+        $messages = [['role' => 'system', 'content' => 'Rewrite the final user message as a concise, executable product-image editing instruction. Use the supplied conversation only to resolve visual references. The selected source image is the latest result or the image selected by the user. Preserve every @Asset-N reference and which instruction belongs to it. Preserve the product unless the user explicitly changes it. Return only the editing instruction. Never choose a product, call tools, claim an edit succeeded, or apply a change.']];
         foreach ($history as $turn) {
             $messages[] = ['role' => $turn['role'], 'content' => $turn['content']];
         }

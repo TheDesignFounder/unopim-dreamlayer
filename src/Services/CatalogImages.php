@@ -13,6 +13,7 @@ class CatalogImages
     {
         $data = Validator::make($context->extensions, [
             'dreamlayer' => ['sometimes', 'array'],
+            'dreamlayer.bound_source' => ['sometimes', 'boolean'],
             'dreamlayer.images' => ['sometimes', 'array', 'max:5'],
             'dreamlayer.images.*' => ['array'],
             'dreamlayer.images.*.reference' => ['sometimes', 'string', 'regex:/^Asset-[1-9][0-9]{0,12}$/'],
@@ -21,6 +22,11 @@ class CatalogImages
         ])->validate();
 
         $images = $data['dreamlayer']['images'] ?? [];
+        // The standalone editor can already bind an authenticated preview or
+        // upload. References in its original instruction cannot change that source.
+        if (! $images && ($data['dreamlayer']['bound_source'] ?? false)) {
+            return [];
+        }
         preg_match_all('/(?<![\p{L}\p{N}_])@(Asset-[1-9][0-9]*)(?![\p{L}\p{N}_-])/u', $context->message, $matches);
         $references = array_unique($matches[1]);
         if ($references) {

@@ -2,11 +2,16 @@
 
 Create and refine product images inside UnoPim. Select images, describe a change, review the previews, then choose what to save. Follow-up edits use the previous result. DreamLayer handles image model selection; UnoPim keeps the product records and permissions.
 
-**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.1** candidate. It has not been submitted, merged or deployed.
+**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.2** candidate. It has not been submitted, merged or deployed.
 
-0.5.1 fixes reopening saved conversations with multiple product images: each
-request restores its result cards in selection order, including older saved
-conversations. No data migration or image regeneration is required.
+0.5.2 adds inline image references to the standalone editor. Type **@** and choose
+a product image to insert a highlighted `@Asset-1` reference at the cursor. The
+thumbnail labels identify its product. Mention one attached image to edit only
+that image, or mention multiple images to create separate previews. Without
+inline references, the request uses all attached images.
+
+The saved multi-product history fix from 0.5.1 is retained: each request restores
+its result cards in selection order, including older saved conversations. No data migration or image regeneration is required.
 
 ## Compatibility
 
@@ -36,7 +41,7 @@ For this unpublished candidate, use the reviewed distribution ZIP supplied along
 
 ```sh
 composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
-composer require dreamlayer/unopim-dreamlayer:0.5.1 --prefer-dist
+composer require dreamlayer/unopim-dreamlayer:0.5.2 --prefer-dist
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```

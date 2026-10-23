@@ -54,9 +54,17 @@ class Batches
                 $args['requestId'] = (string) Str::uuid();
                 $args['channel'] = $t['channel'];
                 $args['locale'] = $t['locale'];
-                $args['extensions'] = [];
+                $args['extensions'] = ['dreamlayer' => ['bound_source' => true]];
                 $data = $input;
                 unset($data['selected_result']);
+                if (isset($selection['reference']) && $data['steps'][0]['operation'] === 'image_to_image') {
+                    $prefix = 'The supplied image is @'.$selection['reference'].'. Apply instructions for this image only. ';
+                    $limit = 4000 - mb_strlen($prefix);
+                    if (mb_strlen($data['steps'][0]['instruction']) > $limit) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['message' => trans('validation.max.string', ['attribute' => 'message', 'max' => $limit])]);
+                    }
+                    $data['steps'][0]['instruction'] = $prefix.$data['steps'][0]['instruction'];
+                }
                 $data['sku'] = $t['sku'];
                 $data['attribute'] = $t['attribute'];
                 $data['image_index'] = $t['index'];

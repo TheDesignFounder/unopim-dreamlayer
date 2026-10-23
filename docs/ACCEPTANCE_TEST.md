@@ -1,4 +1,4 @@
-# DreamLayer 0.5.1 — acceptance test
+# DreamLayer 0.5.2 — acceptance test
 
 Use a review copy of UnoPim with two disposable products, `DL-TEST-RED` and
 `DL-TEST-BLUE`, each with an image. Record the ZIP SHA-256 and UnoPim version.
@@ -215,3 +215,35 @@ this interface and its saved-history features require their own acceptance run.
 Attach exact ZIP checksum, host versions, screenshots, request/status receipts,
 permission results, billing evidence and any failures. Do not report fixture
 image responses as live AI verification. Do not reuse a pass for a different ZIP.
+
+## 9. Inline image references (0.5.2)
+
+1. In a new conversation, type `Please edit ` followed by **@**. Pick two car
+   images and choose **Use selected images**. Confirm highlighted `@Asset-1` and
+   `@Asset-2` appear at the cursor and the thumbnail chips map each to its SKU.
+2. Type another **@** in the middle of a sentence and choose an already attached
+   image. Confirm text on either side survives and both attachments remain.
+   Undo and redo the insertion, copy/paste the message, and test Shift+Enter.
+3. Remove an attachment. Its inline references must disappear; other references
+   must remain. Add a different product and confirm it gets a new number.
+   Clicking a thumbnail's reference label should insert that reference at the cursor.
+4. Enter an unknown reference such as `@Asset-99`. Create preview must remain
+   disabled with a useful message. Plain email addresses must not open the picker.
+5. Attach two cars, then send `Give only @Asset-2 a blue background.` Confirm
+   exactly one preview and one paid image request, for the second car. Try again
+   must retain the same original image. Do not apply to an unintended product.
+6. Start a new conversation with saved History enabled. Attach two cars and send
+   `Use a blue background for @Asset-1 and a white background for @Asset-2.`
+   Confirm two result cards with their correct destinations; inspect actual
+   provider output to judge whether each instruction was followed.
+7. Reopen that conversation in a fresh browser context. Confirm both result
+   cards and highlighted message references restore without a false history-off
+   notice. New attachments must not reuse the historical reference numbers.
+8. Check drafts across reload, dock/expand and host navigation. Inspect long
+   wrapped messages and scroll alignment in light/dark modes at desktop and
+   actual 390px widths. Repeat with chat assistance off and on, leaving the
+   installation's original preferences restored when finished.
+
+Local recorded-provider checks establish routing and UI behavior, not live
+image quality, service latency or billing. Retain the independent 0.5.1 PASS
+report as earlier evidence and label any 0.5.2 checks that were not rerun.

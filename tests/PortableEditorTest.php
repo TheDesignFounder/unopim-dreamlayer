@@ -66,6 +66,100 @@ final class PortableEditorTest extends TestCase
         Http::assertNothingSent();
     }
 
+    private function twoReferencedImages(): Product
+    {
+        $other = $this->product->replicate();
+        $other->sku = 'EDITOR-'.Str::random(8);
+        $other->save();
+        $target = app(ProductImages::class)->target($other, 'image', 0, 'default', 'en_US');
+        $selection = app(CatalogImages::class)->selection($other, $target, $this->admin->id);
+        $this->input['images'][0]['reference'] = 'Asset-1';
+        $this->input['images'][] = ['token' => $selection['token'], 'reference' => 'Asset-2'];
+
+        return $other;
+    }
+
+    public function test_inline_reference_targets_only_its_bound_product_and_replay_is_identical(): void
+    {
+        $other = $this->twoReferencedImages();
+        Settings::current()->update(['save_chat_history' => true]);
+        $this->input['message'] = 'Give @Asset-2 a blue background.';
+        $result = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $this->assertNull($result['batch_id']);
+        $this->assertCount(1, $result['workflow_ids']);
+        $workflow = Workflow::findOrFail($result['workflow_ids'][0]);
+        $this->assertSame($other->sku, $workflow->target['sku']);
+        $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->assertExactJson($result);
+        $saved = DB::table('dreamlayer_editor_history')->where('request_id', $this->input['request_id'])->first();
+        $this->assertSame($this->input['message'], json_decode(Crypt::decryptString($saved->messages), true)[0]['content']);
+        $this->assertSame(1, Workflow::where('user_id', $this->admin->id)->count());
+        Http::assertNothingSent();
+    }
+
+    public function test_unbound_or_malformed_inline_references_fail_before_receipts_chat_and_jobs(): void
+    {
+        $this->twoReferencedImages();
+        Settings::current()->update(['managed_chat' => true, 'privacy_consent_version' => 1]);
+        foreach (['@Asset-3', '@Asset-', '@Asset-0', '@Asset-2wrong'] as $reference) {
+            $this->input['message'] = 'Edit '.$reference;
+            $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertUnprocessable();
+        }
+        $this->input['message'] = 'Edit @Asset-1';
+        $this->input['images'][1]['reference'] = 'Asset-1';
+        $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertUnprocessable();
+        $this->assertSame(0, DB::table('dreamlayer_editor_requests')->where('user_id', $this->admin->id)->count());
+        $this->assertSame(0, Workflow::where('user_id', $this->admin->id)->count());
+        Queue::assertNotPushed(RunWorkflow::class);
+        Queue::assertNotPushed(\DreamLayer\UnoPIM\Jobs\RunBatch::class);
+        Http::assertNothingSent();
+    }
+
+    public function test_two_inline_references_keep_batch_order_and_identify_each_child_to_the_model(): void
+    {
+        $other = $this->twoReferencedImages();
+        Http::fake(['*' => Http::response(['managed_execute' => true, 'operations' => ['text_to_image', 'image_to_image', 'background_remove']])]);
+        $this->input['message'] = 'Use a blue background for @Asset-1 and a white one for @Asset-2.';
+        $result = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $this->assertNotNull($result['batch_id']);
+        $this->assertCount(2, $result['workflow_ids']);
+        foreach ($result['workflow_ids'] as $index => $id) {
+            $workflow = Workflow::findOrFail($id);
+            $this->assertSame([$this->product->sku, $other->sku][$index], $workflow->target['sku']);
+            $this->assertStringStartsWith('The supplied image is @Asset-'.($index + 1).'.', $workflow->steps[0]['instruction']);
+            $this->assertStringContainsString($this->input['message'], $workflow->steps[0]['instruction']);
+        }
+        $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->assertExactJson($result);
+    }
+
+    public function test_batch_reference_context_reserves_prompt_space_without_truncation_or_dispatch(): void
+    {
+        $this->twoReferencedImages();
+        Http::fake(['*' => Http::response(['managed_execute' => true, 'operations' => ['text_to_image', 'image_to_image', 'background_remove']])]);
+        $this->input['message'] = str_pad('Edit @Asset-1 and @Asset-2. ', 4000, 'x');
+        $response = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertUnprocessable();
+        $response->assertJsonValidationErrors('message');
+        $this->assertStringContainsString('3928', $response->json('errors.message.0'));
+        $this->assertSame(0, Workflow::where('user_id', $this->admin->id)->count());
+        Queue::assertNotPushed(RunWorkflow::class);
+        Queue::assertNotPushed(\DreamLayer\UnoPIM\Jobs\RunBatch::class);
+    }
+
+    public function test_retry_with_inline_references_keeps_the_authenticated_original_source(): void
+    {
+        $other = $this->twoReferencedImages();
+        $this->input['message'] = 'Give @Asset-2 a blue background.';
+        $first = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $original = Workflow::findOrFail($first['workflow_ids'][0]);
+        Storage::disk('local')->put('original.png', Storage::disk('public')->get('editor-test.png'));
+        $original->update(['status' => 'completed', 'source_path' => 'original.png']);
+        $this->input['request_id'] = (string) Str::uuid();
+        $this->input['images'] = [];
+        $this->input['retry_result'] = $original->id;
+        $retry = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
+        $this->assertSame($other->sku, Workflow::findOrFail($retry['workflow_ids'][0])->target['sku']);
+        Http::assertNothingSent();
+    }
+
     public function test_replay_is_identical_and_changed_inputs_are_rejected(): void
     {
         $first = $this->postJson(route('dreamlayer.editor.send'), $this->input)->assertOk()->json();
