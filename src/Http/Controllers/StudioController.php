@@ -2,6 +2,7 @@
 
 namespace DreamLayer\UnoPIM\Http\Controllers;
 
+use DreamLayer\UnoPIM\Models\Batch;
 use DreamLayer\UnoPIM\Models\Settings;
 use DreamLayer\UnoPIM\Models\Workflow;
 use Illuminate\Http\Request;
@@ -96,7 +97,14 @@ class StudioController extends Controller
         $thread = $this->owned($id);
         $rows = DB::table('dreamlayer_editor_history')->where('user_id', $thread->user_id)
             ->where('conversation_id', $id)->orderBy('created_at')->orderBy('id')->get();
-        $workflows = Workflow::where('user_id', $thread->user_id)->where('conversation_id', $id)->get()->groupBy('request_id');
+        $workflows = Workflow::where('user_id', $thread->user_id)->where('conversation_id', $id)
+            ->orderBy('created_at')->orderBy('id')->get();
+        $batches = Batch::where('user_id', $thread->user_id)->where('conversation_id', $id)
+            ->whereIn('id', $workflows->pluck('batch_id')->filter()->unique())->get()->keyBy('id');
+        $positions = $batches->flatMap(fn ($batch) => array_flip($batch->children ?? []));
+        // History stores the submitted request, while each batch child has its own request ID.
+        $workflows = $workflows->groupBy(fn ($workflow) => $batches->get($workflow->batch_id)?->request_id ?? $workflow->request_id)
+            ->map(fn ($children) => $children->sortBy(fn ($workflow) => $positions->get($workflow->id, PHP_INT_MAX))->values());
         $turns = $rows->map(function ($row) use ($workflows) {
             $messages = json_decode(Crypt::decryptString($row->messages), true);
 

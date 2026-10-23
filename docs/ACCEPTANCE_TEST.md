@@ -1,4 +1,4 @@
-# DreamLayer 0.5.0 — acceptance test
+# DreamLayer 0.5.1 — acceptance test
 
 Use a review copy of UnoPim with two disposable products, `DL-TEST-RED` and
 `DL-TEST-BLUE`, each with an image. Record the ZIP SHA-256 and UnoPim version.
@@ -187,6 +187,28 @@ this interface and its saved-history features require their own acceptance run.
     identifiers. Confirm there is no scheduled wrapper delay. Record real
     duration rather than extrapolating from fixture tests. At least two image
     credits are needed for a two-product request; never top up without approval.
+
+## 8. Saved multi-product history regression (0.5.1)
+
+57. In a fresh authenticated browser context with no previous tab storage, open
+    History → Chats → **Acceptance test 0.5.0** on the existing review site.
+    Both ABLO-001 and ABLO-002 result cards must load beneath the saved request,
+    in their original selection order. The false “History off” note must be gone.
+    Repeat for the older two-product thread (conversation prefix `05326233`).
+    These checks need no new image request or catalog write.
+58. Repeat with all three editor switches off. Messages, images and downloads
+    must remain accessible; new edits remain disabled. Check a single-image
+    saved thread too. Preserve the starting settings.
+59. With editing and saved history enabled, submit a new two-product request.
+    Close the tab and reopen the saved thread in a fresh authenticated context.
+    Verify both destinations, preview images and download links. Refine one
+    reopened result; verify its workflow ID is the selected source and both the
+    original batch and follow-up reopen together. Distinguish fixture runs from
+    paid provider calls in the report.
+60. For a conversation containing both saved and unsaved requests, keep the
+    actual unsaved-history warning and show only saved messages on a fresh
+    context. Verify another user's or another conversation's results are not
+    attached. Deleting a conversation must still prevent reopening it.
 
 ## Evidence and result
 
