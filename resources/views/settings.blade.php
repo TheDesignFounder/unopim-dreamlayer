@@ -1,7 +1,7 @@
 <x-admin::layouts>
     <x-slot:title>@lang('dreamlayer::app.ui-df37e16ca0')</x-slot>
     @include('dreamlayer::styles')
-    <div class="dl-page dl-stack text-gray-800 dark:text-gray-200">
+    <div class="dl-page dl-settings dl-stack text-gray-800 dark:text-gray-200">
         <div class="dl-heading"><h1>@lang('dreamlayer::app.ui-df37e16ca0')</h1><a class="secondary-button" href="{{ route('dreamlayer.choose') }}">@lang('dreamlayer::app.editor')</a></div>
         @foreach($errors->all() as $error)<p class="dl-error" role="alert">{{ $error }}</p>@endforeach
         @if($connectionNotice)<p class="dl-notice" role="status">{{ $connectionNotice }}</p>@endif
@@ -9,7 +9,11 @@
         <p><strong>@lang('dreamlayer::app.connection-status'):</strong> {{ trans('dreamlayer::app.connection-'.$connectionState['status']) }}</p>
         @if($connectionState['balances'])<p>@lang('dreamlayer::app.available-credits'): {{ $connectionState['balances']['available'] ?? '—' }}</p>@endif
         @if(config('dreamlayer.connections_enabled'))<section class="dl-section"><h2>@lang('dreamlayer::app.connect')</h2><v-dreamlayer-connect :connected="@json((bool) $settings->credential)"></v-dreamlayer-connect></section>@endif
-        <x-admin::form :action="route('dreamlayer.settings.save')" method="POST">
+        @if(view()->exists('admin::components.form.unsaved-changes'))
+            @include('admin::components.form.unsaved-changes')
+            <v-dreamlayer-settings-changes :hide-save-when-tracked="true">
+        @endif
+        <x-admin::form :action="route('dreamlayer.settings.save')" method="POST" :track-dirty="false">
             <div class="dl-stack">
                 <x-admin::form.control-group>
                     <x-admin::form.control-group.label>@lang('dreamlayer::app.key')</x-admin::form.control-group.label>
@@ -18,15 +22,15 @@
                     <p class="dl-muted">@lang('dreamlayer::app.key-help')</p>
                 </x-admin::form.control-group>
                 @foreach(['enabled','managed_chat','save_chat_history'] as $field)
-                    <x-admin::form.control-group>
-                        <x-admin::form.control-group.label>{{ trans('dreamlayer::app.setting-'.$field) }}</x-admin::form.control-group.label>
+                    <x-admin::form.control-group class="dl-switch">
+                        <x-admin::form.control-group.label :for="$field">{{ trans('dreamlayer::app.setting-'.$field) }}</x-admin::form.control-group.label>
                         <x-admin::form.control-group.control type="switch" :name="$field" value="1" :checked="(bool) $settings->$field" :label="trans('dreamlayer::app.setting-'.$field)" />
                         <p class="dl-muted">{{ trans('dreamlayer::app.setting-'.$field.'-help') }}</p>
                     </x-admin::form.control-group>
                 @endforeach
                 @if(\DreamLayer\UnoPIM\Compatibility\HostSupport::nativeChat())
-                    <x-admin::form.control-group>
-                        <x-admin::form.control-group.label>@lang('dreamlayer::app.setting-native_chat_enabled')</x-admin::form.control-group.label>
+                    <x-admin::form.control-group class="dl-switch">
+                        <x-admin::form.control-group.label for="native_chat_enabled">@lang('dreamlayer::app.setting-native_chat_enabled')</x-admin::form.control-group.label>
                         <x-admin::form.control-group.control type="switch" name="native_chat_enabled" value="1" :checked="(bool) $settings->native_chat_enabled" />
                         <p class="dl-muted">@lang('dreamlayer::app.setting-native_chat_enabled-help')</p>
                     </x-admin::form.control-group>
@@ -34,7 +38,7 @@
                 <section class="dl-section" id="dreamlayer-data-sharing"><h2>@lang('dreamlayer::app.privacy')</h2>
                     @foreach(['images','chat','connection','storage','providers'] as $topic)<p>{{ trans('dreamlayer::app.privacy-'.$topic) }}</p>@endforeach
                     <x-admin::form.control-group>
-                        <x-admin::form.control-group.label>@lang('dreamlayer::app.privacy-consent')</x-admin::form.control-group.label>
+                        <x-admin::form.control-group.label for="privacy_consent">@lang('dreamlayer::app.privacy-consent')</x-admin::form.control-group.label>
                         <x-admin::form.control-group.control type="checkbox" name="privacy_consent" value="1" :checked="$settings->privacy_consent_version >= 1" />
                         <x-admin::form.control-group.error control-name="privacy_consent" />
                     </x-admin::form.control-group>
@@ -42,6 +46,9 @@
                 <button class="primary-button" type="submit">@lang('dreamlayer::app.save')</button>
             </div>
         </x-admin::form>
+        @if(view()->exists('admin::components.form.unsaved-changes'))
+            </v-dreamlayer-settings-changes>
+        @endif
         @if($settings->credential)
             <section class="dl-section"><a class="dl-link" href="{{ config('dreamlayer.billing_url') }}" target="_blank" rel="noopener noreferrer">@lang('dreamlayer::app.billing')</a>
                 <form method="POST" action="{{ route('dreamlayer.disconnect') }}">@csrf<button type="submit" class="secondary-button">@lang('dreamlayer::app.disconnect')</button></form>
@@ -54,7 +61,7 @@
         <div class="dl-stack">
             <div v-if="!code" class="dl-stack">
                 <p v-text="labels['connection-setup-help']"></p>
-                <x-admin::form.control-group>
+                <x-admin::form.control-group class="dl-switch">
                     <x-admin::form.control-group.label for="dl-connect-chat">@lang('dreamlayer::app.setting-managed_chat')</x-admin::form.control-group.label>
                     <x-admin::form.control-group.control type="switch" name="connection_chat" id="dl-connect-chat" value="1" @change="includeChat = $event.target.checked; chatConsent = false" ::disabled="busy" :label="trans('dreamlayer::app.setting-managed_chat')" />
                     <p class="dl-muted">@lang('dreamlayer::app.setting-managed_chat-help')</p>
@@ -62,7 +69,7 @@
                 <div v-if="includeChat" class="dl-stack">
                     <p class="dl-muted">@lang('dreamlayer::app.privacy-chat')</p>
                     <a class="dl-link" href="#dreamlayer-data-sharing">@lang('dreamlayer::app.privacy')</a>
-                    <x-admin::form.control-group>
+                    <x-admin::form.control-group class="dl-switch">
                         <x-admin::form.control-group.label for="dl-connect-consent">@lang('dreamlayer::app.privacy-consent')</x-admin::form.control-group.label>
                         <x-admin::form.control-group.control type="switch" name="connection_consent" id="dl-connect-consent" value="1" @change="chatConsent = $event.target.checked" ::disabled="busy" :label="trans('dreamlayer::app.privacy-consent')" />
                     </x-admin::form.control-group>
@@ -75,6 +82,26 @@
         </div>
     </script>
 <script type="module">
+// Keep the host's save/discard behavior, scoped to this settings form. Some
+// hosts leave delayed initialization callbacks running after AJAX navigation.
+// Ignore those callbacks once the form has been removed; never patch the global
+// component or UnoPim's core files.
+const hostSettingsChanges = app.component('v-unsaved-changes');
+if (hostSettingsChanges) {
+    const guardedMethods = {};
+    for (const name of ['snapshot', 'recompute', 'removeInFormSave']) {
+        const original = hostSettingsChanges.methods?.[name];
+        if (typeof original !== 'function') continue;
+        guardedMethods[name] = function (...args) {
+            if (!this.$refs.root?.isConnected) return;
+            return original.apply(this, args);
+        };
+    }
+    app.component('v-dreamlayer-settings-changes', {
+        extends: hostSettingsChanges,
+        methods: guardedMethods
+    });
+}
 app.component('v-dreamlayer-connect', {
     template: '#dreamlayer-connect-template',
     props: { automatic: { type: Boolean, default: false }, connected: { type: Boolean, default: false } },
