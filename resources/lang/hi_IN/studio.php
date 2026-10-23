@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'कैटलॉग पूर्वावलोकन: :width × :height, इस विशेषता की :limit MB सीमा के अनुरूप। मूल: :original। लागू करने पर दिखाया गया पूर्वावलोकन सहेजा जाता है; मूल डाउनलोड उपलब्ध रहता है।',
+    'catalog-preview' => 'कैटलॉग पूर्वावलोकन: :width × :height। मूल: :original। लागू करने पर दिखाया गया पूर्वावलोकन सहेजा जाता है; मूल डाउनलोड उपलब्ध रहता है।',
     'catalog-preview-changed' => 'चित्र आकार सीमा बदल गई है। परिणाम दोबारा खोलें और लागू करने से पहले नया पूर्वावलोकन देखें।',
     'download-original' => 'मूल PNG डाउनलोड करें',
     'open-studio' => 'DreamLayer खोलें',

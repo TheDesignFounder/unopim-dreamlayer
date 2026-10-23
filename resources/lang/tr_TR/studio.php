@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Katalog önizlemesi: :width × :height, özelliğin :limit MB sınırına uyarlandı. Orijinal: :original. Uygulama gösterilen önizlemeyi kaydeder; orijinal indirilebilir olarak kalır.',
+    'catalog-preview' => 'Katalog önizlemesi: :width × :height. Orijinal: :original. Uygulama gösterilen önizlemeyi kaydeder; orijinal indirilebilir olarak kalır.',
     'catalog-preview-changed' => 'Görsel boyutu sınırı değişti. Sonucu yeniden açın ve uygulamadan önce güncel önizlemeyi inceleyin.',
     'download-original' => 'Orijinal PNG indir',
     'open-studio' => 'DreamLayer\'yi açın',

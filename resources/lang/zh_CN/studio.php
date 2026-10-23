@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => '目录预览：:width × :height，已适配此属性的 :limit MB 限制。原图：:original。应用将保存当前预览，原图仍可下载。',
+    'catalog-preview' => '目录预览：:width × :height。原图：:original。应用将保存当前预览，原图仍可下载。',
     'catalog-preview-changed' => '目录图片大小限制已更改。请重新打开结果，检查更新后的预览再应用。',
     'download-original' => '下载原始 PNG',
     'open-studio' => '打开DreamLayer',

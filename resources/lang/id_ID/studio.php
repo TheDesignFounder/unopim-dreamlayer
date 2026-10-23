@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Pratinjau katalog: :width × :height, disesuaikan dengan batas atribut :limit MB. Asli: :original. Terapkan menyimpan pratinjau ini; unduhan asli tetap tersedia.',
+    'catalog-preview' => 'Pratinjau katalog: :width × :height. Asli: :original. Terapkan menyimpan pratinjau ini; unduhan asli tetap tersedia.',
     'catalog-preview-changed' => 'Batas ukuran berubah. Buka kembali hasil dan tinjau pratinjau terbaru sebelum menerapkannya.',
     'download-original' => 'Unduh PNG asli',
     'open-studio' => 'Buka DreamLayer',

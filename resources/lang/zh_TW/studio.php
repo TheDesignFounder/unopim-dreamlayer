@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => '目錄預覽：:width × :height，已符合此屬性的 :limit MB 限制。原圖：:original。套用會儲存目前預覽，原圖仍可下載。',
+    'catalog-preview' => '目錄預覽：:width × :height。原圖：:original。套用會儲存目前預覽，原圖仍可下載。',
     'catalog-preview-changed' => '目錄圖片大小限制已變更。請重新開啟結果，檢查更新後的預覽再套用。',
     'download-original' => '下載原始 PNG',
     'open-studio' => '打開DreamLayer',

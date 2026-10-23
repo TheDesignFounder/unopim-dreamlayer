@@ -2,7 +2,14 @@
 
 Create and refine product images inside UnoPim. Select images, describe a change, review the previews, then choose what to save. Follow-up edits use the previous result. DreamLayer handles image model selection; UnoPim keeps the product records and permissions.
 
-**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.3** candidate. It has not been submitted, merged or deployed.
+**Free extension, requires paid DreamLayer credits.** This branch contains the unpublished **0.5.4** candidate. It has not been submitted, merged or published.
+
+0.5.4 compacts chat result cards: completed images no longer repeat a status,
+Copy, feedback, or channel/locale rows. The catalog preview details and Apply
+reminder share one paragraph without the size-limit clause. Apply now follows
+the editor's enabled state even when settings change while History is open.
+Processing, failure, product destinations, reviewed-byte checks, original
+image downloads, Refine, and Try again remain available as appropriate.
 
 0.5.3 fixes chat-assisted refinement after a referenced batch. Rewrites preserve
 only the references in the current message; if the assistant adds or drops a
@@ -48,7 +55,7 @@ For this unpublished candidate, use the reviewed distribution ZIP supplied along
 
 ```sh
 composer config repositories.dreamlayer '{"type":"path","url":"packages/DreamLayer/unopim-dreamlayer","options":{"symlink":false}}'
-composer require dreamlayer/unopim-dreamlayer:0.5.3 --prefer-dist
+composer require dreamlayer/unopim-dreamlayer:0.5.4 --prefer-dist
 php artisan migrate --no-interaction
 php artisan optimize:clear
 ```

@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Vista previa del catálogo: :width × :height, adaptada al límite de :limit MB del atributo. Original: :original. Aplicar guarda la vista mostrada; la descarga original se conserva.',
+    'catalog-preview' => 'Vista previa del catálogo: :width × :height. Original: :original. Aplicar guarda la vista mostrada; la descarga original se conserva.',
     'catalog-preview-changed' => 'El límite de tamaño cambió. Abre de nuevo el resultado y revisa la vista actualizada antes de aplicarla.',
     'download-original' => 'Descargar PNG original',
     'open-studio' => 'Abra DreamLayer',

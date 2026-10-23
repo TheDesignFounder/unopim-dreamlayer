@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => '카탈로그 미리보기: :width × :height. 속성의 :limit MB 제한에 맞췄습니다. 원본: :original. 적용하면 표시된 미리보기가 저장되며 원본은 계속 다운로드할 수 있습니다.',
+    'catalog-preview' => '카탈로그 미리보기: :width × :height. 원본: :original. 적용하면 표시된 미리보기가 저장되며 원본은 계속 다운로드할 수 있습니다.',
     'catalog-preview-changed' => '이미지 크기 제한이 변경되었습니다. 결과를 다시 열고 갱신된 미리보기를 확인한 후 적용하세요.',
     'download-original' => '원본 PNG 다운로드',
     'open-studio' => 'DreamLayer를 엽니다.',

@@ -84,7 +84,6 @@ class CatalogPreview
         return $preview['adjusted'] ? trans('dreamlayer::studio.catalog-preview', [
             'width' => $preview['width'], 'height' => $preview['height'],
             'original' => $preview['original_width'].' × '.$preview['original_height'],
-            'limit' => round($preview['limit_kb'] / 1024, 2),
         ]) : null;
     }
 }

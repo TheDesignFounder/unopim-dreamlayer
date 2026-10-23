@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'معاينة الكتالوج: :width × :height، ملائمة لحد :limit ميغابايت لهذه السمة. الأصل: :original. يحفظ التطبيق المعاينة المعروضة؛ ويبقى الأصل متاحًا للتنزيل.',
+    'catalog-preview' => 'معاينة الكتالوج: :width × :height. الأصل: :original. يحفظ التطبيق المعاينة المعروضة؛ ويبقى الأصل متاحًا للتنزيل.',
     'catalog-preview-changed' => 'تغير حد حجم صورة الكتالوج. أعد فتح النتيجة وراجع المعاينة المحدثة قبل تطبيقها.',
     'download-original' => 'تنزيل PNG الأصلي',
     'open-studio' => 'افتح DreamLayer',

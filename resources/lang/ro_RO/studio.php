@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Previzualizare catalog: :width × :height, adaptată limitei de :limit MB a atributului. Original: :original. Aplicarea salvează versiunea afișată; originalul rămâne disponibil pentru descărcare.',
+    'catalog-preview' => 'Previzualizare catalog: :width × :height. Original: :original. Aplicarea salvează versiunea afișată; originalul rămâne disponibil pentru descărcare.',
     'catalog-preview-changed' => 'Limita de dimensiune s-a schimbat. Redeschideți rezultatul și verificați previzualizarea actualizată înainte de aplicare.',
     'download-original' => 'Descarcă PNG original',
     'open-studio' => 'Deschideți DreamLayer',

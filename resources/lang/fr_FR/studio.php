@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Aperçu du catalogue : :width × :height, adapté à la limite de :limit Mo de cet attribut. Original : :original. L’application enregistre l’aperçu affiché ; l’original reste téléchargeable.',
+    'catalog-preview' => 'Aperçu du catalogue : :width × :height. Original : :original. L’application enregistre l’aperçu affiché ; l’original reste téléchargeable.',
     'catalog-preview-changed' => 'La limite de taille a changé. Rouvrez ce résultat et vérifiez l’aperçu actualisé avant de l’appliquer.',
     'download-original' => 'Télécharger le PNG original',
     'open-studio' => 'Ouvrez DreamLayer',

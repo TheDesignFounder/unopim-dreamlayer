@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Pregled kataloga: :width × :height, prilagođen ograničenju atributa od :limit MB. Izvornik: :original. Primjena sprema prikazani pregled; izvornik ostaje dostupan za preuzimanje.',
+    'catalog-preview' => 'Pregled kataloga: :width × :height. Izvornik: :original. Primjena sprema prikazani pregled; izvornik ostaje dostupan za preuzimanje.',
     'catalog-preview-changed' => 'Ograničenje veličine se promijenilo. Ponovno otvorite rezultat i provjerite pregled prije primjene.',
     'download-original' => 'Preuzmi izvorni PNG',
     'open-studio' => 'Otvorite DreamLayer',

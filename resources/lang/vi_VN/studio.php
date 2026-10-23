@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Bản xem trước danh mục: :width × :height, vừa giới hạn :limit MB của thuộc tính. Bản gốc: :original. Áp dụng sẽ lưu bản đang hiển thị; vẫn có thể tải bản gốc.',
+    'catalog-preview' => 'Bản xem trước danh mục: :width × :height. Bản gốc: :original. Áp dụng sẽ lưu bản đang hiển thị; vẫn có thể tải bản gốc.',
     'catalog-preview-changed' => 'Giới hạn kích thước đã thay đổi. Mở lại kết quả và kiểm tra bản xem trước mới trước khi áp dụng.',
     'download-original' => 'Tải PNG gốc',
     'open-studio' => 'Mở DreamLayer',

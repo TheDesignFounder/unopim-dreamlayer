@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Luettelon esikatselu: :width × :height, sovitettu määritteen :limit Mt:n rajaan. Alkuperäinen: :original. Käyttöönotto tallentaa näytetyn version; alkuperäinen on ladattavissa.',
+    'catalog-preview' => 'Luettelon esikatselu: :width × :height. Alkuperäinen: :original. Käyttöönotto tallentaa näytetyn version; alkuperäinen on ladattavissa.',
     'catalog-preview-changed' => 'Kokoraja muuttui. Avaa tulos uudelleen ja tarkista päivitetty esikatselu ennen käyttöönottoa.',
     'download-original' => 'Lataa alkuperäinen PNG',
     'open-studio' => 'Avaa DreamLayer',

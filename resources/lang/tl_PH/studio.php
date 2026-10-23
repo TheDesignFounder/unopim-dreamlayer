@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Preview ng katalogo: :width × :height, kasya sa limitasyong :limit MB ng attribute. Orihinal: :original. Ise-save ang ipinakitang preview kapag inilapat; maaari pa ring i-download ang orihinal.',
+    'catalog-preview' => 'Preview ng katalogo: :width × :height. Orihinal: :original. Ise-save ang ipinakitang preview kapag inilapat; maaari pa ring i-download ang orihinal.',
     'catalog-preview-changed' => 'Nagbago ang limitasyon ng laki. Buksang muli ang resulta at suriin ang bagong preview bago ilapat.',
     'download-original' => 'I-download ang orihinal na PNG',
     'open-studio' => 'Buksan ang DreamLayer',

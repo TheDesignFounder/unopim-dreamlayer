@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Podgląd katalogu: :width × :height, dostosowany do limitu atrybutu :limit MB. Oryginał: :original. Zastosowanie zapisuje widoczny podgląd; oryginał pozostaje do pobrania.',
+    'catalog-preview' => 'Podgląd katalogu: :width × :height. Oryginał: :original. Zastosowanie zapisuje widoczny podgląd; oryginał pozostaje do pobrania.',
     'catalog-preview-changed' => 'Limit rozmiaru został zmieniony. Otwórz wynik ponownie i sprawdź zaktualizowany podgląd przed zastosowaniem.',
     'download-original' => 'Pobierz oryginalny PNG',
     'open-studio' => 'Otwórz DreamLayer',

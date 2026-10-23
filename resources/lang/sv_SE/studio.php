@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Katalogförhandsvisning: :width × :height, anpassad till attributets gräns på :limit MB. Original: :original. Tillämpa sparar den visade versionen; originalet kan fortfarande laddas ned.',
+    'catalog-preview' => 'Katalogförhandsvisning: :width × :height. Original: :original. Tillämpa sparar den visade versionen; originalet kan fortfarande laddas ned.',
     'catalog-preview-changed' => 'Storleksgränsen har ändrats. Öppna resultatet igen och granska förhandsvisningen innan du tillämpar det.',
     'download-original' => 'Ladda ned original-PNG',
     'open-studio' => 'Öppna DreamLayer',

@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'カタログ用プレビュー：:width × :height。この属性の上限 :limit MB に合わせています。元画像：:original。適用すると表示中のプレビューが保存され、元画像は引き続きダウンロードできます。',
+    'catalog-preview' => 'カタログ用プレビュー：:width × :height。元画像：:original。適用すると表示中のプレビューが保存され、元画像は引き続きダウンロードできます。',
     'catalog-preview-changed' => '画像サイズの上限が変更されました。結果を開き直し、更新されたプレビューを確認してから適用してください。',
     'download-original' => '元のPNGをダウンロード',
     'open-studio' => 'DreamLayerを開きます',

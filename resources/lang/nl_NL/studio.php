@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Catalogusvoorbeeld: :width × :height, aangepast aan de attribuutlimiet van :limit MB. Origineel: :original. Toepassen slaat dit voorbeeld op; het origineel blijft downloadbaar.',
+    'catalog-preview' => 'Catalogusvoorbeeld: :width × :height. Origineel: :original. Toepassen slaat dit voorbeeld op; het origineel blijft downloadbaar.',
     'catalog-preview-changed' => 'De groottelimiet is gewijzigd. Open het resultaat opnieuw en controleer het bijgewerkte voorbeeld voordat u het toepast.',
     'download-original' => 'Originele PNG downloaden',
     'open-studio' => 'Open DreamLayer',

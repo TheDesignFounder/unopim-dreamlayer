@@ -1,4 +1,4 @@
-# DreamLayer 0.5.3 — acceptance test
+# DreamLayer 0.5.4 — acceptance test
 
 Use a review copy of UnoPim with two disposable products, `DL-TEST-RED` and
 `DL-TEST-BLUE`, each with an image. Record the ZIP SHA-256 and UnoPim version.
@@ -279,3 +279,26 @@ report as earlier evidence and label any 0.5.2 checks that were not rerun.
    provider quality, server fitting time and browser loading time separately.
    The implementation regression uses a deliberately bad recorded chat reply
    and recorded images, so it spends no live image credits.
+
+
+## 11. Compact result cards (0.5.4)
+
+1. Open a saved two-product conversation in a fresh tab. Both images and their
+   own SKU/attribute destinations must appear, without a false history-off note.
+2. Completed image cards have no Complete status, Copy button, Helpful/Not helpful
+   row, or channel/locale row. Queued, Processing and Failed remain visible when
+   relevant; failures must still show their actual reason.
+3. An adjusted catalog preview shows its dimensions, original dimensions, and
+   original-download information without the attribute size-limit clause. The
+   Apply reminder is in this same paragraph, with no duplicate row below actions.
+4. Full-image viewing, original PNG downloads, Refine and Try again still work.
+   In disposable data, Apply must save the reviewed bytes to only its own product.
+5. With editing off, retained history stays readable and Apply/Refine are disabled.
+   Verify a settings refresh also updates an already-open conversation. Re-enable
+   editing and verify unapplied cards become available again.
+6. Inspect expanded and docked views, both themes, and a narrow viewport for
+   clipping, wrapping, and duplicate spacing. Keep the connection and catalog
+   unchanged unless a test explicitly requires a write and the original is backed up.
+
+This patch does not change image-fitting performance. The 11–52 second worker
+fitting observation from the independent 0.5.3 run remains a follow-up.

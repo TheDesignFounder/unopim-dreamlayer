@@ -2,7 +2,7 @@
 
 // Draft translation; see docs/TRANSLATIONS.md.
 return [
-    'catalog-preview' => 'Vista prèvia del catàleg: :width × :height, ajustada al límit de :limit MB de l’atribut. Original: :original. S’aplica la vista mostrada; es conserva la descàrrega original.',
+    'catalog-preview' => 'Vista prèvia del catàleg: :width × :height. Original: :original. S’aplica la vista mostrada; es conserva la descàrrega original.',
     'catalog-preview-changed' => 'El límit de mida ha canviat. Torneu a obrir el resultat i reviseu la vista prèvia abans d’aplicar-lo.',
     'download-original' => 'Baixa el PNG original',
     'open-studio' => 'Obriu DreamLayer',
